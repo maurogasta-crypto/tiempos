@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-5
+// Sello: app-6
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -249,8 +249,13 @@ async function conectarCasaVerde() {
     E.cvNombres = Object.fromEntries(s.docs.map((d) => [d.id, d.data().nombre || ""]));
   }).catch(() => {});
   M.onSnapshot(CV.Core.consultaActividades(E.cv, false), (s) => {
-    E.cvActs = s.docs.map((d) => ({ id: d.id, ...d.data() }))
-      .filter((a) => !a.hecho && !a.eliminado && !CV.Core.limpiezaLatente(a));
+    const todas = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+    // Casa Verde borra marcando SÓLO la raíz: la rama entera se va con ella.
+    // Hasta app-5 acá se miraba cada una por separado, y los hijos de un
+    // proyecto borrado aparecían sueltos (pasó con el cumple).
+    const porId = Object.fromEntries(todas.map((a) => [a.id, a]));
+    const borrada = (a) => { for (let x = a, n = 0; x && n < 30; x = porId[x.parentId], n++) if (x.eliminado) return true; return false; };
+    E.cvActs = todas.filter((a) => !a.hecho && !borrada(a) && !CV.Core.limpiezaLatente(a));
     pintar();
   }, (e) => aviso("Casa Verde no deja leer sus tareas: " + e.message, true));
   M.onSnapshot(M.query(M.collection(M.db, "sesiones"), M.where("uid", "==", u.uid),

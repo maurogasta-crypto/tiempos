@@ -388,6 +388,13 @@ prueba("un pedido tiene urgencia y una falla gravedad, nunca al revés", () => {
   assert.ok(/pedido: \{[^}]*campo: "urgencia"/.test(src));
   assert.ok(/falla:  \{[^}]*campo: "gravedad"/.test(src));
 });
+prueba("el agente puede leer una tarea que no existe: su historial la lee antes de crearla", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  assert.ok(/esAgente\(\) && \(resource == null \|\| resource\.data\.alcance == 'comun'\)/.test(r));
+});
+prueba("un hijo de algo borrado en Casa Verde no aparece: se mira la rama entera", () => {
+  assert.ok(/const borrada = \(a\) =>/.test(fs.readFileSync("app.js", "utf8")));
+});
 prueba("la regla de reportes exige que el uid sea el de quien escribe", () => {
   const b = /match \/reportes\/\{id\} \{([\s\S]*?)\n    \}/.exec(fs.readFileSync("firestore.rules", "utf8"))[1];
   assert.ok(/request\.resource\.data\.uid == request\.auth\.uid/.test(b));

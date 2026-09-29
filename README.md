@@ -8,9 +8,9 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (70 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (72 casos, sin npm, sin red) |
 
-## Qué hace (app-5)
+## Qué hace (app-6)
 
 Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
 
@@ -117,7 +117,7 @@ Florencia la acuerden.
 |---|---|---|
 | `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-3` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-5` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-6` |
 | `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-1` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-1` |
 | `balance.js` | el balance del tiempo, los acuerdos, la auditoría | `balance-1` |
@@ -125,5 +125,18 @@ Florencia la acuerden.
 | `familia.js` | Hoy y Chicos | `familia-1` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-4` |
-| `sw.js` | el cascarón sin señal | `tiempos-5` |
-| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v5 |
+| `sw.js` | el cascarón sin señal | `tiempos-6` |
+| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v6 |
+
+## Los proyectos personales que vienen de Casa Verde (29-sep-2026)
+
+**Estado: esperando las reglas v6** (sin ellas el agente no puede crear las
+tareas; ver `tiempos:A4` en el panel). Cuando entren, Santa fe, Anuncio Hilux,
+Moto para viaje, Motonetas venta, Baja del auto y el cumple pasan de
+`actividades` de Casa Verde a `tareas` de acá, con su
+detalle, su fecha, si estaban hechos y quién se ocupaba. Cada una guarda
+`origen: "casaverde:actividades/<id>"` y su id es `cv-<id>`, así que volver a
+correr la mudanza no duplica nada. En Casa Verde quedan en la **papelera**
+(marcadas como las borra su pantalla, con `mudadoA`), no borradas: se pueden
+recuperar. Sus relojes viejos (cuatro tildes de 0 h) quedan allá, como
+historia. El cumple llega como hecho: allá ya estaba borrado.

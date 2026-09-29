@@ -1,13 +1,15 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v5, 29-sep-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v6, 29-sep-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
 //  v4: los acuerdos de tiempo (`bloques`), la plata (`movimientos`,
 //      `recurrentes`), lo que propone el agente (`propuestas`) y sus
 //      observaciones (`auditoria`).
+//  v6: el agente puede leer una tarea que todavía NO existe (para guardar
+//      su copia de «antes» en `_historial` antes de crearla).
 //  v5: el globo 💡 — una sugerencia o una falla, a `reportes` (el mismo
 //      circuito de los sitios: la ronda diaria los lleva al panel).
 //
@@ -83,7 +85,10 @@ service cloud.firestore {
     match /tareas/{id} {
       allow read: if (esPersona()
           && (resource.data.alcance == 'comun' || resource.data.duenio == request.auth.uid))
-        || (esAgente() && resource.data.alcance == 'comun');
+        // El agente, las comunes. Y una que todavía no existe: su herramienta
+        // la lee antes de crearla para guardar la copia de «antes» en el
+        // historial, y sin esto no podía crear ninguna (29-sep-2026).
+        || (esAgente() && (resource == null || resource.data.alcance == 'comun'));
       allow create: if esPersona()
         && request.resource.data.duenio == request.auth.uid
         && request.resource.data.alcance in ['comun', 'personal']
