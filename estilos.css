@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-1
+/* estilos.css — Tiempos. Sello: estilos-2
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -36,8 +36,8 @@ label.check input { width:auto; margin:0; }
 .tarjeta { background:var(--tinta2); border:1px solid var(--linea); border-radius:var(--r); padding:14px; margin:12px 0; }
 .aviso { background:var(--tinta3); border-radius:10px; padding:.7rem .9rem; margin:.8rem 0; }
 .aviso.mal { color:var(--mal); }
-.solapas { display:flex; gap:4px; margin:12px 0 0; }
-.solapas button { flex:1; border:1px solid var(--linea); background:var(--tinta2); color:var(--texto);
+.solapas { display:flex; gap:4px; margin:12px 0 0; overflow-x:auto; scrollbar-width:none; }
+.solapas button { flex:1 0 auto; border:1px solid var(--linea); background:var(--tinta2); color:var(--texto); font-size:.9rem;
   padding:.65rem; border-radius:10px; font:inherit; }
 .solapas button[aria-selected="true"] { background:var(--acento); color:var(--tinta); font-weight:700; border-color:var(--acento); }
 .crono-vivo { display:flex; flex-direction:column; gap:.3rem; }
@@ -56,3 +56,91 @@ label.check input { width:auto; margin:0; }
 .barra i { display:block; height:100%; border-radius:99px; }
 .num { text-align:right; font-variant-numeric:tabular-nums; }
 .pie { margin:2rem 0 1rem; }
+
+/* ── estilos-2: ficha, agenda, chicos, lo cotidiano ───────────────────────── */
+textarea { display:block; width:100%; margin-top:.25rem; padding:.7rem; font:inherit; color:var(--texto);
+  background:var(--tinta2); border:1px solid var(--linea); border-radius:10px; resize:vertical; }
+h4 { font-size:.9rem; margin:1rem 0 .3rem; }
+.solapas.chicas { margin:8px 0; } .solapas.chicas button { padding:.45rem; font-size:.85rem; }
+.tarjeta.chica { padding:10px 12px; margin:8px 0; font-size:.92rem; }
+.mas { flex:0 0 40px; height:40px; border:0; background:none; color:var(--gris); font-size:1.2rem; border-radius:10px; }
+.play.apagado { display:inline-flex; align-items:center; justify-content:center; background:var(--tinta3); color:var(--ok); }
+.fila-tarea.hecha .txt { text-decoration:line-through; color:var(--gris); }
+.ficha { background:var(--tinta3); border-radius:10px; padding:10px 12px; margin:0 0 8px; }
+.ficha .botones { margin:.4rem 0; }
+.mini.on { background:var(--acento); color:var(--tinta); border-color:var(--acento); }
+.mini.ok { background:var(--ok); color:var(--tinta); border-color:var(--ok); }
+a.mini { text-decoration:none; display:inline-block; }
+.mini:disabled { opacity:.4; }
+.enc { font-size:.72rem; border-radius:99px; padding:1px 7px; margin-left:4px; background:var(--tinta3); }
+.enc.yo { background:color-mix(in srgb, var(--acento) 35%, transparent); }
+.ped { font-size:.72rem; border-radius:99px; padding:1px 7px; margin-left:4px; background:color-mix(in srgb, var(--mal) 30%, transparent); }
+.meta { color:var(--acento); margin-left:4px; } .ag { font-size:.8rem; margin-left:2px; }
+.sem { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:1px; flex:none; }
+.detalle { white-space:pre-wrap; margin:.2rem 0 .6rem; }
+.datos { display:grid; grid-template-columns:auto 1fr; gap:2px 12px; font-size:.88rem; margin:.4rem 0; }
+.datos dt { color:var(--gris); } .datos dd { margin:0; }
+.registros { list-style:none; padding:0; margin:0; font-size:.86rem; }
+.registros li { display:flex; flex-wrap:wrap; gap:6px; padding:4px 0; border-top:1px solid var(--linea); }
+.registros li .num { margin-left:auto; } .registros small { flex-basis:100%; color:var(--gris); }
+.nav-semana { display:flex; align-items:center; gap:8px; margin:10px 0; }
+.nav-semana b { flex:1; text-align:center; }
+.cuidado-botones { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.mini.nino { border-left:4px solid var(--c); }
+.cuidado-vivo { display:flex; gap:10px; align-items:center; }
+.cuidado-vivo span:first-child { flex:1; }
+.reloj-chico { font:700 1.1rem ui-monospace,Menlo,monospace; }
+.punto { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--c); margin:0 2px 0 4px; vertical-align:1px; }
+.punto.grande { width:14px; height:14px; }
+.marca-p { font-size:.72rem; color:var(--gris); margin-left:6px; white-space:nowrap; }
+/* La agenda */
+.dia { margin:12px 0; }
+.dia > h3 { display:flex; align-items:baseline; gap:6px; margin:0 0 4px; font-size:.9rem; text-transform:capitalize; }
+.dia > h3 .marcas { margin-left:auto; text-transform:none; }
+.dia.es-hoy > h3 { color:var(--acento); }
+.dia .num { font-size:1.05rem; font-weight:700; }
+.franja { border-left:3px solid var(--linea); padding:3px 0 3px 9px; margin-bottom:4px; min-height:40px; border-radius:0 8px 8px 0; }
+.dia.es-hoy .franja { border-left-color:var(--acento); }
+.franja .rot { font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; color:var(--gris); }
+.franja.encima { background:color-mix(in srgb, var(--acento) 18%, transparent); border-left-color:var(--acento); }
+.franja .nada { color:var(--linea); font-size:.75rem; }
+.evento { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:.88rem; padding:5px 8px; margin:3px 0;
+  border-radius:8px; background:color-mix(in srgb, #c89bd8 16%, transparent); }
+.evento > span { flex:1; min-width:0; } .evento small { display:block; }
+.pas { background:var(--tinta2); border:1px solid var(--linea); border-radius:10px; margin:4px 0; }
+.pas.arrastrando { opacity:.35; } .pas.fantasma { box-shadow:0 8px 24px rgba(0,0,0,.4); }
+.pas-fila { display:flex; align-items:center; gap:6px; min-height:48px; padding:2px 4px; }
+.pas-agarre { flex:0 0 36px; height:44px; display:flex; align-items:center; justify-content:center; color:var(--gris);
+  font-size:1.2rem; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; }
+.pas-hora { flex:0 0 40px; font-size:.8rem; font-weight:700; } .pas-hora.sin { color:var(--gris); font-weight:400; }
+.pas-txt { flex:1; min-width:0; } .pas-txt b { display:block; font-size:.9rem; font-weight:600; overflow-wrap:anywhere; }
+.pas-txt small { color:var(--gris); font-size:.74rem; }
+.pas-ed { padding:4px 10px 10px; }
+/* Hoy */
+.cotidiana { padding:6px 0; border-top:1px solid var(--linea); }
+.cotidiana label.check { margin:.2rem 0; } .cotidiana.lista b { color:var(--ok); }
+.cotidiana .obs { padding:.45rem .6rem; font-size:.88rem; margin-top:.1rem; }
+/* Chicos */
+.mes-cab, .mes-fila { display:grid; grid-template-columns:repeat(7, 1fr); gap:3px; }
+.mes-cab span { text-align:center; font-size:.72rem; color:var(--gris); }
+.celda { min-height:54px; padding:3px; border:1px solid var(--linea); border-radius:8px; background:var(--tinta2);
+  color:var(--texto); font:inherit; display:flex; flex-direction:column; align-items:flex-start; gap:1px; margin-bottom:3px; overflow:hidden; }
+.celda .n { font-size:.78rem; font-weight:700; } .celda .ms { display:flex; flex-wrap:wrap; line-height:1; }
+.celda .marca-p { margin-left:0; font-size:.62rem; } .celda .punto { width:6px; height:6px; margin:0 1px; }
+.celda .ev { color:#c89bd8; font-size:.8rem; line-height:.6; }
+.celda.fuera { opacity:.35; } .celda.es-hoy { border-color:var(--acento); } .celda.elegida { outline:2px solid var(--acento); }
+.celda.cambiado { background:var(--tinta3); }
+.dia-chicos { display:block; width:100%; text-align:left; font:inherit; color:var(--texto); background:var(--tinta2);
+  border:1px solid var(--linea); border-radius:10px; padding:8px 10px; margin:4px 0; }
+.dia-chicos.es-hoy { border-color:var(--acento); } .dia-chicos.elegida { outline:2px solid var(--acento); }
+.fila-persona { display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; padding:4px 0; }
+.fila-persona > span:first-child { min-width:80px; color:var(--gris); font-size:.88rem; text-transform:capitalize; }
+.fila-persona label.check { margin:0; }
+.quien { display:inline-flex; gap:4px; align-items:center; font-size:.85rem; }
+.dos { display:flex; gap:8px; align-items:flex-end; } .dos > * { flex:1; }
+.prox { margin:4px 0; }
+details summary { cursor:pointer; padding:.3rem 0; }
+body.arrastrando-algo { user-select:none; -webkit-user-select:none; }
+.cotidiana { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; }
+.cotidiana label.check { flex:1; } .cotidiana .obs { flex-basis:100%; }
+.mini.nota { font-size:.75rem; padding:.2rem .5rem; }

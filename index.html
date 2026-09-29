@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex">
 <title>Tiempos</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilos.css?v=1">
+<link rel="stylesheet" href="estilos.css?v=2">
 </head>
 <body>
 <header id="barra"><span class="marca">Tiempos</span><span id="quien" class="gris"></span></header>
@@ -40,41 +40,54 @@
   <section id="app" hidden>
     <nav class="solapas" role="tablist">
       <button data-solapa="ahora" role="tab" aria-selected="true">Ahora</button>
+      <button data-solapa="hoy" role="tab" aria-selected="false">Hoy</button>
+      <button data-solapa="agenda" role="tab" aria-selected="false">Agenda</button>
       <button data-solapa="tareas" role="tab" aria-selected="false">Tareas</button>
-      <button data-solapa="semana" role="tab" aria-selected="false">Semana</button>
+      <button data-solapa="chicos" role="tab" aria-selected="false">Chicos</button>
+      <button data-solapa="horas" role="tab" aria-selected="false">Horas</button>
     </nav>
     <div id="crono" class="tarjeta"></div>
+    <div id="cuidado" class="tarjeta chica"></div>
     <p id="cv-estado" class="gris"></p>
     <form id="form-cv" class="tarjeta" hidden>
       <label>Contraseña de Casa Verde <input id="cv-clave" type="password" autocomplete="current-password" required></label>
       <button class="boton sec">Entrar a Casa Verde</button>
     </form>
 
-    <div id="v-ahora"><div id="v-ahora-listas"></div></div>
+    <div id="v-ahora"></div>
+    <div id="v-hoy" hidden></div>
+    <div id="v-agenda" hidden></div>
 
     <div id="v-tareas" hidden>
-      <form id="form-tarea" class="tarjeta">
+      <nav class="solapas chicas">
+        <button data-vt="pizarra" aria-selected="true">Pizarra de la semana</button>
+        <button data-vt="todas" aria-selected="false">Todas</button>
+      </nav>
+      <form id="form-tarea" class="tarjeta ficha">
         <label>Tarea nueva <input id="nueva-titulo" maxlength="120" required placeholder="Ej.: Llevar a los chicos a la escuela"></label>
         <label>Adentro de <select id="nueva-padre"></select></label>
-        <label>Tipo <select id="nueva-tipo">
+        <label>Ámbito <select id="nueva-tipo">
           <option value="produccion">Producción</option>
           <option value="mantenimiento">Mantenimiento</option>
           <option value="ninos">Chicos</option>
           <option value="casa">Casa y comida</option>
           <option value="personal">Personal</option>
         </select></label>
+        <label class="check"><input type="checkbox" id="nueva-meta" checked> Meta de esta semana (va a la pizarra)</label>
+        <label class="check"><input type="checkbox" id="nueva-mia"> Me ocupo yo</label>
         <label class="check"><input type="checkbox" id="nueva-personal"> Sólo la veo yo</label>
         <button class="boton">Agregar</button>
       </form>
       <div id="v-tareas-lista"></div>
     </div>
 
-    <div id="v-semana" hidden><div id="v-semana-cuerpo"></div></div>
+    <div id="v-chicos" hidden></div>
+    <div id="v-horas" hidden></div>
 
-    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-2</span></p>
+    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-3</span></p>
   </section>
 </main>
-<script type="module" src="app.js?v=2"></script>
+<script type="module" src="app.js?v=3"></script>
 <script>
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

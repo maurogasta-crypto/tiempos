@@ -1,8 +1,10 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v2, 29-sep-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v3, 29-sep-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
+//  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
+//      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -129,6 +131,42 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && tipoValido(request.resource.data.tipo);
       allow delete: if esPersona() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── v3 · Mi agenda ─────────────────────────────────────────────────
+    // Cómo ordena cada uno SU semana. Es de su dueño y de nadie más: mover
+    // algo al jueves no le cambia nada al otro.
+    match /agendas/{uid} {
+      allow read, write: if esPersona() && request.auth.uid == uid;
+    }
+
+    // ── v3 · Lo de la casa que ven los dos ─────────────────────────────
+    // Lo cotidiano de cada día, los chicos por día (acordado y cambiado) y
+    // las actividades con los chicos. Todo lo ven y lo tocan los dos: son
+    // de la familia, no de uno. El agente lee y edita con historial.
+    match /dias/{fecha} {
+      allow read: if esPersona() || esAgente();
+      allow create, update: if (esPersona() || esAgente()) && fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+    match /turnos/{fecha} {
+      allow read: if esPersona() || esAgente();
+      allow create, update, delete: if (esPersona() || esAgente()) && fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+    match /eventos/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if (esPersona() || esAgente())
+        && request.resource.data.titulo is string
+        && request.resource.data.titulo.size() > 0
+        && request.resource.data.titulo.size() <= 120
+        && request.resource.data.fecha is string;
+      allow update: if (esPersona() || esAgente()) && request.resource.data.titulo is string;
+      allow delete: if esPersona() || esAgente();
+    }
+    // `familia/config`: los chicos (nombres y colores) y el patrón acordado
+    // de la semana. Los nombres viven en la base y no en el código: el
+    // repositorio es público.
+    match /familia/{doc} {
+      allow read, create, update: if esPersona() || esAgente();
     }
   }
 }

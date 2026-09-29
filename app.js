@@ -1,32 +1,34 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-2
+// Sello: app-3
 //
-// Tres solapas: AHORA (el cronómetro único y qué arrancar), TAREAS (las de la
-// familia) y SEMANA (horas por tipo, de los dos). Las cuentas no viven acá:
-// están en `nucleo.js`, probadas. Esto dibuja y llama.
+// Seis solapas:
+//   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
+//           qué arrancar (familia y Casa Verde, con sus detalles y registros)
+//   HOY     lo cotidiano: se tilda, no se cronometra (familia.js)
+//   AGENDA  mi semana, ordenada arrastrando (agenda.js)
+//   TAREAS  la pizarra de la semana de los dos, y la lista entera
+//   CHICOS  con quién están cada día, lo acordado, y sus actividades (familia.js)
+//   HORAS   las horas de cada uno por tipo, y la carga
 //
+// Las cuentas no viven acá: están en `nucleo.js`, probadas. Esto dibuja y llama.
 // Casa Verde entra por su propio código (`CV.Core`), nunca copiado: arrancar
-// es `Core.iniciar`, frenar es `Core.finalizar`. Ver `firebase-init.js`.
+// es `Core.iniciar`, frenar es `Core.finalizar`, tildar es `Core.tildar`.
+// Lo ÚNICO que esta app escribe de Casa Verde por su cuenta es la agenda de
+// cada uno (`estado_usuario/{uid}.agenda`), con la misma forma que la agenda
+// de Casa Verde: así es UNA agenda, se mire desde donde se mire.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
 import { TIPOS, TIPO_CASA_VERDE, tipoHeredado, arbol, sumarPorTipo, cargaDe,
-         semanaDe, fmtHoras, quePuedoArrancar, esc } from "./nucleo.js";
+         semanaDe, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
+         alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
+         separarEnCurso, chicosDelDia, eventosDelDia } from "./nucleo.js";
+import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
+import { pintarAgenda, alternarEnAgenda, estaEnAgenda } from "./agenda.js";
+import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 
-const $ = (id) => document.getElementById(id);
-const E = {                                   // el estado de la pantalla
-  yo: null, miembro: null, miembros: [], cv: null, cvNombre: "",
-  tareas: [], cvActs: [], enCursoFam: null, enCursoCV: null,
-  solapa: "ahora", semana: null, reloj: null,
-};
-
-function aviso(t, mal = false) {
-  const n = $("aviso");
-  n.textContent = t; n.className = mal ? "aviso mal" : "aviso";
-  n.hidden = !t;
-  if (t && !mal) setTimeout(() => { if (n.textContent === t) n.hidden = true; }, 5000);
-}
+const SOLAPAS = ["ahora", "hoy", "agenda", "tareas", "chicos", "horas"];
 const mostrar = (id) => { for (const s of ["cargando", "entrar", "acceso", "app"]) $(s).hidden = s !== id; };
 
 /* ── Arranque ─────────────────────────────────────────────────────────────── */
@@ -42,9 +44,8 @@ $("form-entrar").onsubmit = async (ev) => {
   const mail = $("mail").value.trim(), clave = $("clave").value;
   $("btn-entrar").disabled = true; aviso("");
   try {
-    // Casa Verde PRIMERO. Entrar a Tiempos dispara el armado de la pantalla,
-    // y hasta app-1 eso pasaba antes de que Casa Verde terminara de entrar:
-    // la pantalla decía «sin sesión» con la contraseña bien puesta.
+    // Casa Verde PRIMERO: entrar a Tiempos dispara el armado de la pantalla,
+    // y hasta app-1 eso pasaba antes de que Casa Verde terminara de entrar.
     let cvMal = false;
     if (CV && !CV.mod.auth.currentUser) {
       try { await CV.mod.signInWithEmailAndPassword(CV.mod.auth, mail, clave); }
@@ -57,8 +58,6 @@ $("form-entrar").onsubmit = async (ev) => {
   } finally { $("btn-entrar").disabled = false; $("clave").value = ""; }
 };
 
-// Entrar a Casa Verde sin salir de Tiempos: la contraseña de Casa Verde, y
-// el mail de la sesión que ya está abierta.
 $("form-cv").onsubmit = async (ev) => {
   ev.preventDefault();
   try {
@@ -89,14 +88,19 @@ async function entrarAlaApp() {
   await conectarCasaVerde();
   pintar();
   clearInterval(E.reloj);
-  E.reloj = setInterval(pintarReloj, 1000);
+  E.reloj = setInterval(() => {
+    pintarReloj();
+    // Pasada la medianoche, «hoy» es otro día: sin esto, la app abierta
+    // desde anoche tildaría el desayuno de ayer.
+    const h = isoDe();
+    if (h !== E.hoy) { if (E.diaVisto === E.hoy) { E.diaVisto = h; escucharDia(); } E.hoy = h; pintar(); }
+  }, 1000);
 }
 
 /* ── Pedir acceso ─────────────────────────────────────────────────────────────
    Entrar no alcanza: hay que ser MIEMBRO. El primer ingreso deja una
-   solicitud con el mail de la sesión (la regla lo verifica) y el agente la
-   aprueba creando `miembros/{uid}`. Así ningún mail ni UID queda escrito en
-   este repositorio, que es público. */
+   solicitud y el agente la aprueba creando `miembros/{uid}`. Así ningún mail
+   ni UID queda escrito en este repositorio, que es público. */
 async function pantallaAcceso() {
   mostrar("acceso");
   const s = await F.getDoc(F.doc(db, "solicitudes", E.yo.uid)).catch(() => null);
@@ -124,65 +128,109 @@ function escucharFamilia() {
   const c = F.collection(db, "tareas");
   let comunes = [], mias = [];
   const unir = () => { E.tareas = [...comunes, ...mias]; pintar(); };
+  const mal = (que) => (e) => aviso(`No se pudo leer ${que}: ${e.code || e.message}`, true);
   // Dos consultas y no una: cada una tiene que poder probarse contra la regla.
   F.onSnapshot(F.query(c, F.where("alcance", "==", "comun")),
-    (s) => { comunes = s.docs.map((d) => ({ id: d.id, ...d.data() })); unir(); });
+    (s) => { comunes = s.docs.map((d) => ({ id: d.id, ...d.data() })); unir(); }, mal("las tareas"));
   F.onSnapshot(F.query(c, F.where("alcance", "==", "personal"), F.where("duenio", "==", E.yo.uid)),
-    (s) => { mias = s.docs.map((d) => ({ id: d.id, ...d.data() })); unir(); });
+    (s) => { mias = s.docs.map((d) => ({ id: d.id, ...d.data() })); unir(); }, mal("tus tareas"));
+  // Mis relojes: el de TAREA (uno solo) y el de los CHICOS, que corre en
+  // paralelo. Sin `limit(1)`: con dos relojes posibles, uno taparía al otro.
   F.onSnapshot(F.query(F.collection(db, "sesiones"), F.where("uid", "==", E.yo.uid),
-    F.where("estado", "==", "en_curso"), F.limit(1)), (s) => {
-    const d = s.docs[0];
-    E.enCursoFam = d ? { id: d.id, ...d.data(), titulo: d.data().tareaTitulo || "una tarea personal",
-                         inicioMs: d.data().inicio && d.data().inicio.toMillis() } : null;
+    F.where("estado", "==", "en_curso")), (s) => {
+    const vivas = s.docs.map((d) => ({ id: d.id, ...d.data(), inicioMs: d.data().inicio && d.data().inicio.toMillis() }));
+    const { tarea, cuidado } = separarEnCurso(vivas);
+    E.enCursoFam = tarea ? { ...tarea, titulo: tarea.tareaTitulo || "una tarea personal" } : null;
+    E.cuidado = cuidado;
     pintar();
-  });
-  F.onSnapshot(F.collection(db, "miembros"), (s) => { E.miembros = s.docs.map((d) => ({ id: d.id, ...d.data() })); });
+  }, mal("tus relojes"));
+  F.onSnapshot(F.collection(db, "miembros"), (s) => { E.miembros = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar(); });
+  F.onSnapshot(F.doc(db, "familia", "config"), (d) => {
+    const x = d.exists() ? d.data() : {};
+    E.familia = { ninos: Array.isArray(x.ninos) ? x.ninos : [], patron: x.patron || {} };
+    pintar();
+  }, mal("los datos de los chicos"));
+  F.onSnapshot(F.collection(db, "turnos"), (s) => {
+    E.turnos = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); pintar();
+  }, mal("los turnos"));
+  F.onSnapshot(F.collection(db, "eventos"), (s) => {
+    E.eventos = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
+  }, mal("las actividades de los chicos"));
+  F.onSnapshot(F.doc(db, "agendas", E.yo.uid), (d) => {
+    E.agenda = (d.exists() && d.data().items) || {}; pintar();
+  }, mal("tu agenda"));
+  escucharDia();
 }
 
 async function arrancarFamilia(t) {
   const ok = quePuedoArrancar(E.enCursoCV, E.enCursoFam);
   if (!ok.puede) return aviso(ok.motivo, true);
   const { porId } = arbol(E.tareas);
-  const tipo = tipoHeredado(t, porId);
   await F.addDoc(F.collection(db, "sesiones"), {
     tareaId: t.id,
     // El título de una tarea PERSONAL no viaja en la sesión: la sesión la
     // lee el otro, para los totales, y lo personal es de cada uno.
     tareaTitulo: t.alcance === "comun" ? t.titulo : "",
-    tipo, uid: E.yo.uid, nombre: E.miembro.nombre || "",
+    tipo: tipoHeredado(t, porId), uid: E.yo.uid, nombre: E.miembro.nombre || "",
     inicio: F.Timestamp.now(), fin: null, horas: 0, estado: "en_curso",
     registro: "cronometro", creadoEn: F.serverTimestamp(),
   });
 }
 
-async function frenarFamilia() {
-  const s = E.enCursoFam; if (!s) return;
+async function cerrarSesion(s, extra = {}) {
   const ahora = F.Timestamp.now();
   const horas = Math.round(Math.max(0, (ahora.toMillis() - s.inicioMs) / 3600000) * 100) / 100;
-  await F.updateDoc(F.doc(db, "sesiones", s.id), { fin: ahora, horas, estado: "finalizada" });
-  aviso(`Registrado: ${fmtHoras(horas)}.`);
+  await F.updateDoc(F.doc(db, "sesiones", s.id), { fin: ahora, horas, estado: "finalizada", ...extra });
+  return horas;
+}
+
+async function frenarFamilia(terminada) {
+  const s = E.enCursoFam; if (!s) return;
+  const h = await cerrarSesion(s);
+  // «Dar por terminada o dejar en pendiente»: terminada cierra la tarea.
+  if (terminada && s.tareaId)
+    await F.updateDoc(F.doc(db, "tareas", s.tareaId), { hecho: true, hechoPor: E.yo.uid, actualizadoEn: F.serverTimestamp() }).catch(fallo);
+  aviso(`Registrado: ${fmtHoras(h)}${terminada ? " · tarea terminada" : " · queda pendiente"}.`);
+}
+
+/* ── Los chicos, en paralelo ──────────────────────────────────────────────────
+   «En paralelo a eso está la dedicación a los niños»: estar con ellos es un
+   reloj APARTE, que no frena ni bloquea el de la tarea. Cuenta como «chicos»,
+   que en la carga vale la mitad (TIPOS.ninos.peso). */
+async function empezarCuidado(ninos) {
+  if (E.cuidado) return aviso("Ya estás contado con los chicos.", true);
+  await F.addDoc(F.collection(db, "sesiones"), {
+    tareaId: null, tareaTitulo: "", tipo: "ninos", ninos,
+    uid: E.yo.uid, nombre: E.miembro.nombre || "",
+    inicio: F.Timestamp.now(), fin: null, horas: 0, estado: "en_curso",
+    registro: "cuidado", creadoEn: F.serverTimestamp(),
+  });
+}
+async function terminarCuidado() {
+  if (!E.cuidado) return;
+  const h = await cerrarSesion(E.cuidado);
+  aviso(`Con los chicos: ${fmtHoras(h)}.`);
 }
 
 /* ── Casa Verde, por su propio código ─────────────────────────────────────── */
 async function conectarCasaVerde() {
   if (!CV) { E.cv = null; return; }
-  // Al abrir, la sesión guardada de Casa Verde tarda un momento en volver:
-  // hasta app-1 se preguntaba antes y la respuesta era siempre «nadie».
   if (CV.mod.auth.authStateReady) await CV.mod.auth.authStateReady();
   const u = CV.mod.auth.currentUser;
   if (!u) { E.cv = null; return; }
   if (E.cv && E.cv.uid === u.uid) return;          // ya conectado: no escuchar dos veces
-  const p = await CV.mod.getDoc(CV.mod.doc(CV.mod.db, "usuarios", u.uid)).catch(() => null);
+  const M = CV.mod;
+  const p = await M.getDoc(M.doc(M.db, "usuarios", u.uid)).catch(() => null);
   E.cvNombre = (p && p.exists() && p.data().nombre) || "";
   E.cv = { uid: u.uid, nombre: E.cvNombre };
-  // Para sumar las horas de Casa Verde a las de la familia hace falta saber
-  // qué cuenta de allá es de quién. Lo escribe cada uno en su ficha.
   if (E.miembro.cvUid !== u.uid)
     await F.updateDoc(F.doc(db, "miembros", E.yo.uid), { cvUid: u.uid, actualizadoEn: F.serverTimestamp() }).catch(() => {});
-  const M = CV.mod;
+  M.getDocs(M.collection(M.db, "usuarios")).then((s) => {
+    E.cvNombres = Object.fromEntries(s.docs.map((d) => [d.id, d.data().nombre || ""]));
+  }).catch(() => {});
   M.onSnapshot(CV.Core.consultaActividades(E.cv, false), (s) => {
     E.cvActs = s.docs.map((d) => ({ id: d.id, ...d.data() }))
-      .filter((a) => !a.hecho && !CV.Core.limpiezaLatente(a));
+      .filter((a) => !a.hecho && !a.eliminado && !CV.Core.limpiezaLatente(a));
     pintar();
   }, (e) => aviso("Casa Verde no deja leer sus tareas: " + e.message, true));
   M.onSnapshot(M.query(M.collection(M.db, "sesiones"), M.where("uid", "==", u.uid),
@@ -192,6 +240,10 @@ async function conectarCasaVerde() {
                         inicioMs: d.data().inicio && d.data().inicio.toMillis() } : null;
     pintar();
   });
+  // La agenda de Casa Verde es la MISMA que se ordena acá (ver agenda.js).
+  M.onSnapshot(M.doc(M.db, "estado_usuario", u.uid), (d) => {
+    E.cvAgenda = (d.exists() && d.data().agenda) || {}; pintar();
+  }, () => {});
 }
 
 async function arrancarCV(a) {
@@ -206,114 +258,366 @@ async function frenarCV(terminada) {
   if (terminada && !confirm(`¿Terminaste «${s.titulo}»? Se cierra la tarea en Casa Verde y, si tiene monto, se reparten los honorarios.`)) return;
   try {
     const r = await CV.Core.finalizar(s.actividadId, E.cv, terminada);
-    aviso(`Registrado en Casa Verde: ${fmtHoras(r.horas)}${terminada ? " · tarea terminada" : ""}.`);
+    aviso(`Registrado en Casa Verde: ${fmtHoras(r.horas)}${terminada ? " · tarea terminada" : " · queda pendiente"}.`);
   } catch (e) { aviso(e.message, true); }
+}
+
+/* Los registros de una actividad de Casa Verde: quién le dedicó tiempo,
+   cuándo y cuánto. Se piden al abrir la ficha, no antes: son lecturas. */
+const registrosCV = {};
+async function cargarRegistrosCV(id) {
+  const M = CV.mod;
+  registrosCV[id] = { cargando: true };
+  try {
+    const s = await M.getDocs(M.query(M.collection(M.db, "sesiones"), M.where("actividadId", "==", id)));
+    const lista = s.docs.map((d) => d.data())
+      .map((x) => ({ ...x, ms: x.inicio && x.inicio.toMillis ? x.inicio.toMillis() : 0 }))
+      .sort((a, b) => b.ms - a.ms);
+    registrosCV[id] = { lista, total: lista.reduce((t, x) => t + (Number(x.horas) || 0), 0) };
+  } catch (e) { registrosCV[id] = { error: e.code || e.message }; }
+  pintar();
 }
 
 /* ── Dibujar ──────────────────────────────────────────────────────────────── */
 for (const b of document.querySelectorAll("[data-solapa]")) b.onclick = () => {
-  E.solapa = b.dataset.solapa;
+  E.solapa = b.dataset.solapa; E.abierta = null;
   for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x === b));
   pintar();
+  scrollTo(0, 0);
 };
 
+const hms = (ms) => {
+  const seg = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  return `${Math.floor(seg / 3600)}:${String(Math.floor(seg / 60) % 60).padStart(2, "0")}:${String(seg % 60).padStart(2, "0")}`;
+};
 function pintarReloj() {
   const s = E.enCursoCV || E.enCursoFam;
-  const n = $("reloj-tiempo");
-  if (!s || !n) return;
-  const seg = Math.max(0, Math.floor((Date.now() - s.inicioMs) / 1000));
-  n.textContent = `${Math.floor(seg / 3600)}:${String(Math.floor(seg / 60) % 60).padStart(2, "0")}:${String(seg % 60).padStart(2, "0")}`;
+  if (s && $("reloj-tiempo")) $("reloj-tiempo").textContent = hms(s.inicioMs);
+  if (E.cuidado && $("reloj-chicos")) $("reloj-chicos").textContent = hms(E.cuidado.inicioMs);
 }
 
+/* Mientras alguien escribe, no se redibuja: un cambio que llega de la base
+   (el otro tildó algo) borraría lo que se está tecleando. Se redibuja al
+   soltar el campo. */
+let esperandoFoco = false;
 function pintar() {
   if ($("app").hidden) return;
-  for (const s of ["ahora", "tareas", "semana"]) $("v-" + s).hidden = s !== E.solapa;
+  const foco = document.activeElement;
+  if (foco && foco.closest && foco.closest(".ficha, .dia-notas, .evento-form, .pas-ed, .chicos-ed") && foco.matches("textarea, input:not([type=checkbox]):not([type=radio])")) {
+    if (!esperandoFoco) { esperandoFoco = true; foco.addEventListener("blur", () => { esperandoFoco = false; setTimeout(pintar, 0); }, { once: true }); }
+    return;
+  }
+  for (const s of SOLAPAS) $("v-" + s).hidden = s !== E.solapa;
   pintarCrono();
+  pintarCuidado();
   if (E.solapa === "ahora") pintarAhora();
+  if (E.solapa === "hoy") pintarHoy();
+  if (E.solapa === "agenda") pintarAgenda();
   if (E.solapa === "tareas") pintarTareas();
-  if (E.solapa === "semana") pintarSemana();
+  if (E.solapa === "chicos") pintarChicos();
+  if (E.solapa === "horas") pintarHoras();
   $("cv-estado").textContent = !CV ? errorCasaVerde
     : !E.cv ? `Casa Verde: sin sesión para ${E.yo.email}.` : "";
   $("form-cv").hidden = !CV || !!E.cv;
 }
+ganchos.pintar = pintar;
 
 function pintarCrono() {
   const s = E.enCursoCV || E.enCursoFam;
   const c = $("crono");
-  if (!s) { c.innerHTML = `<p class="gris">No hay nada corriendo.</p>`; return; }
+  if (!s) { c.innerHTML = `<p class="gris">No hay ninguna tarea corriendo.</p>`; return; }
   const deCV = !!E.enCursoCV;
   c.innerHTML = `<div class="crono-vivo">
       <span class="chip" style="--c:${deCV ? TIPOS.produccion.color : (TIPOS[s.tipo] || TIPOS.personal).color}">${deCV ? "Casa Verde" : esc((TIPOS[s.tipo] || {}).nombre)}</span>
       <b>${esc(s.titulo)}</b>
       <div id="reloj-tiempo" class="reloj">0:00:00</div>
       <div class="botones">
-        <button class="boton" id="parar">Parar</button>
-        ${deCV ? `<button class="boton sec" id="parar-terminar">Parar y terminé la tarea</button>` : ""}
+        <button class="boton" id="parar">Parar · queda pendiente</button>
+        ${deCV || s.tareaId ? `<button class="boton sec" id="parar-terminar">Parar y terminé</button>` : ""}
       </div></div>`;
-  $("parar").onclick = () => (deCV ? frenarCV(false) : frenarFamilia()).catch((e) => aviso(e.message, true));
-  if (deCV) $("parar-terminar").onclick = () => frenarCV(true);
+  $("parar").onclick = () => (deCV ? frenarCV(false) : frenarFamilia(false)).catch(fallo);
+  if ($("parar-terminar")) $("parar-terminar").onclick = () => (deCV ? frenarCV(true) : frenarFamilia(true)).catch(fallo);
   pintarReloj();
 }
 
-function listaArbol(items, { alTocar, etiqueta }) {
-  const { raices, hijos } = arbol(items);
-  const ul = document.createElement("div");
-  const fila = (t, nivel) => {
-    const f = document.createElement("div");
-    f.className = "fila"; f.style.paddingLeft = (nivel * 16) + "px";
-    f.innerHTML = `<button class="play" aria-label="Empezar">▶</button><span class="txt">${esc(t.titulo)}${etiqueta ? etiqueta(t) : ""}</span>`;
-    f.querySelector(".play").onclick = () => alTocar(t);
-    ul.append(f);
-    for (const h of hijos[t.id] || []) fila(h, nivel + 1);
-  };
-  for (const r of raices) fila(r, 0);
-  return ul;
+function pintarCuidado() {
+  const c = $("cuidado");
+  const ninos = E.familia.ninos || [];
+  if (E.cuidado) {
+    const quienes = (E.cuidado.ninos || []).map((id) => (ninoPorId(id) || {}).nombre || "?").join(" y ");
+    c.innerHTML = `<div class="cuidado-vivo"><span>Con <b>${esc(quienes || "los chicos")}</b></span>
+      <span id="reloj-chicos" class="reloj-chico">0:00:00</span>
+      <button class="mini" id="fin-cuidado">Terminé</button></div>`;
+    $("fin-cuidado").onclick = () => terminarCuidado().catch(fallo);
+    pintarReloj();
+    return;
+  }
+  if (!ninos.length) { c.innerHTML = `<p class="gris">Los chicos se cargan en la solapa «Chicos».</p>`; return; }
+  c.innerHTML = `<div class="cuidado-botones"><span class="gris">Estoy con</span>` +
+    ninos.map((n) => `<button class="mini nino" style="--c:${esc(n.color || "#c89bd8")}" data-con="${esc(n.id)}">${esc(n.nombre)}</button>`).join("") +
+    (ninos.length > 1 ? `<button class="mini nino" data-con="*">los ${ninos.length}</button>` : "") + `</div>`;
+  for (const b of c.querySelectorAll("[data-con]")) b.onclick = () =>
+    empezarCuidado(b.dataset.con === "*" ? ninos.map((n) => n.id) : [b.dataset.con]).catch(fallo);
 }
+
+/* ── Una fila de tarea de la familia, con su ficha desplegable ─────────────── */
+function chipsDe(t, porId) {
+  const tipo = TIPOS[tipoHeredado(t, porId)];
+  const enc = (t.encargados || []).map((u) => `<span class="enc${u === E.yo.uid ? " yo" : ""}">${esc(u === E.yo.uid ? "vos" : nombreDe(u))}</span>`).join("");
+  const ped = t.pedido && t.pedido.estado === "pendiente"
+    ? `<span class="ped">${t.pedido.a === E.yo.uid ? "te la pidieron" : "pedida a " + esc(nombreDe(t.pedido.a))}</span>` : "";
+  return ` <small class="tipo" style="--c:${tipo.color}">${esc(tipo.nombre)}${t.alcance === "personal" ? " · sólo vos" : ""}</small>`
+    + (t.meta ? ` <span class="meta" title="Meta de la semana">★</span>` : "") + enc + ped
+    + (estaEnAgenda("f:" + t.id) ? ` <span class="ag" title="En tu agenda">📅</span>` : "");
+}
+
+function filaTarea(t, nivel, porId, hijos) {
+  const f = document.createElement("div");
+  f.className = "fila-tarea" + (t.hecho ? " hecha" : "");
+  f.style.paddingLeft = (nivel * 16) + "px";
+  const abierta = E.abierta === "f:" + t.id;
+  f.innerHTML = `<div class="fila">
+      ${t.hecho ? `<span class="play apagado">✓</span>` : `<button class="play" aria-label="Empezar">▶</button>`}
+      <span class="txt">${esc(t.titulo)}${chipsDe(t, porId)}</span>
+      <button class="mas" aria-label="Más">${abierta ? "▴" : "⋯"}</button></div>`;
+  const p = f.querySelector("button.play");
+  if (p) p.onclick = () => arrancarFamilia(t).catch(fallo);
+  f.querySelector(".mas").onclick = () => { E.abierta = abierta ? null : "f:" + t.id; pintar(); };
+  if (abierta) f.append(fichaTarea(t, hijos));
+  return f;
+}
+
+function fichaTarea(t, hijos) {
+  const d = document.createElement("div");
+  d.className = "ficha";
+  const o = otro();
+  const mia = (t.encargados || []).includes(E.yo.uid);
+  const comun = t.alcance === "comun";
+  const lunes = lunesDe(E.hoy);
+  const pedAMi = t.pedido && t.pedido.estado === "pendiente" && t.pedido.a === E.yo.uid;
+  d.innerHTML = `
+    ${t.pedido && t.pedido.texto ? `<p class="gris">Pedido de ${esc(nombreDe(t.pedido.de))}: «${esc(t.pedido.texto)}»</p>` : ""}
+    ${pedAMi ? `<div class="botones"><button class="mini ok" data-a="aceptar">Me ocupo</button><button class="mini" data-a="devolver">No puedo</button></div>` : ""}
+    <div class="botones">
+      ${t.hecho ? `<button class="mini" data-a="reabrir">Volver a pendiente</button>` : `
+      <button class="mini${mia ? " on" : ""}" data-a="yo">${mia ? "✓ Me ocupo yo" : "Me ocupo yo"}</button>
+      ${comun && o ? `<button class="mini" data-a="pedir">Pedírsela a ${esc(o.nombre || "el otro")}</button>` : ""}
+      ${comun ? `<button class="mini${t.meta ? " on" : ""}" data-a="meta">${t.meta ? "★ Meta de la semana" : "☆ Meta de la semana"}</button>` : ""}
+      <button class="mini${estaEnAgenda("f:" + t.id) ? " on" : ""}" data-a="agenda">${estaEnAgenda("f:" + t.id) ? "📅 En mi agenda" : "📅 A mi agenda"}</button>
+      <button class="mini" data-a="hecha">✔ Hecha</button>`}
+      ${t.duenio === E.yo.uid ? `<button class="mini" data-a="borrar">Borrar</button>` : ""}
+    </div>
+    <label>Detalle <textarea data-a="detalle" rows="3" maxlength="2000" placeholder="Lo que haga falta saber para hacerla">${esc(t.detalle || "")}</textarea></label>
+    <label>Para cuándo <input type="date" data-a="limite" value="${esc(t.limite || "")}"></label>`;
+  const up = (x) => F.updateDoc(F.doc(db, "tareas", t.id), { ...x, actualizadoEn: F.serverTimestamp() }).catch(fallo);
+  const on = (a, fn) => { const b = d.querySelector(`[data-a="${a}"]`); if (b) b.onclick = fn; };
+  on("yo", () => up({ encargados: alternarEncargado(t, E.yo.uid) }));
+  on("meta", () => up({ meta: t.meta ? null : lunes }));
+  on("hecha", () => up({ hecho: true, hechoPor: E.yo.uid }));
+  on("reabrir", () => up({ hecho: false }));
+  on("agenda", () => alternarEnAgenda("f:" + t.id));
+  on("aceptar", () => { try { up(responderPedido(t, E.yo.uid, true)); } catch (e) { fallo(e); } });
+  on("devolver", () => { try { up(responderPedido(t, E.yo.uid, false)); } catch (e) { fallo(e); } });
+  on("pedir", () => {
+    const nota = prompt(`¿Algo para decirle a ${o.nombre || "el otro"}? (podés dejarlo vacío)`, "");
+    if (nota === null) return;
+    try { up({ pedido: pedir(t, E.yo.uid, o.id, nota) }); aviso(`Le pediste «${t.titulo}» a ${o.nombre}.`); } catch (e) { fallo(e); }
+  });
+  on("borrar", () => {
+    if ((hijos[t.id] || []).length) return aviso("Tiene tareas adentro: borralas primero.", true);
+    if (confirm(`¿Borrar «${t.titulo}»? Las horas ya registradas quedan.`)) F.deleteDoc(F.doc(db, "tareas", t.id)).catch(fallo);
+  });
+  d.querySelector('[data-a="detalle"]').onchange = (ev) => up({ detalle: ev.target.value.slice(0, 2000) });
+  d.querySelector('[data-a="limite"]').onchange = (ev) => up({ limite: ev.target.value || null });
+  return d;
+}
+
+function listaFamilia(items, { todas = false } = {}) {
+  const { porId } = arbol(E.tareas);
+  const { raices, hijos } = arbol(items);
+  const cont = document.createElement("div");
+  const bajar = (t, nivel) => {
+    cont.append(filaTarea(t, nivel, porId, arbol(E.tareas).hijos));
+    for (const h of hijos[t.id] || []) bajar(h, nivel + 1);
+  };
+  for (const r of raices) bajar(r, 0);
+  if (!raices.length) cont.innerHTML = `<p class="gris">${todas ? "Todavía no hay tareas." : "Nada acá."}</p>`;
+  return cont;
+}
+
+/* ── Una actividad de Casa Verde, con sus detalles y registros ─────────────── */
+function semaforoCV(a) {
+  const hoy = E.hoy;
+  if (a.prioridad === "rojo") return { c: "#c0271f", t: "Urgente" };
+  if ((a.recurrenciaDias ?? 0) > 0 && a.fechaInicio) {
+    if (a.fechaInicio > hoy) return { c: "#8a918a", t: "Vuelve el " + a.fechaInicio.split("-").reverse().join("/") };
+    return { c: "#1f7a32", t: "Toca hacerla" };
+  }
+  if (a.fechaVencimiento && a.fechaVencimiento < hoy) return { c: "#c0271f", t: "Vencida" };
+  if (a.prioridad === "amarillo") return { c: "#b8860b", t: "Importante" };
+  return { c: "#1f7a32", t: "Al día" };
+}
+const fecha = (iso) => iso ? iso.split("-").reverse().join("/") : "";
+const cuando = (ms) => ms ? new Date(ms).toLocaleString("es", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+
+function filaCV(a, nivel) {
+  const f = document.createElement("div");
+  f.className = "fila-tarea";
+  f.style.paddingLeft = (nivel * 16) + "px";
+  const abierta = E.abierta === "cv:" + a.id;
+  const s = semaforoCV(a);
+  f.innerHTML = `<div class="fila">
+      <button class="play" aria-label="Empezar">▶</button>
+      <span class="txt"><i class="sem" style="background:${s.c}" title="${esc(s.t)}"></i>${esc(a.titulo || "(sin título)")}
+        <small class="gris"> ${esc(s.t)}</small>${estaEnAgenda("cv:" + a.id) ? ` <span class="ag">📅</span>` : ""}</span>
+      <button class="mas" aria-label="Más">${abierta ? "▴" : "⋯"}</button></div>`;
+  f.querySelector(".play").onclick = () => arrancarCV(a);
+  f.querySelector(".mas").onclick = () => {
+    E.abierta = abierta ? null : "cv:" + a.id;
+    if (!abierta && !registrosCV[a.id]) cargarRegistrosCV(a.id);
+    pintar();
+  };
+  if (abierta) f.append(fichaCV(a));
+  return f;
+}
+
+function fichaCV(a) {
+  const d = document.createElement("div");
+  d.className = "ficha";
+  const r = registrosCV[a.id] || {};
+  const ms = (x) => x && x.toMillis ? x.toMillis() : 0;
+  const quienes = (a.competencias || []).map((u) => E.cvNombres[u] || "").filter(Boolean);
+  const datos = [
+    a.fechaInicio && ["Desde", fecha(a.fechaInicio)],
+    a.fechaVencimiento && ["Vence", fecha(a.fechaVencimiento)],
+    a.hora && ["Hora", a.hora],
+    a.duracionHoras && ["Lleva", fmtHoras(a.duracionHoras)],
+    (a.recurrenciaDias ?? 0) > 0 && ["Se repite", `cada ${a.recurrenciaDias} días`],
+    a.monto && ["Monto", String(a.monto)],
+    a.esCompra && a.proveedor && ["Proveedor", a.proveedor],
+    quienes.length && ["La hacen", quienes.join(", ")],
+    a.ultimaRealizacion && ["Última vez", `${cuando(ms(a.ultimaRealizacion))}${a.ultimaRealizacionNombre ? " · " + a.ultimaRealizacionNombre : ""}`],
+  ].filter(Boolean);
+  d.innerHTML = `
+    ${a.detalle ? `<p class="detalle">${esc(a.detalle)}</p>` : `<p class="gris">Sin detalle escrito.</p>`}
+    ${datos.length ? `<dl class="datos">${datos.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
+    <div class="botones">
+      <button class="mini" data-a="tildar">✔ Hecha sin cronómetro</button>
+      <button class="mini${estaEnAgenda("cv:" + a.id) ? " on" : ""}" data-a="agenda">${estaEnAgenda("cv:" + a.id) ? "📅 En mi agenda" : "📅 A mi agenda"}</button>
+      <a class="mini" href="https://casaverdecanas.com.br/interno/actividades.html?a=${encodeURIComponent(a.id)}&editar=1" target="_blank" rel="noopener">Editar en Casa Verde</a>
+    </div>
+    <h4>Registros</h4>
+    ${r.cargando ? `<p class="gris">Buscando…</p>` : r.error ? `<p class="mal">No se pudieron leer: ${esc(r.error)}</p>`
+      : !r.lista || !r.lista.length ? `<p class="gris">Nadie le registró tiempo todavía.</p>`
+      : `<p class="gris">En total: <b>${fmtHoras(r.total)}</b> en ${r.lista.length} registro(s).</p>
+         <ul class="registros">${r.lista.slice(0, 25).map((x) => `<li><span>${esc(cuando(x.ms))}</span> <b>${esc(x.nombre || E.cvNombres[x.uid] || "—")}</b>
+           <span class="num">${x.tipo === "tilde" ? "✔" : x.estado === "en_curso" ? "corriendo" : fmtHoras(x.horas)}</span>${x.notas ? `<small>${esc(x.notas)}</small>` : ""}</li>`).join("")}</ul>`}`;
+  d.querySelector('[data-a="tildar"]').onclick = async () => {
+    if (!confirm(`¿«${a.titulo}» está hecha? Queda registrada en Casa Verde sin horas.`)) return;
+    try { const x = await CV.Core.tildar(a.id, E.cv); aviso(x.recurrente ? `Hecha. Vuelve el ${fecha(x.proxima)}.` : "Hecha."); }
+    catch (e) { fallo(e); }
+  };
+  d.querySelector('[data-a="agenda"]').onclick = () => alternarEnAgenda("cv:" + a.id);
+  return d;
+}
+
+function listaCV(items) {
+  const { raices, hijos } = arbol(items);
+  const cont = document.createElement("div");
+  const bajar = (a, n) => { cont.append(filaCV(a, n)); for (const h of hijos[a.id] || []) bajar(h, n + 1); };
+  for (const r of raices) bajar(r, 0);
+  return cont;
+}
+
+/* ── AHORA ────────────────────────────────────────────────────────────────── */
+const h2 = (t) => Object.assign(document.createElement("h2"), { textContent: t });
+const gris = (t) => Object.assign(document.createElement("p"), { className: "gris", textContent: t });
 
 function pintarAhora() {
-  const v = $("v-ahora-listas"); v.replaceChildren();
-  const fam = E.tareas.filter((t) => !t.hecho);
-  const h1 = document.createElement("h2"); h1.textContent = "Familia"; v.append(h1);
-  if (!fam.length) v.append(Object.assign(document.createElement("p"), { className: "gris", textContent: "Todavía no hay tareas. Se cargan en la solapa «Tareas»." }));
-  else {
-    const { porId } = arbol(E.tareas);
-    v.append(listaArbol(fam, { alTocar: (t) => arrancarFamilia(t).catch((e) => aviso(e.message, true)),
-      etiqueta: (t) => ` <small class="tipo" style="--c:${TIPOS[tipoHeredado(t, porId)].color}">${esc(TIPOS[tipoHeredado(t, porId)].nombre)}${t.alcance === "personal" ? " · sólo vos" : ""}</small>` }));
+  const v = $("v-ahora"); v.replaceChildren();
+  // Lo que te pidieron va primero: está esperando una respuesta tuya.
+  const pedidos = pedidosPara(E.tareas, E.yo.uid);
+  if (pedidos.length) {
+    v.append(h2(`Te pidieron (${pedidos.length})`));
+    v.append(listaFamilia(pedidos));
   }
-  const h2 = document.createElement("h2"); h2.textContent = "Casa Verde"; v.append(h2);
-  if (!E.cv) v.append(Object.assign(document.createElement("p"), { className: "gris", textContent: "Sin sesión en Casa Verde." }));
-  else if (!E.cvActs.length) v.append(Object.assign(document.createElement("p"), { className: "gris", textContent: "Nada pendiente." }));
-  else v.append(listaArbol(E.cvActs, { alTocar: (a) => arrancarCV(a) }));
+  // Hoy con los chicos, de un vistazo: quién los tiene y qué actividades hay.
+  const hoyChicos = chicosDelDia(E.hoy, E.familia.patron, E.turnos);
+  const evs = eventosDelDia(E.hoy, E.eventos);
+  if (Object.keys(hoyChicos).length || evs.length) {
+    const t = document.createElement("div"); t.className = "tarjeta chica";
+    t.innerHTML = Object.entries(hoyChicos).map(([u, ns]) =>
+        `<div>${esc(u === E.yo.uid ? "Vos" : nombreDe(u))}: ${ns.map((id) => { const n = ninoPorId(id) || {}; return `<span class="punto" style="--c:${esc(n.color || "#c89bd8")}"></span>${esc(n.nombre || "?")}`; }).join(" ")}</div>`).join("")
+      + evs.map((e) => `<div>👦 ${esc(e.hora || "")} <b>${esc(e.titulo)}</b></div>`).join("");
+    v.append(h2("Hoy con los chicos")); v.append(t);
+  }
+  const vivas = E.tareas.filter((t) => !t.hecho);
+  const mias = vivas.filter((t) => (t.encargados || []).includes(E.yo.uid) || t.alcance === "personal");
+  const libres = vivas.filter((t) => t.alcance === "comun" && !(t.encargados || []).length);
+  v.append(h2("Lo que tomaste"));
+  v.append(mias.length ? listaFamilia(mias) : gris("Nada todavía. En una tarea, «Me ocupo yo»."));
+  v.append(h2("De los dos, sin encargado"));
+  v.append(libres.length ? listaFamilia(libres) : gris("Todas tienen a alguien."));
+  v.append(h2("Casa Verde"));
+  if (!E.cv) v.append(gris("Sin sesión en Casa Verde."));
+  else if (!E.cvActs.length) v.append(gris("Nada pendiente."));
+  else v.append(listaCV(E.cvActs));
 }
 
+/* ── TAREAS: la pizarra de la semana y la lista entera ────────────────────── */
+let lunesPizarra = null;
 function pintarTareas() {
+  const lunes = lunesPizarra || lunesDe(E.hoy);
+  for (const b of document.querySelectorAll("[data-vt]")) b.setAttribute("aria-selected", String(b.dataset.vt === E.vistaTareas));
   const sel = $("nueva-padre");
-  const { raices, porId } = arbol(E.tareas);
-  sel.innerHTML = `<option value="">— Nueva raíz —</option>` +
+  const { raices, porId } = arbol(E.tareas.filter((t) => !t.hecho));
+  const antes = sel.value;
+  sel.innerHTML = `<option value="">— Nueva, suelta —</option>` +
     raices.map((r) => `<option value="${esc(r.id)}">${esc(r.titulo)} (${esc(TIPOS[tipoHeredado(r, porId)].nombre)})</option>`).join("");
+  sel.value = antes;
   $("nueva-tipo").parentElement.hidden = !!sel.value;
   sel.onchange = () => { $("nueva-tipo").parentElement.hidden = !!sel.value; };
+  $("nueva-meta").parentElement.hidden = E.vistaTareas !== "pizarra";
   const v = $("v-tareas-lista"); v.replaceChildren();
-  const vivas = E.tareas.filter((t) => !t.hecho);
-  if (!vivas.length) { v.innerHTML = `<p class="gris">Todavía no hay tareas.</p>`; return; }
-  const { raices: rs, hijos } = arbol(vivas);
-  const fila = (t, nivel) => {
-    const f = document.createElement("div");
-    f.className = "fila"; f.style.paddingLeft = (nivel * 16) + "px";
-    const mia = t.duenio === E.yo.uid;
-    f.innerHTML = `<span class="txt">${esc(t.titulo)} <small class="tipo" style="--c:${TIPOS[tipoHeredado(t, porId)].color}">${esc(TIPOS[tipoHeredado(t, porId)].nombre)}${t.alcance === "personal" ? " · sólo vos" : " · de los dos"}</small></span>
-      <button class="mini" data-a="hecha">Hecha</button>${mia ? `<button class="mini" data-a="borrar">Borrar</button>` : ""}`;
-    f.querySelector('[data-a="hecha"]').onclick = () => F.updateDoc(F.doc(db, "tareas", t.id), { hecho: true, actualizadoEn: F.serverTimestamp() }).catch((e) => aviso(e.message, true));
-    const b = f.querySelector('[data-a="borrar"]');
-    if (b) b.onclick = () => {
-      if ((hijos[t.id] || []).length) return aviso("Tiene tareas adentro: borralas primero.", true);
-      if (confirm(`¿Borrar «${t.titulo}»? Las horas ya registradas quedan.`)) F.deleteDoc(F.doc(db, "tareas", t.id)).catch((e) => aviso(e.message, true));
-    };
-    v.append(f);
-    for (const h of hijos[t.id] || []) fila(h, nivel + 1);
-  };
-  for (const r of rs) fila(r, 0);
+
+  if (E.vistaTareas === "pizarra") {
+    const nav = document.createElement("div"); nav.className = "nav-semana";
+    nav.innerHTML = `<button class="mini" data-s="-7">‹</button><b>Semana del ${fecha(lunes)}</b><button class="mini" data-s="7">›</button>`;
+    for (const b of nav.querySelectorAll("[data-s]")) b.onclick = () => { lunesPizarra = sumarDias(lunes, Number(b.dataset.s)); pintar(); };
+    v.append(nav);
+    const metas = metasDeLaSemana(E.tareas, lunes);
+    if (!metas.length) { v.append(gris("La pizarra está vacía. Agregá una meta arriba, o en una tarea tocá «☆ Meta de la semana».")); return; }
+    const grupos = [
+      ...personas().map((m) => [m.id === E.yo.uid ? "Vos" : m.nombre, (t) => (t.encargados || []).length === 1 && t.encargados[0] === m.id]),
+      ["Los dos", (t) => (t.encargados || []).length > 1],
+      ["Sin encargado todavía", (t) => !(t.encargados || []).length],
+    ];
+    const hechas = metas.filter((t) => t.hecho).length;
+    v.append(gris(`${hechas} de ${metas.length} hechas.`));
+    for (const [nombre, f] of grupos) {
+      const del = metas.filter(f);
+      if (!del.length) continue;
+      v.append(h2(nombre));
+      const { porId: pi } = arbol(E.tareas);
+      const hijos = arbol(E.tareas).hijos;
+      for (const t of del) {
+        const fila = filaTarea(t, 0, pi, hijos);
+        if (t.deAntes) fila.querySelector(".txt").insertAdjacentHTML("beforeend", ` <small class="gris">· viene de antes</small>`);
+        v.append(fila);
+      }
+    }
+    return;
+  }
+  v.append(listaFamilia(E.tareas.filter((t) => !t.hecho), { todas: true }));
+  const hechas = E.tareas.filter((t) => t.hecho);
+  if (hechas.length) {
+    const det = document.createElement("details");
+    det.innerHTML = `<summary>Hechas (${hechas.length})</summary>`;
+    det.append(listaFamilia(hechas));
+    v.append(det);
+  }
 }
+for (const b of document.querySelectorAll("[data-vt]")) b.onclick = () => { E.vistaTareas = b.dataset.vt; pintar(); };
 
 $("form-tarea").onsubmit = async (ev) => {
   ev.preventDefault();
@@ -325,30 +629,32 @@ $("form-tarea").onsubmit = async (ev) => {
   // El tipo lo pone la raíz: una hija lo hereda y lo guarda igual, para que
   // la regla pueda validarlo sin leer al padre.
   const tipo = padre ? tipoHeredado(padre, porId) : $("nueva-tipo").value;
+  const personal = $("nueva-personal").checked;
   try {
     await F.addDoc(F.collection(db, "tareas"), {
       titulo: titulo.slice(0, 120), parentId: padreId, tipo,
-      alcance: $("nueva-personal").checked ? "personal" : "comun",
-      duenio: E.yo.uid, hecho: false, creadoEn: F.serverTimestamp(),
+      alcance: personal ? "personal" : "comun",
+      duenio: E.yo.uid, hecho: false, encargados: $("nueva-mia").checked || personal ? [E.yo.uid] : [],
+      meta: !personal && E.vistaTareas === "pizarra" && $("nueva-meta").checked ? (lunesPizarra || lunesDe(E.hoy)) : null,
+      detalle: "", creadoEn: F.serverTimestamp(),
     });
     $("nueva-titulo").value = "";
-  } catch (e) { aviso("No se pudo: " + e.message, true); }
+  } catch (e) { fallo(e); }
 };
 
-async function pintarSemana() {
-  const v = $("v-semana-cuerpo");
+/* ── HORAS ────────────────────────────────────────────────────────────────── */
+async function pintarHoras() {
+  const v = $("v-horas");
   const { desdeMs, hastaMs } = semanaDe();
   v.innerHTML = `<p class="gris">Sumando…</p>`;
   try {
     const desde = F.Timestamp.fromMillis(desdeMs);
     const fam = await F.getDocs(F.query(F.collection(db, "sesiones"), F.where("inicio", ">=", desde)));
     const sesiones = fam.docs.map((d) => ({ ...d.data(), inicioMs: d.data().inicio && d.data().inicio.toMillis() }));
-    // Las horas de Casa Verde de cada uno, contadas como producción.
     const cvUids = Object.fromEntries(E.miembros.filter((m) => m.cvUid).map((m) => [m.cvUid, m.id]));
     if (CV && E.cv && Object.keys(cvUids).length) {
       // Por persona y SIN filtro de fecha: igualdad sobre un campo y rango
-      // sobre otro pide un índice compuesto, y en la base de Casa Verde ése
-      // es un cambio más para publicar. Son pocas sesiones: se filtra acá.
+      // sobre otro pide un índice compuesto en la base de Casa Verde.
       const M = CV.mod;
       for (const cvUid of Object.keys(cvUids)) {
         const s = await M.getDocs(M.query(M.collection(M.db, "sesiones"), M.where("uid", "==", cvUid)));
@@ -357,15 +663,14 @@ async function pintarSemana() {
       }
     }
     const tot = sumarPorTipo(sesiones, { desdeMs, hastaMs });
-    const personas = E.miembros.length ? E.miembros : [E.miembro];
-    v.innerHTML = personas.map((m) => {
+    v.innerHTML = personas().map((m) => {
       const t = tot[m.id] || {};
       const max = Math.max(1, ...Object.values(t));
       return `<div class="persona"><h3>${esc(m.nombre || "—")} <small>carga ${fmtHoras(cargaDe(t))}</small></h3>` +
         Object.entries(TIPOS).map(([k, x]) => `<div class="barra-fila"><span>${esc(x.nombre)}</span>
           <span class="barra"><i style="width:${Math.round(100 * (t[k] || 0) / max)}%;background:${x.color}"></i></span>
           <span class="num">${fmtHoras(t[k] || 0)}</span></div>`).join("") + `</div>`;
-    }).join("") + `<p class="gris">La carga es producción + mantenimiento + chicos. Casa Verde cuenta como producción. Semana de lunes a domingo.</p>`;
+    }).join("") + `<p class="gris">La carga es producción + mantenimiento + la mitad del tiempo con los chicos. Casa Verde cuenta como producción. Semana de lunes a domingo.</p>`;
   } catch (e) { v.innerHTML = `<p class="mal">No se pudo sumar: ${esc(e.message)}</p>`; }
 }
 

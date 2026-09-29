@@ -38,9 +38,20 @@ verificación previa no es opcional: que parsee como módulo
 que suban los sellos (y `VERSION` de `sw.js` si cambia algo del `SHELL`), y que
 la documentación diga la verdad.
 
-- **Casa Verde se usa, no se copia.** Arrancar y frenar son `Core.iniciar` y
-  `Core.finalizar` de `actividades-core.js`, importado de su sitio. La app no
-  escribe en Casa Verde por su cuenta.
+- **Casa Verde se usa, no se copia.** Arrancar, frenar y tildar son
+  `Core.iniciar`, `Core.finalizar` y `Core.tildar` de `actividades-core.js`,
+  importado de su sitio. La app no escribe en Casa Verde por su cuenta, **salvo
+  la agenda de cada uno** (`estado_usuario/{uid}.agenda`, app-3), con la forma
+  exacta de la agenda de Casa Verde para que sea UNA agenda. El banco exige que
+  sea la única escritura directa.
+- **Los nombres de los chicos no entran al código**: viven en
+  `familia/config` de la base. El banco busca los nombres y falla si aparecen.
+- **Estar con los chicos es un reloj aparte, en paralelo** al de la tarea
+  (`registro: "cuidado"`). No bloquea ni es bloqueado. En la carga pesa la
+  mitad (`TIPOS.ninos.peso`), por lo que dijo Mauro el 29-sep.
+- **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente
+  tampoco la lee y está en `selladas` de `firestore.mjs`). Lo cotidiano, los
+  turnos, las actividades de los chicos y `familia/config` son de los dos.
 - **El SDK es la misma versión que el de Casa Verde.** El banco las compara.
 - **Un tipo de tiempo vive en tres lugares** —`TIPOS` de `nucleo.js`, las
   opciones de `index.html` y `tipoValido()` de las reglas— y el banco exige que
