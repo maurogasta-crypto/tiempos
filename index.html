@@ -45,6 +45,10 @@
     </nav>
     <div id="crono" class="tarjeta"></div>
     <p id="cv-estado" class="gris"></p>
+    <form id="form-cv" class="tarjeta" hidden>
+      <label>Contraseña de Casa Verde <input id="cv-clave" type="password" autocomplete="current-password" required></label>
+      <button class="boton sec">Entrar a Casa Verde</button>
+    </form>
 
     <div id="v-ahora"><div id="v-ahora-listas"></div></div>
 
@@ -67,10 +71,10 @@
 
     <div id="v-semana" hidden><div id="v-semana-cuerpo"></div></div>
 
-    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-1</span></p>
+    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-2</span></p>
   </section>
 </main>
-<script type="module" src="app.js?v=1"></script>
+<script type="module" src="app.js?v=2"></script>
 <script>
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

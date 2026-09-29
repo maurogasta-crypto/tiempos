@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-1
+// Sello: app-2
 //
 // Tres solapas: AHORA (el cronómetro único y qué arrancar), TAREAS (las de la
 // familia) y SEMANA (horas por tipo, de los dos). Las cuentas no viven acá:
@@ -42,16 +42,34 @@ $("form-entrar").onsubmit = async (ev) => {
   const mail = $("mail").value.trim(), clave = $("clave").value;
   $("btn-entrar").disabled = true; aviso("");
   try {
-    await F.signInWithEmailAndPassword(auth, mail, clave);
-    // La misma cuenta entra también a Casa Verde. Si falla ahí, la parte de
-    // la familia anda igual y se dice.
+    // Casa Verde PRIMERO. Entrar a Tiempos dispara el armado de la pantalla,
+    // y hasta app-1 eso pasaba antes de que Casa Verde terminara de entrar:
+    // la pantalla decía «sin sesión» con la contraseña bien puesta.
+    let cvMal = false;
     if (CV && !CV.mod.auth.currentUser) {
       try { await CV.mod.signInWithEmailAndPassword(CV.mod.auth, mail, clave); }
-      catch { aviso("Entraste, pero Casa Verde no aceptó esa contraseña: sus tareas no se van a ver.", true); }
+      catch { cvMal = true; }
     }
+    await F.signInWithEmailAndPassword(auth, mail, clave);
+    if (cvMal) aviso("Entraste, pero Casa Verde no aceptó esa contraseña: abajo podés probar con la de Casa Verde.", true);
   } catch (e) {
     aviso(e.code === "auth/invalid-credential" ? "Mail o contraseña incorrectos." : "No se pudo entrar: " + e.message, true);
   } finally { $("btn-entrar").disabled = false; $("clave").value = ""; }
+};
+
+// Entrar a Casa Verde sin salir de Tiempos: la contraseña de Casa Verde, y
+// el mail de la sesión que ya está abierta.
+$("form-cv").onsubmit = async (ev) => {
+  ev.preventDefault();
+  try {
+    await CV.mod.signInWithEmailAndPassword(CV.mod.auth, E.yo.email, $("cv-clave").value);
+    $("cv-clave").value = "";
+    await conectarCasaVerde();
+    aviso("Listo: Casa Verde conectada.");
+    pintar();
+  } catch (e) {
+    aviso(e.code === "auth/invalid-credential" ? `Casa Verde no aceptó esa contraseña para ${E.yo.email}.` : "No se pudo: " + e.message, true);
+  }
 };
 
 $("olvide").onclick = async () => {
@@ -148,8 +166,12 @@ async function frenarFamilia() {
 /* ── Casa Verde, por su propio código ─────────────────────────────────────── */
 async function conectarCasaVerde() {
   if (!CV) { E.cv = null; return; }
+  // Al abrir, la sesión guardada de Casa Verde tarda un momento en volver:
+  // hasta app-1 se preguntaba antes y la respuesta era siempre «nadie».
+  if (CV.mod.auth.authStateReady) await CV.mod.auth.authStateReady();
   const u = CV.mod.auth.currentUser;
   if (!u) { E.cv = null; return; }
+  if (E.cv && E.cv.uid === u.uid) return;          // ya conectado: no escuchar dos veces
   const p = await CV.mod.getDoc(CV.mod.doc(CV.mod.db, "usuarios", u.uid)).catch(() => null);
   E.cvNombre = (p && p.exists() && p.data().nombre) || "";
   E.cv = { uid: u.uid, nombre: E.cvNombre };
@@ -211,7 +233,8 @@ function pintar() {
   if (E.solapa === "tareas") pintarTareas();
   if (E.solapa === "semana") pintarSemana();
   $("cv-estado").textContent = !CV ? errorCasaVerde
-    : !E.cv ? "Casa Verde: sin sesión. Salí y volvé a entrar con la misma contraseña de Casa Verde." : "";
+    : !E.cv ? `Casa Verde: sin sesión para ${E.yo.email}.` : "";
+  $("form-cv").hidden = !CV || !!E.cv;
 }
 
 function pintarCrono() {
