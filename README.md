@@ -8,9 +8,9 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (66 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (70 casos, sin npm, sin red) |
 
-## Qué hace (app-4)
+## Qué hace (app-5)
 
 Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
 
@@ -58,6 +58,12 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
   Debajo, las horas por tipo y la **auditoría**: lo que se revisa solo (relojes
   olvidados, gastos sin boleta ni detalle, acuerdos sin confirmar, días sin
   nada tildado) y las observaciones del agente, que se pueden contestar.
+
+- **El globo 💡** (abajo a la derecha, en todas las solapas): una
+  **sugerencia** o **algo que anda mal**, con qué tan urgente es. Va a
+  `reportes/` de esta base, igual que en los sitios, y la ronda diaria del
+  agente lo pasa al panel de Mauro como pendiente. Antes de mandar dice que lo
+  lee una IA y que puede tardar hasta un día; abajo se ve lo que uno mandó.
 
 ### La regla del tiempo (29-sep-2026)
 
@@ -111,12 +117,13 @@ Florencia la acuerden.
 |---|---|---|
 | `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-3` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-4` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-5` |
+| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-1` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-1` |
 | `balance.js` | el balance del tiempo, los acuerdos, la auditoría | `balance-1` |
 | `agenda.js` | mi semana, arrastrando | `agenda-1` |
 | `familia.js` | Hoy y Chicos | `familia-1` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-3` |
-| `sw.js` | el cascarón sin señal | `tiempos-4` |
-| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v4 |
+| `estilos.css` | | `estilos-4` |
+| `sw.js` | el cascarón sin señal | `tiempos-5` |
+| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v5 |

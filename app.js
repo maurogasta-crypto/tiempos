@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-4
+// Sello: app-5
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -32,6 +32,7 @@ import { pintarAgenda, alternarEnAgenda, estaEnAgenda } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
+import { montarGlobo } from "./sugerir.js";
 
 const SOLAPAS = ["ahora", "hoy", "agenda", "tareas", "chicos", "plata", "balance"];
 const mostrar = (id) => { for (const s of ["cargando", "entrar", "acceso", "app"]) $(s).hidden = s !== id; };
@@ -89,6 +90,8 @@ async function entrarAlaApp() {
   E.miembro = { id: m.id, ...m.data() };
   mostrar("app");
   $("quien").textContent = E.miembro.nombre || E.yo.email;
+  // app-5: el globo 💡 para sugerir algo o avisar una falla (sugerir.js).
+  montarGlobo();
   escucharFamilia();
   await conectarCasaVerde();
   pintar();

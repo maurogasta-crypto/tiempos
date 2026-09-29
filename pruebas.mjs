@@ -371,14 +371,40 @@ prueba("con todo en orden no inventa nada", () => {
   assert.deepEqual(auditar({ hoy: "2026-09-29", dias, movs: [{ categoria: "comida", comprobanteUrl: "x", detalle: "pan" }] }), []);
 });
 
+titulo("El globo de sugerencias");
+prueba("va al mismo circuito de los sitios: reportes/, en estado nuevo, con tipo", () => {
+  const src = fs.readFileSync("sugerir.js", "utf8");
+  assert.ok(/F\.collection\(db, "reportes"\)/.test(src));
+  assert.ok(/estado: "nuevo"/.test(src));
+  assert.ok(/tipo: modo/.test(src));
+});
+prueba("la nota dice ANTES de mandar que contesta una IA, cuándo y qué viaja", () => {
+  const src = fs.readFileSync("sugerir.js", "utf8");
+  const nota = /class="gris nota-ia">([\s\S]*?)<\/p>/.exec(src)[1];
+  for (const x of ["una IA", "cada mañana", "panel", "hasta un día", "tu nombre"]) assert.ok(nota.includes(x), x);
+});
+prueba("un pedido tiene urgencia y una falla gravedad, nunca al revés", () => {
+  const src = fs.readFileSync("sugerir.js", "utf8");
+  assert.ok(/pedido: \{[^}]*campo: "urgencia"/.test(src));
+  assert.ok(/falla:  \{[^}]*campo: "gravedad"/.test(src));
+});
+prueba("la regla de reportes exige que el uid sea el de quien escribe", () => {
+  const b = /match \/reportes\/\{id\} \{([\s\S]*?)\n    \}/.exec(fs.readFileSync("firestore.rules", "utf8"))[1];
+  assert.ok(/request\.resource\.data\.uid == request\.auth\.uid/.test(b));
+  assert.ok(/estado == 'nuevo'/.test(b));
+  assert.ok(!/allow (update|delete)/.test(b));
+});
+
 titulo("La pantalla, el HTML y las reglas");
 const html = fs.readFileSync("index.html", "utf8");
-const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js"];
+const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js", "sugerir.js"];
 const app = MODULOS.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 const reglas = fs.readFileSync("firestore.rules", "utf8");
 prueba("cada id que buscan las vistas existe en index.html", () => {
   const ids = [...app.matchAll(/\$\("([\w-]+)"\)/g)].map((m) => m[1]);
-  const faltan = [...new Set(ids)].filter((id) => !html.includes(`id="${id}"`) && !app.includes(`id="${id}"`));
+  // Un id puede nacer en el HTML, en una plantilla (id="x") o en un
+  // createElement con Object.assign ({ id: "x" }).
+  const faltan = [...new Set(ids)].filter((id) => !html.includes(`id="${id}"`) && !app.includes(`id="${id}"`) && !app.includes(`id: "${id}"`));
   assert.deepEqual(faltan, []);
 });
 prueba("los tipos del HTML, de las reglas y de nucleo.js son los mismos", () => {

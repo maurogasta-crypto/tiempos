@@ -1,13 +1,15 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v4, 29-sep-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v5, 29-sep-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
 //  v4: los acuerdos de tiempo (`bloques`), la plata (`movimientos`,
 //      `recurrentes`), lo que propone el agente (`propuestas`) y sus
 //      observaciones (`auditoria`).
+//  v5: el globo 💡 — una sugerencia o una falla, a `reportes` (el mismo
+//      circuito de los sitios: la ronda diaria los lleva al panel).
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -233,6 +235,22 @@ service cloud.firestore {
       allow create: if esAgente();
       allow update: if esPersona()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['respuestas', 'vistoPor']);
+    }
+
+    // ── v5 · Sugerencias y fallas (el globo 💡) ────────────────────────
+    // Lo escribe cualquiera de los dos, a su nombre y en estado 'nuevo'; lo
+    // lee el agente en la ronda y lo pasa al panel. Cada uno ve lo suyo, para
+    // saber que llegó. El agente no lo escribe: lo que ya trajo se sabe por
+    // el `origen` del pendiente en el panel, como en los sitios.
+    match /reportes/{id} {
+      allow create: if esPersona()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.estado == 'nuevo'
+        && request.resource.data.tipo in ['pedido', 'falla']
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() > 0
+        && request.resource.data.texto.size() <= 2000;
+      allow read: if esAgente() || (esPersona() && resource.data.uid == request.auth.uid);
     }
   }
 }
