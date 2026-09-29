@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // firebase-init.js — El único contacto con Firebase. Dos bases, un SDK.
-// Sello: init-1
+// Sello: init-2
 //
 // ── LAS DOS BASES ────────────────────────────────────────────────────────────
 // · `tiempos-71d42` — la de la familia: tareas, sesiones y (después) el
@@ -41,7 +41,7 @@ const CONFIG = {
 
 /* Enlaces vivos: `undefined` hasta que `cargar()` los rellena. */
 export let db, auth, F;          // F: las funciones del SDK (doc, query, …)
-export let CV = null;            // { mod, Core } de Casa Verde, o null si no bajó
+export let CV = null;            // { mod, Core, CV2 } de Casa Verde, o null si no bajó
 export let errorCasaVerde = "";
 
 let promesa = null;
@@ -74,7 +74,13 @@ export function cargar() {
       const mod = await import(CASA_VERDE + "firebase-init.js");
       await mod.cargarFirebase();
       const { Core } = await import(CASA_VERDE + "actividades-core.js");
-      CV = { mod, Core };
+      // init-2: el núcleo de Casa Verde, para subir las boletas con SU
+      // `subirImagen` (comprime y va a su Cloudinary) y leerlas con SU
+      // función de IA (`CV2.NETLIFY`). Si no baja, Tiempos anda igual: sólo
+      // no hay fotos ni lectura automática.
+      let CV2 = null;
+      try { ({ CV2 } = await import(CASA_VERDE + "nucleo.js")); } catch { CV2 = null; }
+      CV = { mod, Core, CV2 };
     } catch (e) {
       CV = null;
       errorCasaVerde = "No se pudo cargar Casa Verde: " + (e && e.message || e);

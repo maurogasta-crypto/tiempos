@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-2
+/* estilos.css — Tiempos. Sello: estilos-3
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -144,3 +144,22 @@ body.arrastrando-algo { user-select:none; -webkit-user-select:none; }
 .cotidiana { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; }
 .cotidiana label.check { flex:1; } .cotidiana .obs { flex-basis:100%; }
 .mini.nota { font-size:.75rem; padding:.2rem .5rem; }
+
+/* ── estilos-3: plata, balance, auditoría ─────────────────────────────────── */
+.aviso-ir { display:block; width:100%; text-align:left; font:inherit; color:var(--texto); background:color-mix(in srgb, var(--acento) 22%, var(--tinta2));
+  border:1px solid var(--acento); border-radius:10px; padding:.6rem .8rem; margin:6px 0; }
+.botones.grandes { margin:12px 0; } .botones.grandes .boton { flex:1; }
+.boton-archivo { cursor:pointer; display:inline-block; }
+.boleta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px; }
+.monto-chico { width:90px; display:inline-block; padding:.4rem; margin:0; }
+.fila.mov { cursor:pointer; } .fila.mov.entro .num { color:var(--ok); }
+.fecha-chica { flex:0 0 26px; text-align:center; font-weight:700; color:var(--gris); }
+.clip { text-decoration:none; }
+.persona-bal { padding:6px 0; border-bottom:1px solid var(--linea); }
+.persona-bal .barra-fila, .disp .barra-fila { grid-template-columns:1fr auto; }
+.persona-bal .barra-fila small, .disp .barra-fila small { grid-column:1 / -1; margin-top:-4px; }
+.fila.auto { flex-wrap:wrap; } .fila.auto .txt { flex-basis:100%; }
+.bloque { border-left:4px solid var(--c); background:var(--tinta2); border-radius:0 10px 10px 0; padding:8px 10px; margin:6px 0; font-size:.92rem; }
+.bloque-dia { background:color-mix(in srgb, var(--acento) 14%, transparent); }
+.audit { padding:6px 0; border-top:1px solid var(--linea); font-size:.92rem; } .audit.ojo span { color:var(--mal); }
+.nota-audit.vista { opacity:.7; }

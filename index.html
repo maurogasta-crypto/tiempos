@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex">
 <title>Tiempos</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilos.css?v=2">
+<link rel="stylesheet" href="estilos.css?v=3">
 </head>
 <body>
 <header id="barra"><span class="marca">Tiempos</span><span id="quien" class="gris"></span></header>
@@ -44,7 +44,8 @@
       <button data-solapa="agenda" role="tab" aria-selected="false">Agenda</button>
       <button data-solapa="tareas" role="tab" aria-selected="false">Tareas</button>
       <button data-solapa="chicos" role="tab" aria-selected="false">Chicos</button>
-      <button data-solapa="horas" role="tab" aria-selected="false">Horas</button>
+      <button data-solapa="plata" role="tab" aria-selected="false">Plata</button>
+      <button data-solapa="balance" role="tab" aria-selected="false">Balance</button>
     </nav>
     <div id="crono" class="tarjeta"></div>
     <div id="cuidado" class="tarjeta chica"></div>
@@ -82,12 +83,13 @@
     </div>
 
     <div id="v-chicos" hidden></div>
-    <div id="v-horas" hidden></div>
+    <div id="v-plata" hidden></div>
+    <div id="v-balance" hidden></div>
 
-    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-3</span></p>
+    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-4</span></p>
   </section>
 </main>
-<script type="module" src="app.js?v=3"></script>
+<script type="module" src="app.js?v=4"></script>
 <script>
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

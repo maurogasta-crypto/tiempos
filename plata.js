@@ -1,0 +1,283 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-1
+//
+// Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
+// disponible y se registren los gastos, usando los mismos recursos que tiene
+// Casa Verde para los gastos, con las fotos de las boletas, además de
+// registrar pagos automáticos… la IA debe ayudar a que la información sea
+// consistente y lo más detallada posible».
+//
+// ── LOS RECURSOS DE CASA VERDE, USADOS Y NO COPIADOS ────────────────────────
+// · La foto: `CV2.subirImagen` de su núcleo (comprime y sube a su Cloudinary,
+//   carpeta `tiempos`). Se sube AL GUARDAR, no al elegirla: si no, cada foto
+//   que se mira y se descarta queda huérfana en Cloudinary, y sin `api_secret`
+//   nadie la puede borrar desde acá.
+// · La lectura: su función de IA (`CV2.NETLIFY + "/claude-proxy"`), la misma
+//   que lee facturas en Casa Verde. Lo que devuelve es una SUGERENCIA: llena
+//   el formulario y la persona lo corrige antes de guardar.
+//
+// ── LO QUE PROPONE EL AGENTE ────────────────────────────────────────────────
+// Un gasto que aparece en un chat o en un WhatsApp llega como `propuesta`:
+// arriba de todo, con lo que la IA ya entendió, editable. «Aprobar» escribe el
+// movimiento de verdad; el agente nunca lo escribe solo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { db, F, CV } from "./firebase-init.js";
+import { esc, MONEDAS, CATEGORIAS, validarMovimiento, disponible, automaticosPendientes,
+         leerSugerencia, esISO, MESES, TIPOS } from "./nucleo.js";
+import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
+
+let mesVisto = null;              // "2026-09"
+let form = null;                  // null | { id?, tipo, datos, archivo?, leyendo? }
+let editandoProp = {};            // id de propuesta → datos editados
+
+const fmt = (n) => (Math.round(n * 100) / 100).toLocaleString("es", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const nombreMes = (m) => `${MESES[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`;
+const sumarMes = (m, n) => { const d = new Date(Number(m.slice(0, 4)), Number(m.slice(5)) - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+const categoriasDe = (tipo) => Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === tipo);
+
+export function pintarPlata() {
+  const v = $("v-plata");
+  if (!mesVisto) mesVisto = E.hoy.slice(0, 7);
+  const movs = E.movs || [];
+  const delMes = movs.filter((m) => String(m.fecha || "").slice(0, 7) === mesVisto)
+    .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const total = disponible(movs);
+  const mes = disponible(movs, { desde: mesVisto + "-01", hasta: mesVisto + "-31" });
+  const props = (E.propuestas || []).filter((p) => p.estado === "pendiente");
+  const autos = automaticosPendientes(E.recurrentes, movs, E.hoy);
+
+  let h = "";
+  // Disponible: el saldo de siempre, por moneda.
+  h += `<div class="tarjeta disp"><h3>Disponible</h3>${Object.keys(total).length
+    ? Object.entries(total).map(([mon, d]) => `<div class="barra-fila"><span>${mon}</span><b class="num">${fmt(d.saldo)}</b><small class="gris">entró ${fmt(d.entro)} · salió ${fmt(d.salio)}</small></div>`).join("")
+    : `<p class="gris">Todavía no hay movimientos. Empezá cargando lo que hay: «＋ Entrada».</p>`}</div>`;
+
+  if (props.length) h += `<h2>Por aprobar (${props.length})</h2>` + props.map(propuestaHTML).join("");
+  if (autos.length) h += `<h2>Pagos automáticos de este mes</h2>` + autos.map((r) => `<div class="fila auto">
+      <span class="txt"><b>${esc(r.titulo || "Pago")}</b> <small class="gris">${esc((CATEGORIAS[r.categoria] || {}).nombre || "")} · vence el ${Number(r.fecha.slice(8))}</small></span>
+      <input class="monto-chico" type="number" step="0.01" data-auto-monto="${esc(r.id)}" value="${esc(r.monto)}"> <span>${esc(r.moneda)}</span>
+      <button class="mini ok" data-auto-ok="${esc(r.id)}">Pagado</button><button class="mini" data-auto-no="${esc(r.id)}">Este mes no</button></div>`).join("");
+
+  h += `<div class="botones grandes"><button class="boton" data-nuevo="salio">＋ Gasto</button><button class="boton sec" data-nuevo="entro">＋ Entrada</button></div>`;
+  if (form) h += formHTML();
+
+  h += `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`;
+  h += Object.entries(mes).map(([mon, d]) => `<p class="gris">${mon}: entró ${fmt(d.entro)}, salió ${fmt(d.salio)} — mantenimiento ${fmt(d.mantenimiento)}, chicos ${fmt(d.chicos)}, personal ${fmt(d.personal)}.</p>`).join("");
+  h += delMes.length ? delMes.map((m) => {
+    const c = CATEGORIAS[m.categoria] || {};
+    return `<div class="fila mov${c.tipo === "entro" ? " entro" : ""}" data-editar-mov="${esc(m.id)}">
+      <span class="fecha-chica">${Number(String(m.fecha).slice(8))}</span>
+      <span class="txt"><b>${esc(m.comercio || m.detalle || c.nombre || "—")}</b>
+        <small class="gris">${esc(c.nombre || m.categoria)}${m.comercio && m.detalle ? " · " + esc(m.detalle) : ""}${m.uid ? " · " + esc(nombreDe(m.uid)) : ""}${m.automatico ? " · automático" : ""}${m.origen === "propuesta" ? " · del chat" : ""}</small></span>
+      ${m.comprobanteUrl ? `<a href="${esc(m.comprobanteUrl)}" target="_blank" rel="noopener" class="clip" title="Boleta">📎</a>` : ""}
+      <span class="num">${c.tipo === "entro" ? "+" : "−"}${fmt(Number(m.monto))} ${esc(m.moneda)}</span></div>`;
+  }).join("") : `<p class="gris">Nada en ${esc(nombreMes(mesVisto))}.</p>`;
+
+  if ((E.recurrentes || []).length) h += `<details class="tarjeta"><summary><b>Pagos automáticos</b> (${E.recurrentes.length})</summary>
+    ${E.recurrentes.map((r) => `<div class="fila"><span class="txt">${esc(r.titulo)} <small class="gris">el ${esc(r.dia)} de cada mes · ${fmt(Number(r.monto))} ${esc(r.moneda)}${r.activo === false ? " · pausado" : ""}</small></span>
+      <button class="mini" data-rec-pausa="${esc(r.id)}">${r.activo === false ? "Reanudar" : "Pausar"}</button><button class="mini" data-rec-borrar="${esc(r.id)}">Borrar</button></div>`).join("")}</details>`;
+  v.innerHTML = h;
+  enganchar(v, autos);
+}
+
+/* ── Una propuesta del agente, editable antes de aprobar ──────────────────── */
+function propuestaHTML(p) {
+  const d = { ...(p.datos || {}), ...(editandoProp[p.id] || {}) };
+  const cab = `<p class="gris">${esc(p.fuente === "whatsapp" ? "De un WhatsApp" : "Del chat")}${p.resumen ? ": «" + esc(p.resumen) + "»" : ""}</p>`;
+  if (p.clase === "gasto") {
+    const tipo = (CATEGORIAS[d.categoria] || {}).tipo || d.tipo || "salio";
+    return `<form class="tarjeta ficha prop" data-prop="${esc(p.id)}">${cab}${campos(d, tipo)}
+      ${(p.dudas || []).length ? `<p class="aviso">La IA no está segura de: ${p.dudas.map(esc).join(", ")}.</p>` : ""}
+      <div class="botones"><button class="boton">Aprobar</button><button type="button" class="mini" data-descartar="${esc(p.id)}">Descartar</button></div></form>`;
+  }
+  const que = p.clase === "tarea" ? `Tarea: <b>${esc(d.titulo || "")}</b> <small class="gris">${esc((TIPOS[d.tipo] || {}).nombre || "")}</small>`
+    : p.clase === "evento" ? `Actividad de los chicos: <b>${esc(d.titulo || "")}</b> <small class="gris">${esc(d.fecha || "")} ${esc(d.hora || "")}${d.semanal ? " · todas las semanas" : ""}</small>`
+    : esc(p.clase);
+  return `<div class="tarjeta ficha prop">${cab}<p>${que}</p>
+    <div class="botones"><button class="boton" data-aprobar-otra="${esc(p.id)}">Aprobar</button><button class="mini" data-descartar="${esc(p.id)}">Descartar</button></div></div>`;
+}
+
+function campos(d, tipo) {
+  const hoy = E.hoy;
+  return `<div class="dos"><label>Monto <input name="monto" type="number" step="0.01" min="0" required value="${esc(d.monto ?? "")}"></label>
+      <label>Moneda <select name="moneda">${MONEDAS.map((m) => `<option${(d.moneda || "BRL") === m ? " selected" : ""}>${m}</option>`).join("")}</select></label></div>
+    <div class="dos"><label>Fecha <input name="fecha" type="date" required value="${esc(esISO(d.fecha) ? d.fecha : hoy)}"></label>
+      <label>Categoría <select name="categoria" required><option value="">—</option>${categoriasDe(tipo).map(([k, c]) => `<option value="${k}"${d.categoria === k ? " selected" : ""}>${esc(c.nombre)}</option>`).join("")}</select></label></div>
+    <label>${tipo === "entro" ? "De dónde" : "Comercio"} <input name="comercio" maxlength="80" value="${esc(d.comercio || "")}"></label>
+    <label>Detalle <input name="detalle" maxlength="300" value="${esc(d.detalle || "")}" placeholder="qué fue, para quién"></label>
+    <label>${tipo === "entro" ? "Lo recibió" : "Pagó"} <select name="uid">${personas().map((p) => `<option value="${esc(p.id)}"${(d.uid || E.yo.uid) === p.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label>`;
+}
+
+/* ── El formulario de un movimiento ───────────────────────────────────────── */
+function formHTML() {
+  const tipo = form.tipo, d = form.datos || {};
+  const hayCV2 = !!(CV && CV.CV2);
+  return `<form class="tarjeta ficha" id="form-mov"><h3>${form.id ? "Editar" : tipo === "entro" ? "Entrada de plata" : "Gasto"}</h3>
+    ${tipo === "salio" ? `<div class="boleta">${hayCV2 ? `
+      <label class="mini boton-archivo">📷 Sacar foto<input type="file" accept="image/*" capture="environment" data-foto hidden></label>
+      <label class="mini boton-archivo">🖼 Elegir archivo<input type="file" accept="image/*" data-foto hidden></label>` : `<small class="gris">Sin Casa Verde no se pueden subir boletas.</small>`}
+      ${form.archivo ? `<small>${esc(form.archivo.name)} ${form.leyendo ? "· leyendo con IA…" : form.leida ? "· leída: revisá los datos" : ""}</small>` : d.comprobanteUrl ? `<a href="${esc(d.comprobanteUrl)}" target="_blank" rel="noopener">📎 boleta</a>` : ""}
+    </div>` : ""}
+    ${campos(d, tipo)}
+    ${!form.id && tipo === "salio" ? `<label class="check"><input type="checkbox" name="auto"> Es un pago automático: se repite todos los meses</label>` : ""}
+    <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-cerrar-form>Cancelar</button>
+      ${form.id ? `<button type="button" class="mini" data-borrar-mov="${esc(form.id)}">Borrar</button>` : ""}</div></form>`;
+}
+
+const leerCampos = (f) => ({
+  monto: Math.round(Number(f.monto.value) * 100) / 100, moneda: f.moneda.value, fecha: f.fecha.value,
+  categoria: f.categoria.value, comercio: f.comercio.value.trim(), detalle: f.detalle.value.trim(), uid: f.uid.value,
+});
+
+/* La boleta, leída por la IA de Casa Verde. Nunca bloquea: si no anda, se
+   completa a mano. */
+async function leerBoleta(file) {
+  const CV2 = CV.CV2;
+  const blob = await CV2.comprimirImagen(file);
+  const data = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = mal; r.readAsDataURL(blob); });
+  const cats = Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === "salio").map(([k, c]) => `${k} (${c.nombre})`).join(", ");
+  const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "gemini-2.5-flash", max_tokens: 600, messages: [{ role: "user", content: [
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data } },
+      { type: "text", text: `Es una boleta o comprobante de un gasto de una familia en Brasil o Uruguay. Devolvé SOLO un JSON, sin texto alrededor:
+{"monto": número total pagado, "moneda": "BRL" | "UYU" | "USD", "fecha": "AAAA-MM-DD", "comercio": nombre del comercio, "categoria": una de [${cats}], "detalle": qué se compró, en pocas palabras}.
+Si un dato no se lee con seguridad, dejalo vacío (""). No inventes.` }] }] }),
+  });
+  if (!r.ok) throw new Error("la IA contestó " + r.status);
+  const j = await r.json();
+  return leerSugerencia(((j.content || [])[0] || {}).text);
+}
+
+async function guardarMovimiento(f) {
+  const d = leerCampos(f);
+  const tipo = form.tipo;
+  const err = validarMovimiento({ ...d, tipo });
+  if (err.length) return aviso("Falta: " + err.join("; ") + ".", true);
+  let comprobanteUrl = (form.datos || {}).comprobanteUrl || null;
+  if (form.archivo) {
+    aviso("Subiendo la boleta…");
+    try { comprobanteUrl = await CV.CV2.subirImagen(form.archivo, "tiempos"); }
+    catch (e) { return aviso("No se pudo subir la boleta: " + e.message + ". No se guardó nada.", true); }
+  }
+  const base = { ...d, comprobanteUrl, actualizadoEn: F.serverTimestamp() };
+  if (form.id) await F.updateDoc(F.doc(db, "movimientos", form.id), { ...base, editadoPor: E.yo.uid });
+  else {
+    let automatico = null;
+    if (f.auto && f.auto.checked) {
+      const r = await F.addDoc(F.collection(db, "recurrentes"), { titulo: d.comercio || d.detalle || "Pago automático",
+        monto: d.monto, moneda: d.moneda, categoria: d.categoria, dia: Number(d.fecha.slice(8)), desde: d.fecha,
+        activo: true, saltados: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
+      automatico = r.id;
+    }
+    await F.addDoc(F.collection(db, "movimientos"), { ...base, automatico, origen: form.archivo ? "foto" : "app",
+      creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
+  }
+  form = null;
+  aviso("Guardado.");
+  repintar();
+}
+
+function enganchar(v, autos) {
+  const todos = (sel, fn) => { for (const el of v.querySelectorAll(sel)) fn(el); };
+  todos("[data-mes]", (b) => b.onclick = () => { mesVisto = sumarMes(mesVisto, Number(b.dataset.mes)); repintar(); });
+  todos("[data-nuevo]", (b) => b.onclick = () => {
+    form = { tipo: b.dataset.nuevo, datos: { categoria: b.dataset.nuevo === "entro" ? "ingreso" : "" } }; repintar();
+  });
+  todos("[data-cerrar-form]", (b) => b.onclick = () => { form = null; repintar(); });
+  todos("[data-editar-mov]", (el) => el.onclick = (ev) => {
+    if (ev.target.closest("a")) return;
+    const m = (E.movs || []).find((x) => x.id === el.dataset.editarMov); if (!m) return;
+    form = { id: m.id, tipo: (CATEGORIAS[m.categoria] || {}).tipo || "salio", datos: m }; repintar(); scrollTo(0, 0);
+  });
+  todos("[data-borrar-mov]", (b) => b.onclick = () => {
+    if (!confirm("¿Borrar este movimiento?")) return;
+    F.deleteDoc(F.doc(db, "movimientos", b.dataset.borrarMov)).then(() => { form = null; repintar(); }).catch(fallo);
+  });
+  todos("[data-foto]", (inp) => inp.onchange = async () => {
+    const file = inp.files && inp.files[0]; if (!file) return;
+    const f = $("form-mov");
+    form.datos = { ...form.datos, ...leerCamposSueltos(f) };
+    form.archivo = file; form.leyendo = true; form.leida = false; repintar();
+    try {
+      const s = await leerBoleta(file);
+      if (s) for (const [k, val] of Object.entries(s)) if (val !== "" && !form.datos[k]) form.datos[k] = val;
+      form.leida = !!s;
+      if (!s) aviso("La IA no pudo leer la boleta: completala a mano.", true);
+    } catch (e) { aviso("No se pudo leer con IA (" + e.message + "): completala a mano.", true); }
+    form.leyendo = false; repintar();
+  });
+  const f = $("form-mov");
+  if (f) f.onsubmit = (ev) => { ev.preventDefault(); guardarMovimiento(f).catch(fallo); };
+
+  todos("[data-auto-ok]", (b) => b.onclick = () => {
+    const r = autos.find((x) => x.id === b.dataset.autoOk);
+    const monto = Math.round(Number(v.querySelector(`[data-auto-monto="${r.id}"]`).value) * 100) / 100;
+    if (!(monto > 0)) return aviso("Poné el monto que se pagó.", true);
+    F.addDoc(F.collection(db, "movimientos"), { monto, moneda: r.moneda, fecha: r.fecha, categoria: r.categoria || "casa",
+      comercio: r.titulo || "", detalle: "pago automático", uid: E.yo.uid, automatico: r.id, comprobanteUrl: null,
+      origen: "automatico", creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() }).then(() => aviso("Registrado.")).catch(fallo);
+  });
+  todos("[data-auto-no]", (b) => b.onclick = () =>
+    F.updateDoc(F.doc(db, "recurrentes", b.dataset.autoNo), { saltados: F.arrayUnion(E.hoy.slice(0, 7)) }).catch(fallo));
+  todos("[data-rec-pausa]", (b) => b.onclick = () => {
+    const r = E.recurrentes.find((x) => x.id === b.dataset.recPausa);
+    F.updateDoc(F.doc(db, "recurrentes", r.id), { activo: r.activo === false }).catch(fallo);
+  });
+  todos("[data-rec-borrar]", (b) => b.onclick = () => {
+    if (confirm("¿Borrar este pago automático? Lo ya registrado queda.")) F.deleteDoc(F.doc(db, "recurrentes", b.dataset.recBorrar)).catch(fallo);
+  });
+
+  // Propuestas del agente
+  todos("[data-prop]", (fp) => {
+    const id = fp.dataset.prop;
+    fp.oninput = () => { editandoProp[id] = leerCamposSueltos(fp); };
+    fp.onsubmit = async (ev) => {
+      ev.preventDefault();
+      const d = leerCampos(fp);
+      const tipo = (CATEGORIAS[d.categoria] || {}).tipo;
+      const err = validarMovimiento({ ...d, tipo });
+      if (err.length) return aviso("Falta: " + err.join("; ") + ".", true);
+      try {
+        const r = await F.addDoc(F.collection(db, "movimientos"), { ...d, comprobanteUrl: null, automatico: null,
+          origen: "propuesta", propuestaId: id, creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
+        await decidir(id, "aprobada", r.id);
+        aviso("Aprobado y registrado.");
+      } catch (e) { fallo(e); }
+    };
+  });
+  todos("[data-aprobar-otra]", (b) => b.onclick = () => aprobarOtra(b.dataset.aprobarOtra).catch(fallo));
+  todos("[data-descartar]", (b) => b.onclick = () => decidir(b.dataset.descartar, "descartada").catch(fallo));
+}
+
+const leerCamposSueltos = (f) => {
+  const o = {};
+  for (const n of ["monto", "moneda", "fecha", "categoria", "comercio", "detalle", "uid"]) if (f[n] && f[n].value !== "") o[n] = n === "monto" ? Number(f[n].value) : f[n].value;
+  return o;
+};
+
+async function decidir(id, estado, resultadoId = null) {
+  delete editandoProp[id];
+  await F.updateDoc(F.doc(db, "propuestas", id), { estado, decididoPor: E.yo.uid, decididoEn: F.serverTimestamp(), resultadoId });
+}
+
+/* Una tarea o una actividad propuestas: se crean con lo que trae, y se
+   corrigen después en su solapa, que ya sabe editarlas. */
+export async function aprobarOtra(id) {
+  const p = (E.propuestas || []).find((x) => x.id === id); if (!p) return;
+  const d = p.datos || {};
+  let r;
+  if (p.clase === "tarea") {
+    r = await F.addDoc(F.collection(db, "tareas"), { titulo: String(d.titulo || "").slice(0, 120) || "(sin título)",
+      tipo: TIPOS[d.tipo] ? d.tipo : "casa", alcance: "comun", duenio: E.yo.uid, parentId: null, hecho: false,
+      encargados: [], meta: null, detalle: String(d.detalle || "").slice(0, 2000), creadoEn: F.serverTimestamp() });
+  } else if (p.clase === "evento") {
+    if (!d.titulo || !esISO(d.fecha)) return aviso("A esa actividad le falta el nombre o la fecha: cargala a mano en Chicos.", true);
+    r = await F.addDoc(F.collection(db, "eventos"), { titulo: String(d.titulo).slice(0, 120), fecha: d.fecha, hora: d.hora || "",
+      horaFin: d.horaFin || "", semanal: !!d.semanal, ninos: Array.isArray(d.ninos) ? d.ninos : [], quienes: Array.isArray(d.quienes) ? d.quienes : [],
+      nota: String(d.nota || "").slice(0, 300), excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
+  } else return aviso("No sé aprobar eso desde acá.", true);
+  await decidir(id, "aprobada", r.id);
+  aviso("Aprobado.");
+}

@@ -14,7 +14,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          quePuedoArrancar, semanaDe, fmtHoras, esc, isoDe, sumarDias, lunesDe, semanaISO,
          grillaDelMes, chicosDelDia, eventosDelDia, COTIDIANAS, progresoDia, alternarEncargado,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
-         separarEnCurso } from "./nucleo.js";
+         separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
+         validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -46,12 +47,11 @@ prueba("cuenta en la semana en que EMPEZÓ, aunque termine después", () => {
 });
 
 titulo("La carga y el reparto (la regla de Mauro)");
-prueba("carga = producción + mantenimiento + ½ chicos; casa y personal no", () => {
-  assert.equal(cargaDe({ produccion: 2, mantenimiento: 1, ninos: 3, casa: 5, personal: 8 }), 4.5);
+prueba("carga = producción + mantenimiento + chicos; casa y personal no", () => {
+  assert.equal(cargaDe({ produccion: 2, mantenimiento: 1, ninos: 3, casa: 5, personal: 8 }), 6);
 });
-prueba("«con los chicos paso a estar contado en mitad de lo productivo»: el peso es ½", () => {
-  assert.equal(TIPOS.ninos.peso, 0.5);
-  assert.equal(TIPOS.produccion.peso, 1);
+prueba("«a cargo de los chicos es equiparable a producir»: el peso es 1", () => {
+  assert.equal(TIPOS.ninos.peso, 1);
 });
 prueba("«yo trabajo y Flor está con los chicos»: costo neutro, mitad y mitad", () => {
   const r = repartir({ BRL: { entro: 1000, mantenimiento: 300, chicos: 100 } }, { m: 40, f: 40 });
@@ -253,9 +253,127 @@ prueba("estar con los chicos no ocupa el lugar del reloj de tarea", () => {
   assert.deepEqual(separarEnCurso([]), { tarea: null, cuidado: null });
 });
 
+titulo("El balance del tiempo (la regla del 29-sep)");
+const h = (n) => n * 3600000;
+const I = (uid, a, b, clase, ninos = 0) => ({ uid, desdeMs: h(a), hastaMs: h(b), clase, ninos });
+prueba("semana de trabajo afuera: uno produce, el otro con los dos chicos → neutro, nadie gasta cupo", () => {
+  const r = balanceTiempo({ uids: ["m", "f"], totalNinos: 2, intervalos: [I("m", 0, 100, "productivo"), I("f", 0, 100, "chicos", 2)] });
+  assert.equal(r.por.m.carga, 100); assert.equal(r.por.f.carga, 100);
+  assert.equal(r.por.m.liberado, 0); assert.equal(r.por.f.liberado, 0);
+  assert.equal(r.masLiberado, null);
+});
+prueba("uno con los dos chicos y el otro SIN tarea productiva: al otro se le cuenta tiempo liberado", () => {
+  const r = balanceTiempo({ uids: ["m", "f"], totalNinos: 2, intervalos: [I("f", 0, 5, "chicos", 2), I("m", 3, 5, "productivo")] });
+  assert.equal(r.por.m.liberado, 3); assert.equal(r.por.m.carga, 2);
+  assert.equal(r.masLiberado, "m"); assert.equal(r.diferencia, 3);
+});
+prueba("con UNO solo de los chicos no libera al otro: tiene que ser con los dos", () => {
+  const r = balanceTiempo({ uids: ["m", "f"], totalNinos: 2, intervalos: [I("f", 0, 5, "chicos", 1)] });
+  assert.equal(r.por.m.liberado, 0);
+});
+prueba("estar con los chicos mientras se hace otra cosa ya es carga, y no cuenta doble", () => {
+  const r = balanceTiempo({ uids: ["m", "f"], totalNinos: 2, intervalos: [I("m", 0, 4, "chicos", 2), I("m", 1, 3, "productivo")] });
+  assert.equal(r.por.m.carga, 4); assert.equal(r.por.m.productivo, 2); assert.equal(r.por.m.conChicos, 4);
+});
+prueba("el cupo se gasta en algo personal SIN los chicos; con los chicos no se gasta", () => {
+  const r = balanceTiempo({ uids: ["m", "f"], totalNinos: 2, intervalos: [I("m", 0, 2, "libre"), I("f", 0, 2, "libre"), I("f", 0, 2, "chicos", 1)] });
+  assert.equal(r.por.m.liberado, 2); assert.equal(r.por.f.liberado, 0); assert.equal(r.por.f.carga, 2);
+});
+prueba("sólo cuenta lo que cae en el rango pedido", () => {
+  const r = balanceTiempo({ uids: ["m"], totalNinos: 2, intervalos: [I("m", 0, 10, "productivo")], desdeMs: h(8), hastaMs: h(20) });
+  assert.equal(r.por.m.carga, 2);
+});
+prueba("sin chicos cargados, nadie libera a nadie por estar «con todos»", () => {
+  const r = balanceTiempo({ uids: ["m", "f"], totalNinos: 0, intervalos: [I("f", 0, 5, "chicos", 0)] });
+  assert.equal(r.por.m.liberado, 0);
+});
+
+titulo("Los acuerdos de tiempo (bloques)");
+const B = { uid: "m", clase: "productivo", desde: "2026-10-06T08:00", hasta: "2026-10-10T20:00" };
+prueba("antes es un acuerdo, durante está en curso, después espera a los dos", () => {
+  assert.equal(estadoBloque(B, ["m", "f"], msDeLocal("2026-10-01T10:00")), "acordado");
+  assert.equal(estadoBloque(B, ["m", "f"], msDeLocal("2026-10-07T10:00")), "en curso");
+  assert.equal(estadoBloque(B, ["m", "f"], msDeLocal("2026-10-11T10:00")), "por confirmar");
+  assert.equal(estadoBloque({ ...B, confirmaciones: { m: true } }, ["m", "f"], msDeLocal("2026-10-11T10:00")), "por confirmar");
+  assert.equal(estadoBloque({ ...B, confirmaciones: { m: true, f: true } }, ["m", "f"], msDeLocal("2026-10-11T10:00")), "confirmado");
+  assert.equal(estadoBloque({ ...B, confirmaciones: { m: true, f: false } }, ["m", "f"], msDeLocal("2026-10-11T10:00")), "no se cumplió");
+  assert.equal(estadoBloque({ ...B, hasta: "2026-10-01T00:00" }, ["m"], 0), "mal cargado");
+});
+prueba("sólo un bloque confirmado entra al balance; a cada uno se le pide el suyo", () => {
+  const ahora = msDeLocal("2026-10-11T10:00");
+  const ivs = intervalosDe({ bloques: [B, { ...B, uid: "f", clase: "chicos", ninos: ["a", "b"], confirmaciones: { m: true, f: true } }], uids: ["m", "f"], ahoraMs: ahora });
+  assert.equal(ivs.length, 1); assert.equal(ivs[0].uid, "f"); assert.equal(ivs[0].ninos, 2);
+  assert.equal(bloquesPorConfirmar([B], "f", ["m", "f"], ahora).length, 1);
+  assert.equal(bloquesPorConfirmar([{ ...B, confirmaciones: { f: true } }], "f", ["m", "f"], ahora).length, 0);
+});
+prueba("los relojes se traducen: cuidado → chicos, producción → productivo, personal → libre, casa → nada", () => {
+  const ivs = intervalosDe({ ahoraMs: h(10), sesiones: [
+    { uid: "m", registro: "cuidado", ninos: ["a", "b"], estado: "en_curso", inicioMs: h(8) },
+    { uid: "m", tipo: "produccion", estado: "finalizada", inicioMs: h(1), finMs: h(3) },
+    { uid: "m", tipo: "personal", estado: "finalizada", inicioMs: h(4), horas: 1 },
+    { uid: "m", tipo: "casa", estado: "finalizada", inicioMs: h(5), horas: 1 }] });
+  assert.deepEqual(ivs.map((i) => i.clase), ["chicos", "productivo", "libre"]);
+  assert.equal(ivs[0].hastaMs, h(10)); assert.equal(ivs[0].ninos, 2); assert.equal(ivs[2].hastaMs, h(5));
+});
+
+titulo("La plata");
+prueba("un movimiento sin monto, moneda, fecha o categoría no pasa, y la categoría tiene que ir con el tipo", () => {
+  assert.deepEqual(validarMovimiento({ monto: 10, moneda: "BRL", fecha: "2026-09-29", categoria: "comida", tipo: "salio" }), []);
+  assert.equal(validarMovimiento({ monto: 0, moneda: "EUR", fecha: "ayer", categoria: "x" }).length, 4);
+  assert.equal(validarMovimiento({ monto: 5, moneda: "BRL", fecha: "2026-09-29", categoria: "ingreso", tipo: "salio" }).length, 1);
+});
+prueba("lo disponible es por moneda, y separa lo de mantenimiento, chicos y personal", () => {
+  const d = disponible([
+    { monto: 1000, moneda: "BRL", fecha: "2026-09-01", categoria: "ingreso" },
+    { monto: 200, moneda: "BRL", fecha: "2026-09-02", categoria: "comida" },
+    { monto: 50, moneda: "BRL", fecha: "2026-09-03", categoria: "actividades" },
+    { monto: 30, moneda: "BRL", fecha: "2026-09-04", categoria: "personal" },
+    { monto: 3000, moneda: "UYU", fecha: "2026-09-04", categoria: "ingreso" },
+    { monto: 99, moneda: "EUR", fecha: "2026-09-04", categoria: "comida" },
+    { monto: 10, moneda: "BRL", fecha: "2026-08-31", categoria: "comida" }], { desde: "2026-09-01" });
+  assert.equal(d.BRL.saldo, 720); assert.equal(d.BRL.mantenimiento, 200); assert.equal(d.BRL.chicos, 50); assert.equal(d.BRL.personal, 30);
+  assert.equal(d.UYU.saldo, 3000); assert.equal(d.EUR, undefined);
+});
+prueba("un pago automático pide confirmación pasado su día, una vez por mes", () => {
+  const R = [{ id: "luz", titulo: "Luz", monto: 150, moneda: "BRL", dia: 10, categoria: "casa" }, { id: "net", dia: 30, monto: 1, moneda: "BRL" }];
+  assert.deepEqual(automaticosPendientes(R, [], "2026-09-09").map((x) => x.id), []);
+  assert.deepEqual(automaticosPendientes(R, [], "2026-09-10").map((x) => x.id), ["luz"]);
+  assert.deepEqual(automaticosPendientes(R, [], "2026-09-28").map((x) => x.id), ["luz", "net"]);   // el 30 se pide el 28
+  assert.deepEqual(automaticosPendientes(R, [{ automatico: "luz", fecha: "2026-09-10" }], "2026-09-12").map((x) => x.id), []);
+  assert.deepEqual(automaticosPendientes([{ ...R[0], activo: false }], [], "2026-09-12"), []);
+  assert.deepEqual(automaticosPendientes([{ ...R[0], saltados: ["2026-09"] }], [], "2026-09-12"), []);
+});
+prueba("lo que lee la IA se toma con desconfianza: lo que no entiende queda vacío", () => {
+  const a = leerSugerencia('```json\n{"monto":"R$ 1.234,50","moneda":"brl","fecha":"2026-09-28","comercio":"Mercado","categoria":"comida"}\n```');
+  assert.equal(a.monto, 1234.5); assert.equal(a.moneda, "BRL"); assert.equal(a.categoria, "comida");
+  const b = leerSugerencia('{"monto":"doce","moneda":"EUR","fecha":"ayer","categoria":"vicios"}');
+  assert.deepEqual([b.monto, b.moneda, b.fecha, b.categoria], ["", "", "", ""]);
+  assert.equal(leerSugerencia("no pude leer la boleta"), null);
+  assert.equal(leerSugerencia('{"monto":"12.50"}').monto, 12.5);
+});
+prueba("las categorías cubren el reparto: entro, mantenimiento, chicos y personal", () => {
+  const r = new Set(Object.values(CATEGORIAS).map((c) => c.reparto));
+  for (const x of ["entro", "mantenimiento", "chicos", "personal"]) assert.ok(r.has(x), x);
+});
+
+titulo("La auditoría");
+prueba("encuentra relojes olvidados, gastos sin boleta, acuerdos sin confirmar y días vacíos", () => {
+  const out = auditar({ hoy: "2026-09-29", uids: ["m", "f"], ahoraMs: msDeLocal("2026-10-11T10:00"),
+    sesiones: [{ estado: "en_curso", inicioMs: msDeLocal("2026-10-10T08:00"), nombre: "Mauro" }, { estado: "finalizada", horas: 14, nombre: "Flor" },
+               { registro: "cuidado", ninos: [], estado: "finalizada", horas: 1 }],
+    movs: [{ categoria: "comida", monto: 5, detalle: "" }], bloques: [B], dias: { "2026-09-28": { hechos: { cena: { hecho: true } } } } });
+  const temas = out.map((x) => x.tema);
+  for (const t of ["relojes", "plata", "acuerdos", "cotidiano", "chicos"]) assert.ok(temas.includes(t), t);
+  assert.ok(out.some((x) => /6 sin ninguna/.test(x.texto)));
+});
+prueba("con todo en orden no inventa nada", () => {
+  const dias = {}; for (let i = 1; i <= 7; i++) dias[sumarDias("2026-09-29", -i)] = { hechos: { cena: { hecho: true } } };
+  assert.deepEqual(auditar({ hoy: "2026-09-29", dias, movs: [{ categoria: "comida", comprobanteUrl: "x", detalle: "pan" }] }), []);
+});
+
 titulo("La pantalla, el HTML y las reglas");
 const html = fs.readFileSync("index.html", "utf8");
-const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js"];
+const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js"];
 const app = MODULOS.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 const reglas = fs.readFileSync("firestore.rules", "utf8");
 prueba("cada id que buscan las vistas existe en index.html", () => {

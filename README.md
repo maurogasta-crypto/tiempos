@@ -8,11 +8,11 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (49 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (66 casos, sin npm, sin red) |
 
-## Qué hace (app-3)
+## Qué hace (app-4)
 
-Seis solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
+Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
 
 - **Ahora**: un solo cronómetro de tarea. Se elige una tarea de la familia o de
   Casa Verde y corre; mientras corre uno no arranca otro en ninguna de las dos
@@ -44,10 +44,32 @@ Seis solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en
   cambia tocándolo. Las **actividades** —básquet, kung fu, amigos, la
   psicóloga— se cargan acá, pueden repetirse cada semana, y las ven los dos
   siempre, las cargue quien las cargue.
-- **Horas**: las horas de cada uno por tipo, con Casa Verde como producción, y
-  la **carga**: producción + mantenimiento + **la mitad** del tiempo con los
-  chicos («cuando me dedico a los niños paso a estar contado en mitad de lo
-  productivo»). El número está en `TIPOS.ninos.peso`.
+- **Plata**: lo disponible por moneda (nunca se suman entre sí), los gastos y
+  las entradas del mes. Un gasto se carga con la **foto de la boleta** (cámara
+  o archivo), que la IA de Casa Verde lee y deja como sugerencia editable. Un
+  gasto puede ser **pago automático**: cada mes, pasado su día, pide que se
+  confirme el monto («Pagado» / «Este mes no»). Arriba, **Por aprobar**: lo que
+  el agente sacó de un chat o de un WhatsApp, ya completado y editable; recién
+  al aprobarlo se escribe.
+- **Balance**: la **carga** y el **tiempo liberado** de cada uno, en la semana
+  o el mes, con la regla del 29-sep (abajo). Los **acuerdos de tiempo** —«semana
+  de trabajo afuera», «me quedo con los dos»— se cargan antes y, cuando pasan,
+  se les pide a los dos que confirmen si se cumplió: recién entonces cuentan.
+  Debajo, las horas por tipo y la **auditoría**: lo que se revisa solo (relojes
+  olvidados, gastos sin boleta ni detalle, acuerdos sin confirmar, días sin
+  nada tildado) y las observaciones del agente, que se pueden contestar.
+
+### La regla del tiempo (29-sep-2026)
+
+- **Carga**: estar a cargo de los chicos —aunque se esté haciendo otra cosa— o
+  estar produciendo. Una vez, no dos.
+- **Tiempo liberado** (el cupo que se gasta): estar en algo personal sin los
+  chicos, **o** que el otro esté solo con los dos chicos mientras uno no está
+  produciendo.
+- Una semana de trabajo afuera con el otro a cargo de los dos es neutra: los dos
+  tienen carga, nadie gasta cupo.
+- Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
+  en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
 
 Los nombres de los chicos **no están en el código**: viven en la base
 (`familia/config`). Este repositorio es público.
@@ -56,7 +78,11 @@ Los nombres de los chicos **no están en el código**: viven en la base
 
 `firebase-init.js` importa `firebase-init.js` y `actividades-core.js` del sitio
 de Casa Verde. Arrancar, frenar y tildar son `Core.iniciar`, `Core.finalizar` y
-`Core.tildar`: los mismos que usa el panel de Casa Verde, no una copia.
+`Core.tildar`: los mismos que usa el panel de Casa Verde, no una copia. Desde
+app-4 también importa su `nucleo.js`, para subir las boletas con su
+`CV2.subirImagen` (a su Cloudinary, carpeta `tiempos`) y leerlas con su función
+de IA (`CV2.NETLIFY + "/claude-proxy"`). La foto se sube al guardar, no al
+elegirla, para no dejar huérfanos que nadie puede borrar.
 
 La app **no escribe nada de Casa Verde por su cuenta, salvo la agenda de cada
 uno** (`estado_usuario/{uid}.agenda`), con la misma forma que usa la agenda de
@@ -83,12 +109,14 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-2` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-3` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas, Horas | `app-3` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-4` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-1` |
+| `balance.js` | el balance del tiempo, los acuerdos, la auditoría | `balance-1` |
 | `agenda.js` | mi semana, arrastrando | `agenda-1` |
 | `familia.js` | Hoy y Chicos | `familia-1` |
-| `firebase-init.js` | el único contacto con las dos bases | `init-1` |
-| `estilos.css` | | `estilos-2` |
-| `sw.js` | el cascarón sin señal | `tiempos-3` |
-| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v3 |
+| `firebase-init.js` | el único contacto con las dos bases | `init-2` |
+| `estilos.css` | | `estilos-3` |
+| `sw.js` | el cascarón sin señal | `tiempos-4` |
+| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v4 |

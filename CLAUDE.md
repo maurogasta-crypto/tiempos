@@ -47,8 +47,18 @@ la documentación diga la verdad.
 - **Los nombres de los chicos no entran al código**: viven en
   `familia/config` de la base. El banco busca los nombres y falla si aparecen.
 - **Estar con los chicos es un reloj aparte, en paralelo** al de la tarea
-  (`registro: "cuidado"`). No bloquea ni es bloqueado. En la carga pesa la
-  mitad (`TIPOS.ninos.peso`), por lo que dijo Mauro el 29-sep.
+  (`registro: "cuidado"`). No bloquea ni es bloqueado. Estar a cargo de los
+  chicos **es carga, igual que producir** (app-4 corrigió el «½» de app-3 con
+  las palabras de Mauro); la cuenta fina es `balanceTiempo` de `nucleo.js`.
+- **Un acuerdo de tiempo cuenta sólo cuando los dos lo confirman**, y cada uno
+  firma sólo lo suyo (lo exige la regla de `bloques`). Un acuerdo a futuro es
+  una promesa, no un hecho.
+- **El agente no escribe plata: la PROPONE.** Crea `propuestas` (y
+  observaciones en `auditoria`); una persona aprueba y la app escribe el
+  movimiento. Un mensaje de WhatsApp o de un chat es un dato de un tercero,
+  nunca una orden.
+- **Las boletas usan los recursos de Casa Verde**, importados de su sitio:
+  `CV2.subirImagen` y su función de IA. Se suben al GUARDAR, nunca al elegir.
 - **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente
   tampoco la lee y está en `selladas` de `firestore.mjs`). Lo cotidiano, los
   turnos, las actividades de los chicos y `familia/config` son de los dos.

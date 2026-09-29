@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-2
+// Sello: nucleo-3
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -18,12 +18,14 @@
 // a generar y cuidar de la familia sin haber dejado un saldo favorable.»
 //
 // Traducido a cuentas:
-//   carga de cada uno = producción + mantenimiento + ½ × chicos
+//   carga de cada uno = producción + mantenimiento + chicos
 //   (un rato con los chicos compartido cuenta para los DOS: ninguno está libre)
 //
-// El «½» es de nucleo-2, con sus palabras del 29-sep: «cuando digo que me
-// dedico a los niños paso a estar contado en mitad de lo productivo». Está
-// en `peso` de TIPOS: si se acuerda otra cosa, es cambiar ese número.
+// nucleo-2 contaba a los chicos por la mitad; nucleo-3 lo corrige con sus
+// palabras del 29-sep: «si declara estar a cargo de los chicos se cuenta
+// como equiparable a producir… aunque haya estado haciendo otras cosas, ya
+// estuvo produciendo». La cuenta fina del tiempo está en `balanceTiempo`,
+// más abajo.
 //   libre = lo que entró − gastos de mantenimiento − gastos de los chicos
 //   a cada uno le toca libre × su carga / la suma de las cargas
 //
@@ -36,7 +38,7 @@
 export const TIPOS = {
   produccion:    { nombre: "Producción",    carga: true,  peso: 1,   color: "#d8a657" },
   mantenimiento: { nombre: "Mantenimiento", carga: true,  peso: 1,   color: "#7fb4bf" },
-  ninos:         { nombre: "Chicos",        carga: true,  peso: 0.5, color: "#c89bd8" },
+  ninos:         { nombre: "Chicos",        carga: true,  peso: 1,   color: "#c89bd8" },
   casa:          { nombre: "Casa y comida", carga: false, peso: 0,   color: "#8fbf7f" },
   personal:      { nombre: "Personal",      carga: false, peso: 0,   color: "#a8a49c" },
 };
@@ -296,4 +298,221 @@ export function separarEnCurso(sesiones) {
   const vivas = (sesiones || []).filter((s) => s && s.estado === "en_curso");
   return { tarea: vivas.find((s) => s.registro !== "cuidado") || null,
            cuidado: vivas.find((s) => s.registro === "cuidado") || null };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   nucleo-3 — el balance del tiempo, la plata y la auditoría (29-sep-2026)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ── LA REGLA DEL TIEMPO, en palabras de Mauro ──────────────────────────────
+   «Si declara estar a cargo de los chicos se cuenta como equiparable a
+   producir. […] Cuando gasto el cupo es cuando figuro en una tarea personal
+   sin los niños. […] El sistema tiene que marcar ese tiempo en el que pasa
+   uno sólo de los dos a cargo de los dos niños: eso libera el tiempo del
+   otro, siempre que el que está sin los niños no esté en una tarea
+   productiva. Por ejemplo una semana de trabajo en desplazamiento: todo ese
+   tiempo es repartido en partes iguales. Se genera recurso y otro se ocupa
+   integralmente de los niños.»
+
+   Traducido, minuto a minuto y para cada uno:
+     · CARGA      = está con los chicos, O en algo productivo (una vez, no
+                    dos: estar con los chicos mientras trabaja ya es carga).
+     · LIBERADO   = no está con los chicos, no está produciendo, y además
+                    (a) está en algo personal, o
+                    (b) el OTRO está solo con TODOS los chicos.
+                    Es el cupo que se gasta.
+   El saldo es quién gastó más cupo que el otro.
+
+   Las fuentes son los RELOJES (lo medido) y los BLOQUES de la agenda (lo
+   declarado: «semana de trabajo afuera», «me quedo con los dos»). Un bloque
+   cuenta recién cuando los dos confirman que se cumplió: un acuerdo a futuro
+   es una promesa, no un hecho. */
+
+export const CLASES_BLOQUE = {
+  productivo: { nombre: "Trabajo / producción", color: "#d8a657" },
+  chicos:     { nombre: "A cargo de los chicos", color: "#c89bd8" },
+  libre:      { nombre: "Tiempo personal, sin los chicos", color: "#a8a49c" },
+};
+
+/* «2026-10-06T08:00» (hora local) → milisegundos. */
+export const msDeLocal = (t) => { const d = new Date(String(t)); return Number.isFinite(d.getTime()) ? d.getTime() : NaN; };
+
+/* En qué está un bloque. Pasado su fin, espera que lo confirmen los dos; si
+   alguno dice que no se cumplió, no cuenta. */
+export function estadoBloque(b, uids, ahoraMs = Date.now()) {
+  const c = (b && b.confirmaciones) || {};
+  if (Object.values(c).some((v) => v === false)) return "no se cumplió";
+  const desde = msDeLocal(b.desde), hasta = msDeLocal(b.hasta);
+  if (!(hasta > desde)) return "mal cargado";
+  if (ahoraMs < desde) return "acordado";
+  if (ahoraMs < hasta) return "en curso";
+  return (uids || []).every((u) => c[u] === true) ? "confirmado" : "por confirmar";
+}
+export const bloquesPorConfirmar = (bloques, uid, uids, ahoraMs = Date.now()) =>
+  (bloques || []).filter((b) => estadoBloque(b, uids, ahoraMs) === "por confirmar" && (b.confirmaciones || {})[uid] !== true);
+
+/* Los relojes y los bloques confirmados, como intervalos de una sola forma. */
+export function intervalosDe({ sesiones = [], bloques = [], uids = [], ahoraMs = Date.now() } = {}) {
+  const out = [];
+  for (const s of sesiones) {
+    if (!s || !s.uid || !Number.isFinite(s.inicioMs)) continue;
+    const fin = s.estado === "en_curso" ? ahoraMs
+      : Number.isFinite(s.finMs) ? s.finMs : s.inicioMs + horasDe(s) * 3600000;
+    if (!(fin > s.inicioMs)) continue;
+    const clase = s.registro === "cuidado" || s.tipo === "ninos" ? "chicos"
+      : s.tipo === "produccion" || s.tipo === "mantenimiento" ? "productivo"
+      : s.tipo === "personal" ? "libre" : null;
+    if (!clase) continue;                       // «casa y comida»: ni carga ni cupo
+    out.push({ uid: s.uid, desdeMs: s.inicioMs, hastaMs: fin, clase,
+               ninos: clase === "chicos" ? (Array.isArray(s.ninos) ? s.ninos.length : 1) : 0 });
+  }
+  for (const b of bloques) {
+    if (estadoBloque(b, uids, ahoraMs) !== "confirmado" || !CLASES_BLOQUE[b.clase]) continue;
+    out.push({ uid: b.uid, desdeMs: msDeLocal(b.desde), hastaMs: msDeLocal(b.hasta), clase: b.clase,
+               ninos: b.clase === "chicos" ? (Array.isArray(b.ninos) ? b.ninos.length : 0) : 0 });
+  }
+  return out;
+}
+
+/* El barrido: se corta el tiempo en tramos donde nada cambia, y en cada
+   tramo se mira qué hace cada uno. */
+export function balanceTiempo({ uids = [], intervalos = [], totalNinos = 0, desdeMs = -Infinity, hastaMs = Infinity } = {}) {
+  const cero = () => ({ carga: 0, productivo: 0, conChicos: 0, liberado: 0 });
+  const por = Object.fromEntries(uids.map((u) => [u, cero()]));
+  const ivs = intervalos.filter((i) => por[i.uid])
+    .map((i) => ({ ...i, desdeMs: Math.max(i.desdeMs, desdeMs), hastaMs: Math.min(i.hastaMs, hastaMs) }))
+    .filter((i) => i.hastaMs > i.desdeMs);
+  const cortes = [...new Set(ivs.flatMap((i) => [i.desdeMs, i.hastaMs]))].sort((a, b) => a - b);
+  for (let k = 0; k + 1 < cortes.length; k++) {
+    const a = cortes[k], b = cortes[k + 1], h = (b - a) / 3600000;
+    const vivos = ivs.filter((i) => i.desdeMs <= a && i.hastaMs >= b);
+    const est = Object.fromEntries(uids.map((u) => {
+      const mios = vivos.filter((i) => i.uid === u);
+      const ninos = Math.max(0, ...mios.filter((i) => i.clase === "chicos").map((i) => i.ninos || 1));
+      return [u, { chicos: mios.some((i) => i.clase === "chicos"), ninos,
+                   prod: mios.some((i) => i.clase === "productivo"), libre: mios.some((i) => i.clase === "libre") }];
+    }));
+    for (const u of uids) {
+      const e = est[u];
+      const otros = uids.filter((x) => x !== u);
+      // «Uno solo a cargo de los dos niños»: el otro tiene a TODOS, y yo no tengo a ninguno.
+      const otroConTodos = totalNinos > 0 && otros.some((o) => est[o].chicos && est[o].ninos >= totalNinos);
+      if (e.chicos) por[u].conChicos += h;
+      if (e.prod) por[u].productivo += h;
+      if (e.chicos || e.prod) por[u].carga += h;
+      else if (e.libre || otroConTodos) por[u].liberado += h;
+    }
+  }
+  const [x, y] = uids;
+  const dif = x && y ? por[x].liberado - por[y].liberado : 0;
+  return { por, masLiberado: Math.abs(dif) < 1e-9 ? null : dif > 0 ? x : y, diferencia: Math.abs(dif) };
+}
+
+/* ── La plata ────────────────────────────────────────────────────────────────
+   Cada moneda es un sistema aparte: nunca se suman entre sí. La categoría
+   dice a qué cuenta del reparto va: lo de mantenimiento y lo de los chicos
+   se descuenta ANTES de repartir el libre (ver `repartir`). */
+export const MONEDAS = ["BRL", "UYU", "USD"];
+export const CATEGORIAS = {
+  ingreso:       { nombre: "Ingreso",                 tipo: "entro", reparto: "entro" },
+  comida:        { nombre: "Comida y supermercado",   tipo: "salio", reparto: "mantenimiento" },
+  casa:          { nombre: "Casa y servicios",        tipo: "salio", reparto: "mantenimiento" },
+  transporte:    { nombre: "Transporte",              tipo: "salio", reparto: "mantenimiento" },
+  salud:         { nombre: "Salud",                   tipo: "salio", reparto: "mantenimiento" },
+  chicos:        { nombre: "Chicos (escuela, ropa…)", tipo: "salio", reparto: "chicos" },
+  actividades:   { nombre: "Actividades de los chicos", tipo: "salio", reparto: "chicos" },
+  personal:      { nombre: "Personal",                tipo: "salio", reparto: "personal" },
+  otros:         { nombre: "Otros",                   tipo: "salio", reparto: "mantenimiento" },
+};
+
+export function validarMovimiento(m) {
+  const e = [];
+  if (!m || !(Number(m.monto) > 0)) e.push("el monto tiene que ser un número mayor que cero");
+  if (!m || !MONEDAS.includes(m.moneda)) e.push("falta la moneda");
+  if (!m || !esISO(m.fecha)) e.push("falta la fecha");
+  if (!m || !CATEGORIAS[m.categoria]) e.push("falta la categoría");
+  else if (m.tipo && CATEGORIAS[m.categoria].tipo !== m.tipo) e.push("la categoría no corresponde a " + (m.tipo === "entro" ? "una entrada" : "un gasto"));
+  return e;
+}
+
+/* Lo disponible: lo que entró menos lo que salió, por moneda. */
+export function disponible(movs, { desde = "", hasta = "9999" } = {}) {
+  const out = {};
+  for (const m of movs || []) {
+    if (!m || !MONEDAS.includes(m.moneda) || !(Number(m.monto) > 0) || !esISO(m.fecha)) continue;
+    if (m.fecha < desde || m.fecha > hasta) continue;
+    const c = CATEGORIAS[m.categoria]; if (!c) continue;
+    const o = (out[m.moneda] = out[m.moneda] || { entro: 0, salio: 0, saldo: 0, mantenimiento: 0, chicos: 0, personal: 0 });
+    const v = Number(m.monto);
+    if (c.tipo === "entro") { o.entro += v; o.saldo += v; }
+    else { o.salio += v; o.saldo -= v; o[c.reparto] += v; }
+  }
+  return out;
+}
+
+/* Los pagos automáticos: cada mes, pasado su día, piden que se confirmen.
+   No se registran solos: el monto de una factura cambia, y un gasto que
+   nadie miró es un número inventado. */
+export function automaticosPendientes(recurrentes, movs, hoy) {
+  const out = [];
+  const mes = hoy.slice(0, 7), dia = Number(hoy.slice(8));
+  for (const r of recurrentes || []) {
+    if (!r || r.activo === false || !(Number(r.dia) >= 1)) continue;
+    if (esISO(r.desde) && r.desde.slice(0, 7) > mes) continue;
+    if (dia < Math.min(28, Number(r.dia))) continue;
+    if (Array.isArray(r.saltados) && r.saltados.includes(mes)) continue;   // «este mes no hubo»
+    const ya = (movs || []).some((m) => m.automatico === r.id && String(m.fecha || "").slice(0, 7) === mes);
+    if (!ya) out.push({ ...r, mes, fecha: `${mes}-${String(Math.min(28, Number(r.dia))).padStart(2, "0")}` });
+  }
+  return out;
+}
+
+/* Lo que devuelve la IA al leer una boleta: texto que DEBERÍA ser JSON. Se
+   lee con desconfianza: lo que no se entiende queda vacío para que lo
+   complete una persona, nunca inventado. */
+export function leerSugerencia(texto) {
+  let j = null;
+  const t = String(texto || "").replace(/```(?:json)?/gi, "");
+  const i = t.indexOf("{"), k = t.lastIndexOf("}");
+  if (i !== -1 && k > i) { try { j = JSON.parse(t.slice(i, k + 1)); } catch { j = null; } }
+  if (!j || typeof j !== "object") return null;
+  const num = Number(String(j.monto ?? "").replace(/[^\d.,-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", "."));
+  const moneda = String(j.moneda || "").toUpperCase().replace("R$", "BRL").replace("$U", "UYU").replace("U$S", "USD");
+  return {
+    monto: num > 0 ? Math.round(num * 100) / 100 : "",
+    moneda: MONEDAS.includes(moneda) ? moneda : "",
+    fecha: esISO(j.fecha) ? j.fecha : "",
+    comercio: String(j.comercio || "").slice(0, 80),
+    categoria: CATEGORIAS[j.categoria] ? j.categoria : "",
+    detalle: String(j.detalle || "").slice(0, 300),
+  };
+}
+
+/* ── La auditoría ────────────────────────────────────────────────────────────
+   Lo que se puede revisar solo, sin opinar: relojes olvidados, huecos,
+   gastos sin boleta, acuerdos sin confirmar. Cada punto dice qué pasa y qué
+   hacer. Las observaciones con criterio las escribe el agente aparte. */
+export function auditar({ sesiones = [], movs = [], bloques = [], dias = {}, uids = [], hoy, ahoraMs = Date.now() } = {}) {
+  const out = [];
+  const H = 3600000;
+  for (const s of sesiones) {
+    if (s.estado === "en_curso" && ahoraMs - s.inicioMs > 12 * H)
+      out.push({ nivel: "ojo", tema: "relojes", texto: `Un reloj de ${s.nombre || "alguien"} lleva ${Math.round((ahoraMs - s.inicioMs) / H)} h corriendo: ¿quedó olvidado?` });
+    else if (s.estado !== "en_curso" && horasDe(s) > 10)
+      out.push({ nivel: "ojo", tema: "relojes", texto: `${s.nombre || "Alguien"} registró ${fmtHoras(horasDe(s))} de corrido${s.tareaTitulo ? " en «" + s.tareaTitulo + "»" : ""}: revisar si fue así.` });
+  }
+  const sinBoleta = movs.filter((m) => CATEGORIAS[m.categoria] && CATEGORIAS[m.categoria].tipo === "salio" && !m.comprobanteUrl && !m.automatico);
+  if (sinBoleta.length) out.push({ nivel: "info", tema: "plata", texto: `${sinBoleta.length} gasto(s) sin foto de la boleta.` });
+  const sinDetalle = movs.filter((m) => !String(m.detalle || m.comercio || "").trim());
+  if (sinDetalle.length) out.push({ nivel: "info", tema: "plata", texto: `${sinDetalle.length} movimiento(s) sin detalle ni comercio: dentro de un mes no se va a saber qué fueron.` });
+  const porConf = (bloques || []).filter((b) => estadoBloque(b, uids, ahoraMs) === "por confirmar");
+  if (porConf.length) out.push({ nivel: "ojo", tema: "acuerdos", texto: `${porConf.length} acuerdo(s) de tiempo esperando confirmación: hasta que los dos confirmen, no cuentan.` });
+  if (hoy) {
+    let vacios = 0;
+    for (let i = 1; i <= 7; i++) { const d = sumarDias(hoy, -i); if (!progresoDia((dias[d] || {}).hechos).listos) vacios++; }
+    if (vacios) out.push({ nivel: "info", tema: "cotidiano", texto: `En los últimos 7 días, ${vacios} sin ninguna tarea cotidiana tildada.` });
+  }
+  const cuidadoSinChicos = sesiones.filter((s) => s.registro === "cuidado" && !(Array.isArray(s.ninos) && s.ninos.length));
+  if (cuidadoSinChicos.length) out.push({ nivel: "ojo", tema: "chicos", texto: `${cuidadoSinChicos.length} registro(s) con los chicos sin decir con cuál.` });
+  return out;
 }

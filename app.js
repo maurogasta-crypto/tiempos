@@ -1,15 +1,19 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-3
+// Sello: app-4
 //
-// Seis solapas:
+// Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
 //           qué arrancar (familia y Casa Verde, con sus detalles y registros)
 //   HOY     lo cotidiano: se tilda, no se cronometra (familia.js)
 //   AGENDA  mi semana, ordenada arrastrando (agenda.js)
 //   TAREAS  la pizarra de la semana de los dos, y la lista entera
 //   CHICOS  con quién están cada día, lo acordado, y sus actividades (familia.js)
-//   HORAS   las horas de cada uno por tipo, y la carga
+//   PLATA   lo disponible, los gastos con su boleta, los pagos automáticos y
+//           lo que propone el agente, para aprobar (plata.js)
+//   BALANCE la carga y el tiempo liberado de cada uno, los acuerdos de
+//           tiempo con su confirmación, las horas por tipo y la auditoría
+//           (balance.js)
 //
 // Las cuentas no viven acá: están en `nucleo.js`, probadas. Esto dibuja y llama.
 // Casa Verde entra por su propio código (`CV.Core`), nunca copiado: arrancar
@@ -20,15 +24,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
-import { TIPOS, TIPO_CASA_VERDE, tipoHeredado, arbol, sumarPorTipo, cargaDe,
-         semanaDe, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
+import { TIPOS, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
          alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
-         separarEnCurso, chicosDelDia, eventosDelDia } from "./nucleo.js";
+         separarEnCurso, chicosDelDia, eventosDelDia, bloquesPorConfirmar, automaticosPendientes } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
 import { pintarAgenda, alternarEnAgenda, estaEnAgenda } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
+import { pintarPlata } from "./plata.js";
+import { pintarBalance } from "./balance.js";
 
-const SOLAPAS = ["ahora", "hoy", "agenda", "tareas", "chicos", "horas"];
+const SOLAPAS = ["ahora", "hoy", "agenda", "tareas", "chicos", "plata", "balance"];
 const mostrar = (id) => { for (const s of ["cargando", "entrar", "acceso", "app"]) $(s).hidden = s !== id; };
 
 /* ── Arranque ─────────────────────────────────────────────────────────────── */
@@ -159,6 +164,18 @@ function escucharFamilia() {
   F.onSnapshot(F.doc(db, "agendas", E.yo.uid), (d) => {
     E.agenda = (d.exists() && d.data().items) || {}; pintar();
   }, mal("tu agenda"));
+  // app-4: la plata, los acuerdos de tiempo, lo que propone el agente y sus
+  // observaciones. Son de los dos y son pocos documentos: se escuchan enteros.
+  const todo = (col, campo) => F.onSnapshot(F.collection(db, col), (s) => {
+    E[campo] = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
+  }, mal(col));
+  todo("movimientos", "movs");
+  todo("recurrentes", "recurrentes");
+  todo("bloques", "bloques");
+  todo("auditoria", "auditoria");
+  F.onSnapshot(F.query(F.collection(db, "propuestas"), F.where("estado", "==", "pendiente")), (s) => {
+    E.propuestas = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
+  }, mal("las propuestas"));
   escucharDia();
 }
 
@@ -315,7 +332,8 @@ function pintar() {
   if (E.solapa === "agenda") pintarAgenda();
   if (E.solapa === "tareas") pintarTareas();
   if (E.solapa === "chicos") pintarChicos();
-  if (E.solapa === "horas") pintarHoras();
+  if (E.solapa === "plata") pintarPlata();
+  if (E.solapa === "balance") pintarBalance();
   $("cv-estado").textContent = !CV ? errorCasaVerde
     : !E.cv ? `Casa Verde: sin sesión para ${E.yo.email}.` : "";
   $("form-cv").hidden = !CV || !!E.cv;
@@ -533,8 +551,23 @@ function listaCV(items) {
 const h2 = (t) => Object.assign(document.createElement("h2"), { textContent: t });
 const gris = (t) => Object.assign(document.createElement("p"), { className: "gris", textContent: t });
 
+const irA = (solapa) => { const b = document.querySelector(`[data-solapa="${solapa}"]`); if (b) b.click(); };
+
 function pintarAhora() {
   const v = $("v-ahora"); v.replaceChildren();
+  // Lo que espera una decisión tuya, con un toque para ir a resolverlo.
+  const avisos = [];
+  const props = (E.propuestas || []).length;
+  if (props) avisos.push([`${props} cosa(s) que propuso el agente, para aprobar`, "plata"]);
+  const conf = bloquesPorConfirmar(E.bloques, E.yo.uid, personas().map((p) => p.id)).length;
+  if (conf) avisos.push([`${conf} acuerdo(s) de tiempo: ¿se cumplieron?`, "balance"]);
+  const autos = automaticosPendientes(E.recurrentes, E.movs, E.hoy).length;
+  if (autos) avisos.push([`${autos} pago(s) automático(s) de este mes para confirmar`, "plata"]);
+  for (const [t, a] of avisos) {
+    const b = Object.assign(document.createElement("button"), { className: "aviso-ir", textContent: t + " →" });
+    b.onclick = () => irA(a);
+    v.append(b);
+  }
   // Lo que te pidieron va primero: está esperando una respuesta tuya.
   const pedidos = pedidosPara(E.tareas, E.yo.uid);
   if (pedidos.length) {
@@ -641,37 +674,5 @@ $("form-tarea").onsubmit = async (ev) => {
     $("nueva-titulo").value = "";
   } catch (e) { fallo(e); }
 };
-
-/* ── HORAS ────────────────────────────────────────────────────────────────── */
-async function pintarHoras() {
-  const v = $("v-horas");
-  const { desdeMs, hastaMs } = semanaDe();
-  v.innerHTML = `<p class="gris">Sumando…</p>`;
-  try {
-    const desde = F.Timestamp.fromMillis(desdeMs);
-    const fam = await F.getDocs(F.query(F.collection(db, "sesiones"), F.where("inicio", ">=", desde)));
-    const sesiones = fam.docs.map((d) => ({ ...d.data(), inicioMs: d.data().inicio && d.data().inicio.toMillis() }));
-    const cvUids = Object.fromEntries(E.miembros.filter((m) => m.cvUid).map((m) => [m.cvUid, m.id]));
-    if (CV && E.cv && Object.keys(cvUids).length) {
-      // Por persona y SIN filtro de fecha: igualdad sobre un campo y rango
-      // sobre otro pide un índice compuesto en la base de Casa Verde.
-      const M = CV.mod;
-      for (const cvUid of Object.keys(cvUids)) {
-        const s = await M.getDocs(M.query(M.collection(M.db, "sesiones"), M.where("uid", "==", cvUid)));
-        for (const d of s.docs) sesiones.push({ ...d.data(), uid: cvUids[cvUid], tipo: TIPO_CASA_VERDE,
-          inicioMs: d.data().inicio && d.data().inicio.toMillis() });
-      }
-    }
-    const tot = sumarPorTipo(sesiones, { desdeMs, hastaMs });
-    v.innerHTML = personas().map((m) => {
-      const t = tot[m.id] || {};
-      const max = Math.max(1, ...Object.values(t));
-      return `<div class="persona"><h3>${esc(m.nombre || "—")} <small>carga ${fmtHoras(cargaDe(t))}</small></h3>` +
-        Object.entries(TIPOS).map(([k, x]) => `<div class="barra-fila"><span>${esc(x.nombre)}</span>
-          <span class="barra"><i style="width:${Math.round(100 * (t[k] || 0) / max)}%;background:${x.color}"></i></span>
-          <span class="num">${fmtHoras(t[k] || 0)}</span></div>`).join("") + `</div>`;
-    }).join("") + `<p class="gris">La carga es producción + mantenimiento + la mitad del tiempo con los chicos. Casa Verde cuenta como producción. Semana de lunes a domingo.</p>`;
-  } catch (e) { v.innerHTML = `<p class="mal">No se pudo sumar: ${esc(e.message)}</p>`; }
-}
 
 arrancar();

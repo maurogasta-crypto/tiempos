@@ -1,10 +1,13 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v3, 29-sep-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v4, 29-sep-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
+//  v4: los acuerdos de tiempo (`bloques`), la plata (`movimientos`,
+//      `recurrentes`), lo que propone el agente (`propuestas`) y sus
+//      observaciones (`auditoria`).
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -167,6 +170,69 @@ service cloud.firestore {
     // repositorio es público.
     match /familia/{doc} {
       allow read, create, update: if esPersona() || esAgente();
+    }
+
+    // ── v4 · Los acuerdos de tiempo ─────────────────────────────────────
+    // «Semana de trabajo afuera», «me quedo con los dos». Los carga
+    // cualquiera de los dos, a nombre de cualquiera: por eso cuentan recién
+    // cuando LOS DOS confirman que se cumplió. Cada uno confirma SÓLO lo
+    // suyo: nadie firma por el otro. Editar el acuerdo borra las firmas.
+    match /bloques/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if (esPersona() || esAgente())
+        && request.resource.data.clase in ['productivo', 'chicos', 'libre']
+        && request.resource.data.desde is string && request.resource.data.hasta is string
+        && request.resource.data.confirmaciones.size() == 0;
+      allow update: if esPersona() && (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmaciones', 'actualizadoEn'])
+           && request.resource.data.confirmaciones.diff(resource.data.confirmaciones).affectedKeys()
+                .hasOnly([request.auth.uid]))
+        || (resource.data.creadoPor == request.auth.uid
+           && request.resource.data.creadoPor == request.auth.uid
+           && request.resource.data.clase in ['productivo', 'chicos', 'libre']
+           && request.resource.data.confirmaciones.size() == 0));
+      allow delete: if esPersona() && resource.data.creadoPor == request.auth.uid;
+    }
+
+    // ── v4 · La plata ──────────────────────────────────────────────────
+    // La cargan y la corrigen los dos: es de la familia. El agente la LEE
+    // para ayudar a que sea consistente, y lo que quiere agregar o corregir
+    // lo PROPONE (abajo): no escribe un gasto sin que una persona lo apruebe.
+    match /movimientos/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create, update: if esPersona()
+        && request.resource.data.monto is number && request.resource.data.monto > 0
+        && request.resource.data.moneda in ['BRL', 'UYU', 'USD']
+        && request.resource.data.categoria is string
+        && request.resource.data.fecha is string;
+      allow delete: if esPersona();
+    }
+    match /recurrentes/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create, update, delete: if esPersona();
+    }
+
+    // ── v4 · Lo que propone el agente ──────────────────────────────────
+    // Un gasto leído de un chat, una tarea, una actividad. El agente la
+    // crea; una persona la aprueba (y la app escribe el documento de verdad)
+    // o la descarta. Nadie reescribe lo que el agente propuso: se decide.
+    match /propuestas/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if esAgente() && request.resource.data.estado == 'pendiente';
+      allow update: if esPersona()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'decididoPor', 'decididoEn', 'resultadoId'])
+        && request.resource.data.estado in ['aprobada', 'descartada'];
+    }
+
+    // ── v4 · La auditoría ──────────────────────────────────────────────
+    // Observaciones del agente sobre cómo se vienen haciendo los registros.
+    // Cada uno puede contestar y marcar que la vio; el texto no se toca.
+    match /auditoria/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if esAgente();
+      allow update: if esPersona()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['respuestas', 'vistoPor']);
     }
   }
 }

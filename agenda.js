@@ -18,14 +18,15 @@
 //   la agenda de Casa Verde, y al revés. Casa Verde tiene sólo mañana y
 //   tarde: una suya soltada en «noche» queda en la tarde.
 //
-// Las actividades con los chicos (`eventos`) aparecen en la agenda de los
-// DOS, siempre, y no se arrastran: su día y su hora son de la actividad.
+// Las actividades con los chicos (`eventos`) y los acuerdos de tiempo
+// (`bloques`) aparecen en la agenda de los DOS, siempre, y no se arrastran.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, eventosDelDia,
          DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, fallo } from "./estado.js";
+import { bloquesDelDia } from "./balance.js";
 
 const NOMBRE_FRANJA = { manana: "mañana", tarde: "tarde", noche: "noche" };
 let lunes = null;
@@ -93,6 +94,9 @@ export function pintarAgenda() {
     const evs = eventosDelDia(d, E.eventos);
     h += `<div class="dia${d === E.hoy ? " es-hoy" : ""}"><h3><span class="num">${Number(d.slice(8))}</span> ${DIAS[new Date(d + "T12:00").getDay()]}${d === E.hoy ? " · hoy" : ""}
       <span class="marcas">${marcasChicos(chicos)}</span></h3>`;
+    // Los acuerdos de tiempo que tocan el día («Mauro trabaja afuera»): los
+    // ven los dos, y no se arrastran.
+    h += bloquesDelDia(d).map((b) => `<div class="evento bloque-dia">⏱ <b>${esc(nombreDe(b.uid))}</b> ${esc(b.titulo || ({ productivo: "trabaja", chicos: "con los chicos", libre: "tiempo personal" })[b.clase] || "")}</div>`).join("");
     h += evs.map((e) => `<div class="evento">👦 <b>${esc(e.hora || "")}</b> ${esc(e.titulo)}${(e.ninos || []).length ? ` <small>${e.ninos.map((id) => esc((ninoPorId(id) || {}).nombre || "")).join(", ")}</small>` : ""}${(e.quienes || []).length ? ` <small class="gris">· ${e.quienes.map((u) => esc(nombreDe(u))).join(" y ")}</small>` : ""}</div>`).join("");
     for (const f of FRANJAS) {
       const items = ub[d][f];
