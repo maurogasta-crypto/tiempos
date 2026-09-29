@@ -19,7 +19,7 @@ repositorio, a ningún otro, ni a ningún chat.
 | `CONFIG` en `firebase-init.js` | identifica `tiempos-71d42` | público por diseño | el código | 2026-09-29 |
 | Contraseñas de Mauro y Florencia | entrar | dato en runtime | Firebase Authentication de las dos bases | — |
 | Contraseña del agente | que un chat lea la base | dato en runtime | variables de entorno de Claude Code | — |
-| UID del agente | lo compara `esAgente()` | configuración | `firestore.rules` (marcador hasta darlo de alta) | — |
+| UID del agente | lo compara `esAgente()` | configuración | marcador `UID-DEL-AGENTE` en `firestore.rules`; el valor real está en `acceso.uids` de `proyectos/tiempos` del panel, que arma el texto al copiar | 2026-09-29 |
 
 **Ningún mail ni UID de persona entra acá**: el repositorio es público. Por eso
 el acceso es por `miembros/{uid}`, que crea el agente al aprobar una solicitud.
