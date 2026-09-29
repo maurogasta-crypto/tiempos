@@ -1,0 +1,110 @@
+rules_version = '2';
+
+// ═════════════════════════════════════════════════════════════════════════
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v1, 29-sep-2026
+//
+//  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
+//  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
+//
+//  QUIÉN ENTRA
+//  · Una persona es MIEMBRO si existe `miembros/{su uid}` con rol 'persona'.
+//    Esos documentos los crea el agente al aprobar una solicitud; nadie se
+//    hace miembro solo.
+//  · El agente se reconoce por su UID, que no se puede elegir. Lee lo común
+//    y las horas, escribe `miembros/` y NADA más.
+//
+//  Por qué NO hay mails en este archivo: el repositorio es público. Por qué
+//  no se reconoce a Mauro y Florencia por mail: Firebase deja que
+//  cualquiera se registre con cualquier mail, así que «quien tenga tal mail»
+//  es «quien lo registre primero».
+//
+//  LO PERSONAL
+//  · Una tarea 'personal' la ve sólo su dueño. Ni el otro ni el agente.
+//  · Las sesiones las ven los dos —hacen falta para los totales y el
+//    reparto—, así que una sesión de una tarea personal NO lleva el título
+//    (lo omite la app; ver app.js).
+// ═════════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logueado() { return request.auth != null; }
+    function esAgente() {
+      return logueado() && request.auth.uid == 'UID-DEL-AGENTE';
+    }
+    function miembro() {
+      return get(/databases/$(database)/documents/miembros/$(request.auth.uid)).data;
+    }
+    function esPersona() {
+      return logueado()
+        && exists(/databases/$(database)/documents/miembros/$(request.auth.uid))
+        && miembro().rol == 'persona';
+    }
+    function tipoValido(t) {
+      return t in ['produccion', 'mantenimiento', 'ninos', 'casa', 'personal'];
+    }
+
+    // ── Pedir acceso ───────────────────────────────────────────────────
+    // Cualquiera con sesión deja UNA solicitud, a su nombre y con el mail
+    // de su sesión (no uno inventado). Aprobarla es del agente.
+    match /solicitudes/{uid} {
+      allow create: if logueado() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'nombre', 'creadoEn'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 40;
+      allow read: if (logueado() && request.auth.uid == uid) || esAgente();
+    }
+
+    // ── Miembros ───────────────────────────────────────────────────────
+    match /miembros/{uid} {
+      allow read: if esPersona() || esAgente()
+        || (logueado() && request.auth.uid == uid);
+      allow create: if esAgente()
+        && request.resource.data.rol == 'persona'
+        && request.resource.data.keys().hasOnly(['rol', 'nombre', 'email', 'creadoEn']);
+      // Cada uno completa en SU ficha la cuenta de Casa Verde que usa, para
+      // sumar esas horas. Nada más: ni el rol ni el nombre de otro.
+      allow update: if esPersona() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['cvUid', 'actualizadoEn']);
+    }
+
+    // ── Tareas ─────────────────────────────────────────────────────────
+    match /tareas/{id} {
+      allow read: if (esPersona()
+          && (resource.data.alcance == 'comun' || resource.data.duenio == request.auth.uid))
+        || (esAgente() && resource.data.alcance == 'comun');
+      allow create: if esPersona()
+        && request.resource.data.duenio == request.auth.uid
+        && request.resource.data.alcance in ['comun', 'personal']
+        && tipoValido(request.resource.data.tipo)
+        && request.resource.data.titulo is string
+        && request.resource.data.titulo.size() > 0
+        && request.resource.data.titulo.size() <= 120;
+      // Una común la puede tocar cualquiera de los dos; una personal, su
+      // dueño. Nadie cambia de quién es.
+      allow update: if esPersona()
+        && (resource.data.alcance == 'comun' || resource.data.duenio == request.auth.uid)
+        && request.resource.data.duenio == resource.data.duenio
+        && request.resource.data.alcance in ['comun', 'personal']
+        && tipoValido(request.resource.data.tipo);
+      allow delete: if esPersona() && resource.data.duenio == request.auth.uid;
+    }
+
+    // ── Sesiones del cronómetro ────────────────────────────────────────
+    // Cada uno escribe SÓLO las suyas: nadie carga horas a nombre del otro.
+    match /sesiones/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if esPersona()
+        && request.resource.data.uid == request.auth.uid
+        && tipoValido(request.resource.data.tipo);
+      allow update: if esPersona()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && tipoValido(request.resource.data.tipo);
+      allow delete: if esPersona() && resource.data.uid == request.auth.uid;
+    }
+  }
+}

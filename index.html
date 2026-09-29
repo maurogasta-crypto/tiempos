@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14161a">
+<meta name="robots" content="noindex">
+<title>Tiempos</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="estilos.css?v=1">
+</head>
+<body>
+<header id="barra"><span class="marca">Tiempos</span><span id="quien" class="gris"></span></header>
+<main class="contenedor">
+  <p id="aviso" class="aviso" hidden></p>
+
+  <section id="cargando"><p class="gris">Cargando…</p></section>
+
+  <section id="entrar" hidden>
+    <h1>Entrar</h1>
+    <p class="gris">Con la misma cuenta de Casa Verde: entra a las dos.</p>
+    <form id="form-entrar">
+      <label>Mail <input id="mail" type="email" autocomplete="username" required></label>
+      <label>Contraseña <input id="clave" type="password" autocomplete="current-password" required></label>
+      <button class="boton" id="btn-entrar">Entrar</button>
+    </form>
+    <button class="link" id="olvide">Olvidé la contraseña</button>
+  </section>
+
+  <section id="acceso" hidden>
+    <h1>Pedir acceso</h1>
+    <p id="acceso-estado" class="gris"></p>
+    <form id="form-acceso">
+      <label>Tu nombre <input id="acceso-nombre" maxlength="40" required></label>
+      <button class="boton">Pedir acceso</button>
+    </form>
+    <button class="link" data-salir>Salir</button>
+  </section>
+
+  <section id="app" hidden>
+    <nav class="solapas" role="tablist">
+      <button data-solapa="ahora" role="tab" aria-selected="true">Ahora</button>
+      <button data-solapa="tareas" role="tab" aria-selected="false">Tareas</button>
+      <button data-solapa="semana" role="tab" aria-selected="false">Semana</button>
+    </nav>
+    <div id="crono" class="tarjeta"></div>
+    <p id="cv-estado" class="gris"></p>
+
+    <div id="v-ahora"><div id="v-ahora-listas"></div></div>
+
+    <div id="v-tareas" hidden>
+      <form id="form-tarea" class="tarjeta">
+        <label>Tarea nueva <input id="nueva-titulo" maxlength="120" required placeholder="Ej.: Llevar a los chicos a la escuela"></label>
+        <label>Adentro de <select id="nueva-padre"></select></label>
+        <label>Tipo <select id="nueva-tipo">
+          <option value="produccion">Producción</option>
+          <option value="mantenimiento">Mantenimiento</option>
+          <option value="ninos">Chicos</option>
+          <option value="casa">Casa y comida</option>
+          <option value="personal">Personal</option>
+        </select></label>
+        <label class="check"><input type="checkbox" id="nueva-personal"> Sólo la veo yo</label>
+        <button class="boton">Agregar</button>
+      </form>
+      <div id="v-tareas-lista"></div>
+    </div>
+
+    <div id="v-semana" hidden><div id="v-semana-cuerpo"></div></div>
+
+    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-1</span></p>
+  </section>
+</main>
+<script type="module" src="app.js?v=1"></script>
+<script>
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+/* estilos.css — Tiempos. Sello: estilos-1
+   Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
+   como en el panel: nunca números a mano. */
+:root {
+  --tinta:#14161a; --tinta2:#1b1e24; --tinta3:#232830; --linea:#2e343e;
+  --texto:#e8e6e1; --gris:#a8a49c; --acento:#d8a657; --ok:#8fbf7f; --mal:#e08b8b;
+  --r:12px;
+  --techo: env(safe-area-inset-top, 0px);
+  --piso: calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+@media (prefers-color-scheme: light) {
+  :root { --tinta:#f6f4ef; --tinta2:#fff; --tinta3:#eeeae2; --linea:#e0dbd0;
+          --texto:#1d1d1b; --gris:#6b6862; --acento:#9a6b1f; --ok:#3f7a3a; --mal:#a23b2a; }
+}
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { margin:0; background:var(--tinta); color:var(--texto);
+  font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+body { padding-top:var(--techo); padding-bottom:var(--piso); }
+[hidden] { display:none !important; }
+.contenedor { max-width:680px; margin:0 auto; padding:0 16px; }
+#barra { position:sticky; top:0; z-index:5; background:var(--tinta); border-bottom:1px solid var(--linea);
+  padding:.6rem 16px; display:flex; gap:.6rem; align-items:center; }
+#barra .marca { font-weight:700; flex:1; }
+h1 { font-size:1.2rem; margin:1rem 0 .3rem; } h2 { font-size:1rem; margin:1.3rem 0 .4rem; }
+h3 { font-size:.98rem; margin:.2rem 0 .5rem; } h3 small { color:var(--gris); font-weight:400; }
+.gris { color:var(--gris); font-size:.9rem; } .mal { color:var(--mal); }
+label { display:block; margin:.6rem 0; font-size:.9rem; color:var(--gris); }
+input, select { display:block; width:100%; margin-top:.25rem; padding:.7rem; font:inherit; color:var(--texto);
+  background:var(--tinta2); border:1px solid var(--linea); border-radius:10px; }
+label.check { display:flex; gap:.5rem; align-items:center; color:var(--texto); }
+label.check input { width:auto; margin:0; }
+.boton { border:0; border-radius:12px; background:var(--acento); color:var(--tinta); padding:.8rem 1.1rem;
+  font:inherit; font-weight:700; }
+.boton.sec { background:var(--tinta3); color:var(--texto); }
+.link { background:none; border:0; color:var(--acento); font:inherit; padding:.4rem 0; text-decoration:underline; }
+.tarjeta { background:var(--tinta2); border:1px solid var(--linea); border-radius:var(--r); padding:14px; margin:12px 0; }
+.aviso { background:var(--tinta3); border-radius:10px; padding:.7rem .9rem; margin:.8rem 0; }
+.aviso.mal { color:var(--mal); }
+.solapas { display:flex; gap:4px; margin:12px 0 0; }
+.solapas button { flex:1; border:1px solid var(--linea); background:var(--tinta2); color:var(--texto);
+  padding:.65rem; border-radius:10px; font:inherit; }
+.solapas button[aria-selected="true"] { background:var(--acento); color:var(--tinta); font-weight:700; border-color:var(--acento); }
+.crono-vivo { display:flex; flex-direction:column; gap:.3rem; }
+.reloj { font:700 2.4rem/1.1 ui-monospace,Menlo,monospace; letter-spacing:.02em; margin:.3rem 0; }
+.botones { display:flex; gap:8px; flex-wrap:wrap; }
+.chip { align-self:flex-start; font-size:.78rem; border-radius:99px; padding:2px 10px;
+  background:color-mix(in srgb, var(--c) 25%, transparent); color:var(--texto); }
+.fila { display:flex; gap:10px; align-items:center; padding:.45rem 0; border-top:1px solid var(--linea); }
+.fila .txt { flex:1; min-width:0; overflow-wrap:anywhere; }
+.play { flex:0 0 40px; height:40px; border-radius:50%; border:0; background:var(--acento); color:var(--tinta); font-size:1rem; }
+.mini { border:1px solid var(--linea); background:var(--tinta3); color:var(--texto); border-radius:8px; padding:.35rem .6rem; font:inherit; font-size:.82rem; }
+.tipo { font-size:.75rem; color:var(--gris); border-left:3px solid var(--c); padding-left:5px; margin-left:4px; }
+.persona { background:var(--tinta2); border:1px solid var(--linea); border-radius:var(--r); padding:12px; margin:12px 0; }
+.barra-fila { display:grid; grid-template-columns:110px 1fr 70px; gap:8px; align-items:center; font-size:.88rem; margin:4px 0; }
+.barra { height:10px; background:var(--tinta3); border-radius:99px; overflow:hidden; }
+.barra i { display:block; height:100%; border-radius:99px; }
+.num { text-align:right; font-variant-numeric:tabular-nums; }
+.pie { margin:2rem 0 1rem; }
