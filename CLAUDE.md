@@ -47,6 +47,10 @@ la documentación diga la verdad.
   digan lo mismo.
 - **Lo personal es de cada uno**: una tarea `personal` la ve sólo su dueño, y
   su sesión no lleva el título porque las sesiones las ven los dos.
+- **El agente edita tareas comunes y sesiones (v2 de las reglas), y cada
+  cambio deja antes su copia en `_historial/`**, que puede crear y nunca
+  editar ni borrar. Lo personal de cada uno queda fuera: abrirlo lo deciden
+  Mauro y Florencia.
 - **Una colección nueva entra con su regla, en la misma tanda.**
 - **El reparto (`repartir`) no se muestra hasta que Mauro y Florencia lo
   acuerden.** Está probado; mostrarlo es una decisión de ellos.

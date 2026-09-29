@@ -1,7 +1,8 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v1, 29-sep-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v2, 29-sep-2026
+//  v2: el agente edita tareas comunes y sesiones, con historial.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -91,6 +92,29 @@ service cloud.firestore {
         && request.resource.data.alcance in ['comun', 'personal']
         && tipoValido(request.resource.data.tipo);
       allow delete: if esPersona() && resource.data.duenio == request.auth.uid;
+    }
+
+    // ── El agente edita (29-sep-2026, pedido de Mauro: «gestionar y
+    //    editar todo, teniendo respaldos») ───────────────────────────────
+    // Tareas comunes y sesiones, y cada cambio deja antes su copia en
+    // '_historial' (la guarda la herramienta del agente; sin copia no hay
+    // cambio). Lo PERSONAL de cada uno sigue fuera de su alcance: es de
+    // Florencia y de Mauro, y abrirlo lo deciden los dos.
+    match /tareas/{id} {
+      allow create: if esAgente() && request.resource.data.alcance == 'comun'
+        && tipoValido(request.resource.data.tipo);
+      allow update: if esAgente() && resource.data.alcance == 'comun'
+        && request.resource.data.alcance == 'comun'
+        && tipoValido(request.resource.data.tipo);
+      allow delete: if esAgente() && resource.data.alcance == 'comun';
+    }
+    match /sesiones/{id} {
+      allow create, update: if esAgente() && tipoValido(request.resource.data.tipo);
+      allow delete: if esAgente();
+    }
+    match /_historial/{id} {
+      allow read: if esAgente() || esPersona();
+      allow create: if esAgente();
     }
 
     // ── Sesiones del cronómetro ────────────────────────────────────────
