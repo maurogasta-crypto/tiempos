@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-6
+// Sello: app-7
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -386,6 +386,25 @@ function pintarCuidado() {
     empezarCuidado(b.dataset.con === "*" ? ninos.map((n) => n.id) : [b.dataset.con]).catch(fallo);
 }
 
+/* ── Plegar un grupo (app-7) ──────────────────────────────────────────────────
+   La flechita de Casa Verde: un grupo se cierra y queda una sola fila con
+   cuántas tiene adentro. Abierto es lo normal; se recuerda sólo lo cerrado a
+   propósito, en ESTE teléfono: es cómo uno mira la lista, no un dato de los
+   dos, y no vale una escritura en la base por cada toque. */
+const plegado = new Set((() => { try { return JSON.parse(localStorage.getItem("tiempos:plegado") || "[]"); } catch { return []; } })());
+function alternarPlegado(clave) {
+  plegado.has(clave) ? plegado.delete(clave) : plegado.add(clave);
+  try { localStorage.setItem("tiempos:plegado", JSON.stringify([...plegado])); } catch { /* sin memoria: igual anda */ }
+  pintar();
+}
+const contarRama = (id, hijos) => (hijos[id] || []).reduce((n, h) => n + 1 + contarRama(h.id, hijos), 0);
+function flecha(clave, cuantos) {
+  if (!cuantos) return `<span class="flecha vacia"></span>`;
+  const cerrada = plegado.has(clave);
+  return `<button class="flecha" data-plegar="${esc(clave)}" aria-label="${cerrada ? "Abrir" : "Cerrar"} el grupo" aria-expanded="${!cerrada}">${cerrada ? "▸" : "▾"}</button>`;
+}
+const engancharFlecha = (f) => { const b = f.querySelector("[data-plegar]"); if (b) b.onclick = () => alternarPlegado(b.dataset.plegar); };
+
 /* ── Una fila de tarea de la familia, con su ficha desplegable ─────────────── */
 function chipsDe(t, porId) {
   const tipo = TIPOS[tipoHeredado(t, porId)];
@@ -397,15 +416,16 @@ function chipsDe(t, porId) {
     + (estaEnAgenda("f:" + t.id) ? ` <span class="ag" title="En tu agenda">📅</span>` : "");
 }
 
-function filaTarea(t, nivel, porId, hijos) {
+function filaTarea(t, nivel, porId, hijos, cuantos = 0) {
   const f = document.createElement("div");
   f.className = "fila-tarea" + (t.hecho ? " hecha" : "");
   f.style.paddingLeft = (nivel * 16) + "px";
   const abierta = E.abierta === "f:" + t.id;
-  f.innerHTML = `<div class="fila">
+  f.innerHTML = `<div class="fila">${flecha("f:" + t.id, cuantos)}
       ${t.hecho ? `<span class="play apagado">✓</span>` : `<button class="play" aria-label="Empezar">▶</button>`}
-      <span class="txt">${esc(t.titulo)}${chipsDe(t, porId)}</span>
+      <span class="txt">${esc(t.titulo)}${chipsDe(t, porId)}${cuantos && plegado.has("f:" + t.id) ? ` <small class="gris">· ${cuantos} adentro</small>` : ""}</span>
       <button class="mas" aria-label="Más">${abierta ? "▴" : "⋯"}</button></div>`;
+  engancharFlecha(f);
   const p = f.querySelector("button.play");
   if (p) p.onclick = () => arrancarFamilia(t).catch(fallo);
   f.querySelector(".mas").onclick = () => { E.abierta = abierta ? null : "f:" + t.id; pintar(); };
@@ -433,6 +453,7 @@ function fichaTarea(t, hijos) {
       <button class="mini" data-a="hecha">✔ Hecha</button>`}
       ${t.duenio === E.yo.uid ? `<button class="mini" data-a="borrar">Borrar</button>` : ""}
     </div>
+    ${!t.parentId ? `<label>Ámbito <select data-a="tipo">${Object.entries(TIPOS).map(([k, x]) => `<option value="${k}"${t.tipo === k ? " selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></label>` : ""}
     <label>Detalle <textarea data-a="detalle" rows="3" maxlength="2000" placeholder="Lo que haga falta saber para hacerla">${esc(t.detalle || "")}</textarea></label>
     <label>Para cuándo <input type="date" data-a="limite" value="${esc(t.limite || "")}"></label>`;
   const up = (x) => F.updateDoc(F.doc(db, "tareas", t.id), { ...x, actualizadoEn: F.serverTimestamp() }).catch(fallo);
@@ -453,6 +474,11 @@ function fichaTarea(t, hijos) {
     if ((hijos[t.id] || []).length) return aviso("Tiene tareas adentro: borralas primero.", true);
     if (confirm(`¿Borrar «${t.titulo}»? Las horas ya registradas quedan.`)) F.deleteDoc(F.doc(db, "tareas", t.id)).catch(fallo);
   });
+  // El ámbito lo pone la raíz y lo heredan las hijas (tipoHeredado). Se
+  // cambia acá, en la raíz: las que vinieron de Casa Verde llegaron con uno
+  // elegido por el agente.
+  const selTipo = d.querySelector('[data-a="tipo"]');
+  if (selTipo) selTipo.onchange = () => up({ tipo: selTipo.value });
   d.querySelector('[data-a="detalle"]').onchange = (ev) => up({ detalle: ev.target.value.slice(0, 2000) });
   d.querySelector('[data-a="limite"]').onchange = (ev) => up({ limite: ev.target.value || null });
   return d;
@@ -462,8 +488,10 @@ function listaFamilia(items, { todas = false } = {}) {
   const { porId } = arbol(E.tareas);
   const { raices, hijos } = arbol(items);
   const cont = document.createElement("div");
+  const todosHijos = arbol(E.tareas).hijos;
   const bajar = (t, nivel) => {
-    cont.append(filaTarea(t, nivel, porId, arbol(E.tareas).hijos));
+    cont.append(filaTarea(t, nivel, porId, todosHijos, contarRama(t.id, hijos)));
+    if (plegado.has("f:" + t.id)) return;
     for (const h of hijos[t.id] || []) bajar(h, nivel + 1);
   };
   for (const r of raices) bajar(r, 0);
@@ -486,17 +514,18 @@ function semaforoCV(a) {
 const fecha = (iso) => iso ? iso.split("-").reverse().join("/") : "";
 const cuando = (ms) => ms ? new Date(ms).toLocaleString("es", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
 
-function filaCV(a, nivel) {
+function filaCV(a, nivel, cuantos = 0) {
   const f = document.createElement("div");
   f.className = "fila-tarea";
   f.style.paddingLeft = (nivel * 16) + "px";
   const abierta = E.abierta === "cv:" + a.id;
   const s = semaforoCV(a);
-  f.innerHTML = `<div class="fila">
+  f.innerHTML = `<div class="fila">${flecha("cv:" + a.id, cuantos)}
       <button class="play" aria-label="Empezar">▶</button>
       <span class="txt"><i class="sem" style="background:${s.c}" title="${esc(s.t)}"></i>${esc(a.titulo || "(sin título)")}
-        <small class="gris"> ${esc(s.t)}</small>${estaEnAgenda("cv:" + a.id) ? ` <span class="ag">📅</span>` : ""}</span>
+        <small class="gris"> ${esc(s.t)}${cuantos && plegado.has("cv:" + a.id) ? ` · ${cuantos} adentro` : ""}</small>${estaEnAgenda("cv:" + a.id) ? ` <span class="ag">📅</span>` : ""}</span>
       <button class="mas" aria-label="Más">${abierta ? "▴" : "⋯"}</button></div>`;
+  engancharFlecha(f);
   f.querySelector(".play").onclick = () => arrancarCV(a);
   f.querySelector(".mas").onclick = () => {
     E.abierta = abierta ? null : "cv:" + a.id;
@@ -550,7 +579,11 @@ function fichaCV(a) {
 function listaCV(items) {
   const { raices, hijos } = arbol(items);
   const cont = document.createElement("div");
-  const bajar = (a, n) => { cont.append(filaCV(a, n)); for (const h of hijos[a.id] || []) bajar(h, n + 1); };
+  const bajar = (a, n) => {
+    cont.append(filaCV(a, n, contarRama(a.id, hijos)));
+    if (plegado.has("cv:" + a.id)) return;
+    for (const h of hijos[a.id] || []) bajar(h, n + 1);
+  };
   for (const r of raices) bajar(r, 0);
   return cont;
 }

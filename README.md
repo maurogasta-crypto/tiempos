@@ -10,7 +10,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
 | Banco | `node pruebas.mjs` (72 casos, sin npm, sin red) |
 
-## Qué hace (app-6)
+## Qué hace (app-7)
 
 Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
 
@@ -20,7 +20,10 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
   «Estoy con» un chico o los dos: ese reloj no frena ni bloquea el de la tarea.
   Arriba lo que **te pidieron**, después lo que tomaste, lo de los dos sin
   encargado, y Casa Verde. Cada tarea se despliega con «⋯».
-- **Ficha de una tarea de la familia**: «Me ocupo yo» (un clic), «Pedírsela al
+- **Los grupos se pliegan** con la flechita ▾/▸, como en Casa Verde (app-7):
+  queda una fila con cuántas tiene adentro. Se recuerda en cada teléfono.
+- **Ficha de una tarea de la familia**: en la tarea de arriba de un grupo, su
+  **ámbito** (las hijas lo heredan); «Me ocupo yo» (un clic), «Pedírsela al
   otro» (con una nota), «Meta de la semana», «A mi agenda», el detalle y para
   cuándo. Quien recibe un pedido lo acepta («Me ocupo») o lo devuelve («No
   puedo»); al aceptar, pasa a ser suya y deja de ser de quien la pidió.
@@ -117,26 +120,33 @@ Florencia la acuerden.
 |---|---|---|
 | `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-3` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-6` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-7` |
 | `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-1` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-1` |
 | `balance.js` | el balance del tiempo, los acuerdos, la auditoría | `balance-1` |
 | `agenda.js` | mi semana, arrastrando | `agenda-1` |
 | `familia.js` | Hoy y Chicos | `familia-1` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-4` |
-| `sw.js` | el cascarón sin señal | `tiempos-6` |
+| `estilos.css` | | `estilos-5` |
+| `sw.js` | el cascarón sin señal | `tiempos-7` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v6 |
 
-## Los proyectos personales que vienen de Casa Verde (29-sep-2026)
+## Lo que vino de Casa Verde (29-sep-2026)
 
-**Estado: esperando las reglas v6** (sin ellas el agente no puede crear las
-tareas; ver `tiempos:A4` en el panel). Cuando entren, Santa fe, Anuncio Hilux,
-Moto para viaje, Motonetas venta, Baja del auto y el cumple pasan de
-`actividades` de Casa Verde a `tareas` de acá, con su
-detalle, su fecha, si estaban hechos y quién se ocupaba. Cada una guarda
-`origen: "casaverde:actividades/<id>"` y su id es `cv-<id>`, así que volver a
-correr la mudanza no duplica nada. En Casa Verde quedan en la **papelera**
-(marcadas como las borra su pantalla, con `mudadoA`), no borradas: se pueden
-recuperar. Sus relojes viejos (cuatro tildes de 0 h) quedan allá, como
-historia. El cumple llega como hecho: allá ya estaba borrado.
+En Casa Verde quedaron **sólo Limpiezas, Mantenimiento CasaVerde y
+Reparaciones CasaVerde** (lo decidió Mauro: «el resto va a la lista de
+Tiempos, que coordinaré con Florencia»). Pasaron 40 tareas, en diez grupos:
+Santa fe, Anuncio Hilux, Moto para viaje, Motonetas venta, Baja del auto, el
+cumple, Dgo Aramburú, Terraza dormitorios Casa Verde, General flores y General
+Casa Verde — con su detalle, su fecha, si estaban hechas y quién se ocupaba.
+
+- Cada una guarda `origen: "casaverde:actividades/<id>"` y su id es `cv-<id>`:
+  correr la mudanza otra vez no duplica nada. El guion está en la bodega
+  (`herramientas/mudar-proyectos-personales.mjs`).
+- En Casa Verde quedaron en la **papelera** (marcadas como las borra su
+  pantalla, con `mudadoA`), no borradas: se pueden recuperar desde allá.
+- Sus relojes viejos (cuatro tildes de 0 h) quedaron allá, como historia.
+- El cumple llegó como hecho, con sus ítems: allá ya estaba borrado.
+- El ámbito de cada grupo lo eligió el agente; se cambia en la ficha del grupo.
+- Llegaron como tareas «de los dos». Una que vea uno solo la tiene que crear
+  esa persona: el agente no puede.

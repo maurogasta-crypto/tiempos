@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-4
+/* estilos.css — Tiempos. Sello: estilos-5
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -175,3 +175,7 @@ body.arrastrando-algo { user-select:none; -webkit-user-select:none; }
 .nota-ia { font-size:.84rem; }
 .mandado { border-top:1px solid var(--linea); padding:6px 0; font-size:.9rem; }
 .pie { margin-bottom:5rem; }
+
+/* ── estilos-5: la flechita que pliega un grupo ───────────────────────────── */
+.flecha { flex:0 0 28px; height:40px; border:0; background:none; color:var(--gris); font-size:1rem; padding:0; }
+.flecha.vacia { display:inline-block; }

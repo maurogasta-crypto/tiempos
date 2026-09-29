@@ -2,8 +2,8 @@
 // si cambia un archivo de SHELL, sube VERSION (si no, los teléfonos sirven
 // una mezcla de viejo y nuevo). Los DATOS no pasan por acá: van por la caché
 // persistente de Firestore.
-const VERSION = "tiempos-6";
-const SHELL = ["./", "index.html", "app.js?v=6", "estado.js", "agenda.js", "familia.js", "plata.js", "balance.js", "sugerir.js", "nucleo.js", "firebase-init.js", "estilos.css?v=4", "manifest.json"];
+const VERSION = "tiempos-7";
+const SHELL = ["./", "index.html", "app.js?v=7", "estado.js", "agenda.js", "familia.js", "plata.js", "balance.js", "sugerir.js", "nucleo.js", "firebase-init.js", "estilos.css?v=5", "manifest.json"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
