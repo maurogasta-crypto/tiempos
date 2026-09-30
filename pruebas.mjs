@@ -16,7 +16,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
-         cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo } from "./nucleo.js";
+         cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo,
+         intervalosDeMarcas, validarMarca, marcasQueSePisan, PESO_NOCHE, CLASES_ACTIVIDAD } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -506,6 +507,77 @@ prueba("no se pueden agregar chicos desde la app, y el reloj ofrece ambos y todo
 prueba("la lista de compras vive en familia/, que ya tiene su regla", () => {
   assert.ok(/F\.doc\(db, "familia", "compras"\)/.test(app));
   assert.ok(/match \/familia\//.test(reglas));
+});
+
+titulo("Las marcas: todos juntos, salidas, la noche y la doble marcación (nucleo-5)");
+const L = (t) => msDeLocal("2026-10-06T" + t);
+const M = (uid, clase, d, h, extra = {}) => ({ uid, clase, desde: "2026-10-06T" + d, hasta: "2026-10-06T" + h, ...extra });
+const bal = (marcas, sesiones = [], opc = {}) => balanceTiempo({ uids: ["m", "f"], totalNinos: 2,
+  intervalos: [...intervalosDe({ sesiones }), ...intervalosDeMarcas(marcas)], ...opc });
+prueba("«todos juntos» lo marque quien lo marque es ½ y ½, y nadie libera", () => {
+  const s = [{ uid: "m", registro: "cuidado", juntos: true, tipo: "ninos", ninos: ["a", "b"], estado: "finalizada", inicioMs: L("10:00"), finMs: L("14:00") }];
+  const r = bal([], s);
+  assert.equal(r.por.m.carga, 2); assert.equal(r.por.f.carga, 2);
+  assert.equal(r.por.m.liberado + r.por.f.liberado, 0);
+});
+prueba("si los dos marcan «todos juntos» a la vez, no se cuenta dos veces", () => {
+  const x = (uid) => ({ uid, registro: "cuidado", juntos: true, estado: "finalizada", inicioMs: L("10:00"), finMs: L("14:00") });
+  const r = bal([], [x("m"), x("f")]);
+  assert.equal(r.por.m.carga, 2); assert.equal(r.por.f.carga, 2);
+});
+prueba("una salida libera al que sale; la marque él o la marque el otro, vale una vez", () => {
+  const r = bal([M("f", "libre", "10:00", "13:00", { marcadoPor: "f" }), M("f", "libre", "11:00", "14:00", { marcadoPor: "m" })]);
+  assert.equal(r.por.f.liberado, 4, "la unión, no la suma");
+  assert.equal(r.por.m.liberado, 0);
+  assert.equal(r.masLiberado, "f");
+});
+prueba("la salida juntos es neutra, aunque uno la haya marcado como propia", () => {
+  const r = bal([M("*", "neutro", "20:00", "23:00"), M("m", "libre", "20:00", "23:00")]);
+  assert.equal(r.por.m.liberado, 0); assert.equal(r.por.f.liberado, 0);
+});
+prueba("de noche pesa más; de día, lo que duró", () => {
+  const noche = bal([M("m", "libre", "20:00", "22:00")], [], { pesoNoche: PESO_NOCHE });
+  assert.equal(noche.por.m.liberado, 2 * PESO_NOCHE);
+  const dia = bal([M("m", "libre", "10:00", "12:00")], [], { pesoNoche: PESO_NOCHE });
+  assert.equal(dia.por.m.liberado, 2);
+  const cruza = bal([M("m", "libre", "18:00", "20:00")], [], { pesoNoche: PESO_NOCHE });
+  assert.equal(cruza.por.m.liberado, 1 + PESO_NOCHE, "se corta a las 19");
+  assert.ok(PESO_NOCHE > 1);
+});
+prueba("trabajar mientras el otro sale no es liberarse", () => {
+  const r = bal([M("m", "productivo", "09:00", "17:00"), M("f", "libre", "09:00", "12:00")]);
+  assert.equal(r.por.m.carga, 8); assert.equal(r.por.m.liberado, 0); assert.equal(r.por.f.liberado, 3);
+});
+prueba("una marca rota no entra, y se dice por qué", () => {
+  assert.deepEqual(validarMarca(M("m", "libre", "10:00", "12:00"), ["m", "f"]), []);
+  assert.ok(validarMarca(M("x", "libre", "10:00", "12:00"), ["m", "f"]).length);
+  assert.ok(validarMarca(M("m", "neutro", "10:00", "12:00"), ["m", "f"]).length, "neutro es de los dos");
+  assert.ok(validarMarca(M("m", "libre", "12:00", "10:00"), ["m", "f"]).length);
+  assert.ok(validarMarca(M("m", "otra", "10:00", "12:00"), ["m", "f"]).length);
+  assert.equal(intervalosDeMarcas([M("m", "libre", "12:00", "10:00"), null]).length, 0);
+});
+prueba("avisa antes de guardar si esa persona ya tiene una marca que se pisa", () => {
+  const ya = [{ id: "a", ...M("f", "libre", "20:00", "23:00") }, { id: "b", ...M("m", "libre", "20:00", "23:00") }];
+  assert.deepEqual(marcasQueSePisan(M("f", "libre", "22:00", "23:30"), ya).map((x) => x.id), ["a"]);
+  assert.deepEqual(marcasQueSePisan(M("f", "libre", "23:00", "23:30"), ya), []);
+});
+prueba("en la agenda la clase es obligatoria y cada una dice qué es para el balance", () => {
+  assert.deepEqual(Object.keys(CLASES_ACTIVIDAD).sort(), ["ninos", "personal", "tarea", "trabajo"]);
+  for (const c of Object.values(CLASES_ACTIVIDAD)) assert.ok(["productivo", "chicos", "libre"].includes(c.clase));
+});
+
+prueba("una marca nunca lleva el título de la actividad: lo garantiza la regla y no lo manda la agenda", () => {
+  const bloque = /match \/marcas\/\{id\} \{[\s\S]*?\n    \}/.exec(reglas)[0];
+  assert.ok(/hasOnly\(\[[^\]]*\]\)/.test(bloque));
+  assert.ok(!/titulo/.test(/hasOnly\(\[[^\]]*\]\)/.exec(bloque)[0]));
+  const ag = fs.readFileSync("agenda.js", "utf8");
+  const marca = /const marca = \{[^}]*\}/.exec(ag)[0];
+  assert.ok(!/titulo/.test(marca), "la marca de la agenda no lleva el título");
+});
+prueba("en la agenda no se guarda una actividad sin clase", () => {
+  const ag = fs.readFileSync("agenda.js", "utf8");
+  assert.ok(/if \(!CLASES_ACTIVIDAD\[tipo\]\) return aviso/.test(ag));
+  assert.ok(/type="radio" name="tipo"[^>]*required/.test(ag));
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

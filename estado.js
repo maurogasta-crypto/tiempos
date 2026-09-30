@@ -12,7 +12,7 @@ import { isoDe } from "./nucleo.js";
 export const E = {
   yo: null, miembro: null, miembros: [],
   tareas: [], sesionesVivas: [], enCursoFam: null, cuidado: null,
-  familia: { ninos: [], patron: {} }, turnos: {}, eventos: [], agenda: {},
+  familia: { ninos: [], patron: {} }, turnos: {}, eventos: [], agenda: {}, actividades: {}, marcas: [], compras: {},
   // Casa Verde
   cv: null, cvNombre: "", cvActs: [], enCursoCV: null, cvAgenda: {}, cvNombres: {},
   // Pantalla

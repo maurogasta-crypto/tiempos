@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-8
+// Sello: app-9
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -171,8 +171,15 @@ function escucharFamilia() {
     E.eventos = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
   }, mal("las actividades de los chicos"));
   F.onSnapshot(F.doc(db, "agendas", E.yo.uid), (d) => {
-    E.agenda = (d.exists() && d.data().items) || {}; pintar();
+    E.agenda = (d.exists() && d.data().items) || {};
+    E.actividades = (d.exists() && d.data().actividades) || {};     // app-9: las propias, con su clase
+    pintar();
   }, mal("tu agenda"));
+  // app-9: las marcas de tiempo de los dos meses últimos (el balance mira el
+  // mes). Son de los dos y sin título: ver nucleo-5.
+  F.onSnapshot(F.query(F.collection(db, "marcas"), F.where("desde", ">=", sumarDias(E.hoy, -62))), (s) => {
+    E.marcas = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
+  }, mal("las marcas de tiempo"));
   // app-4: la plata, los acuerdos de tiempo, lo que propone el agente y sus
   // observaciones. Son de los dos y son pocos documentos: se escuchan enteros.
   const todo = (col, campo) => F.onSnapshot(F.collection(db, col), (s) => {

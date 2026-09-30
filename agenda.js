@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-2
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-3
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -24,13 +24,62 @@
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, eventosDelDia,
-         DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado } from "./nucleo.js";
+         DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado,
+         CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
 
 const NOMBRE_FRANJA = { manana: "mañana", tarde: "tarde", noche: "noche" };
 let lunes = null;
 let editando = null;
+let formActividad = false;
+
+/* ── Las actividades propias de la agenda (agenda-3, 30-sep-2026) ────────────
+   «En la agenda, cuando marco una actividad, tengo que tener marcado sí o sí
+   si es trabajo, tarea, personal o actividad con los chicos.» La actividad
+   —con su título— queda en MI agenda, que el otro no ve; al balance va sólo
+   su MARCA (de quién, qué clase, de cuándo a cuándo), con el mismo id. */
+const COLOR_ACT = { trabajo: "#d8a657", tarea: "#7fb4bf", personal: "#a8a49c", ninos: "#c89bd8" };
+async function guardarActividad(f) {
+  const tipo = (f.querySelector('[name="tipo"]:checked') || {}).value;
+  if (!CLASES_ACTIVIDAD[tipo]) return aviso("Elegí qué es: trabajo, tarea, personal o con los chicos.", true);
+  const titulo = f.titulo.value.trim(), dia = f.dia.value, hi = f.hi.value, hf = f.hf.value;
+  if (!titulo || !esISO(dia) || !hi || !hf) return aviso("Falta qué, qué día o el horario.", true);
+  // Si termina «antes» de empezar, cruzó la medianoche: una salida de 21 a 1.
+  const desde = `${dia}T${hi}`, hasta = `${hf <= hi ? sumarDias(dia, 1) : dia}T${hf}`;
+  const marca = { uid: E.yo.uid, clase: CLASES_ACTIVIDAD[tipo].clase, desde, hasta, origen: "agenda", marcadoPor: E.yo.uid };
+  const mal = validarMarca(marca, [E.yo.uid]);
+  if (mal.length) return aviso("No se pudo: " + mal.join(", ") + ".", true);
+  const ya = marcasQueSePisan(marca, E.marcas);
+  if (ya.length && !confirm(`Ya hay ${ya.length} marca(s) tuya(s) en ese horario (${ya.map((m) => m.origen === "agenda" ? "de tu agenda" : "puesta por " + nombreDe(m.marcadoPor)).join(", ")}). En el balance ese rato cuenta una sola vez. ¿Guardar igual?`)) return;
+  const id = idNuevo("a");
+  try {
+    await F.setDoc(F.doc(db, "marcas", id), { ...marca, creadoEn: F.serverTimestamp() });
+    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { titulo: titulo.slice(0, 120), dia, desde, hasta, tipo } },
+      actualizadoEn: F.serverTimestamp() }, { merge: true });
+    formActividad = false; aviso("Anotada. Al balance va sólo el horario y la clase, no el título."); repintar();
+  } catch (e) { fallo(e); }
+}
+async function borrarActividad(id) {
+  const a = (E.actividades || {})[id]; if (!a) return;
+  if (!confirm(`¿Sacar «${a.titulo}» de tu agenda? Sale también del balance.`)) return;
+  try {
+    await F.deleteDoc(F.doc(db, "marcas", id)).catch(() => {});
+    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: F.deleteField() } }, { merge: true });
+  } catch (e) { fallo(e); }
+}
+const actividadesDelDia = (d) => Object.entries(E.actividades || {}).filter(([, a]) => a && a.dia === d)
+  .sort((x, y) => String(x[1].desde).localeCompare(String(y[1].desde)));
+function formActividadHTML() {
+  return `<form class="tarjeta ficha" id="form-actividad">
+    <label>Qué <input name="titulo" maxlength="120" required placeholder="Ej.: salida con amigos, gimnasio, reunión"></label>
+    <div class="dos"><label>Día <input type="date" name="dia" required value="${E.hoy}"></label>
+      <label>Desde <input type="time" name="hi" required></label><label>Hasta <input type="time" name="hf" required></label></div>
+    <fieldset class="clases"><legend>Es… <small class="gris">(obligatorio)</small></legend>
+      ${Object.entries(CLASES_ACTIVIDAD).map(([k, c]) => `<label class="check"><input type="radio" name="tipo" value="${k}" required> ${esc(c.nombre)}</label>`).join("")}</fieldset>
+    <p class="gris">El título queda en tu agenda, que ves sólo vos. Al balance va sólo el horario y qué es.</p>
+    <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-cerrar-act>Cancelar</button></div></form>`;
+}
 
 /* La agenda entera, con las dos fuentes bajo una sola clave. */
 export function agendaUnida() {
@@ -87,6 +136,7 @@ export function pintarAgenda() {
   let h = `<div class="nav-semana"><button class="mini" data-s="-7">‹</button>
     <b>${fmt(dias[0])} — ${fmt(dias[6])}</b><button class="mini" data-s="7">›</button>
     <button class="mini" data-s="0">hoy</button></div>`;
+  h += formActividad ? formActividadHTML() : `<button class="mini" data-nueva-act>＋ Actividad (trabajo, tarea, personal o con los chicos)</button>`;
   if (atrasadas.length)
     h += `<div class="dia atrasadas"><h3>Quedaron de antes · ${atrasadas.length}</h3>${atrasadas.map((x) => pastilla(x, agenda)).join("")}</div>`;
   for (const d of dias) {
@@ -97,6 +147,8 @@ export function pintarAgenda() {
     // Los acuerdos de tiempo que tocan el día («Mauro trabaja afuera»): los
     // ven los dos, y no se arrastran.
     h += bloquesDelDia(d).map((b) => `<div class="evento bloque-dia">⏱ <b>${esc(nombreDe(b.uid))}</b> ${esc(b.titulo || ({ productivo: "trabaja", chicos: "con los chicos", libre: "tiempo personal" })[b.clase] || "")}</div>`).join("");
+    h += actividadesDelDia(d).map(([id, a]) => `<div class="evento actividad" style="--c:${COLOR_ACT[a.tipo] || "#888"}">🗓 <b>${esc(String(a.desde).slice(11))}–${esc(String(a.hasta).slice(11))}</b> ${esc(a.titulo)}
+      <small class="gris">· ${esc((CLASES_ACTIVIDAD[a.tipo] || {}).nombre || a.tipo)}</small> <button class="mini nota" data-borrar-act="${esc(id)}" title="Sacar">✕</button></div>`).join("");
     h += evs.map((e) => `<div class="evento">👦 <b>${esc(e.hora || "")}</b> ${esc(e.titulo)}${(e.ninos || []).length ? ` <small>${e.ninos.map((id) => esc((ninoPorId(id) || {}).nombre || "")).join(", ")}</small>` : ""}${(e.quienes || []).length ? ` <small class="gris">· ${e.quienes.map((u) => esc(nombreDe(u))).join(" y ")}</small>` : ""}</div>`).join("");
     for (const f of FRANJAS) {
       const items = ub[d][f];
@@ -116,6 +168,11 @@ export function pintarAgenda() {
   for (const b of v.querySelectorAll("[data-s]")) b.onclick = () => {
     const n = Number(b.dataset.s); lunes = n ? sumarDias(lunes, n) : lunesDe(E.hoy); repintar();
   };
+  for (const b of v.querySelectorAll("[data-nueva-act]")) b.onclick = () => { formActividad = true; repintar(); };
+  for (const b of v.querySelectorAll("[data-cerrar-act]")) b.onclick = () => { formActividad = false; repintar(); };
+  for (const b of v.querySelectorAll("[data-borrar-act]")) b.onclick = () => borrarActividad(b.dataset.borrarAct);
+  const fa = v.querySelector("#form-actividad");
+  if (fa) fa.onsubmit = (ev) => { ev.preventDefault(); guardarActividad(fa); };
   for (const b of v.querySelectorAll("[data-poner]")) b.onclick = () => guardarEnAgenda(b.dataset.poner, {}).catch(fallo);
   for (const b of v.querySelectorAll("[data-editar]")) b.onclick = () => { editando = editando === b.dataset.editar ? null : b.dataset.editar; repintar(); };
   for (const b of v.querySelectorAll("[data-ed-ok]")) b.onclick = () => {

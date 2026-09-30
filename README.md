@@ -10,7 +10,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
 | Banco | `node pruebas.mjs` (72 casos, sin npm, sin red) |
 
-## Qué hace (app-8)
+## Qué hace (app-9)
 
 Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
 
@@ -92,6 +92,26 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
 - Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
   en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
 
+### Lo que se sumó el 30-sep-2026 (nucleo-5, app-9)
+
+- **Todos juntos** —lo marque quien lo marque— es **½ y ½**: los dos cargan la
+  mitad de ese rato y nadie libera. Si los dos lo marcan, es un solo rato.
+- **Las marcas de tiempo** (`marcas/`): de quién, qué clase y de cuándo a
+  cuándo, **sin título**. Las pone:
+  - **la agenda**: una actividad propia se carga con su clase **obligatoria**
+    —trabajo, tarea, personal o con los chicos—; el título queda en la agenda
+    de cada uno, que el otro no ve, y al balance va sólo la marca;
+  - **cualquiera de los dos, en Balance → Salidas**: la salida propia o la del
+    otro («salió Florencia»), aunque el otro no la haya marcado. Quien salió
+    la puede sacar («No salí»).
+- **Salir juntos es neutro**: ese rato no carga ni libera a nadie, aunque uno
+  lo haya marcado también como salida propia.
+- **La noche pesa más**: de las 19 a las 7, el tiempo liberado se cuenta
+  ×`PESO_NOCHE` (1,5). Una salida es una fracción de día, medida en horas.
+- **La doble marcación no suma**: el barrido mira si alguien está libre en cada
+  tramo, no cuántas marcas lo dicen. Antes de guardar, la pantalla avisa si
+  esa persona ya tiene una marca que se pisa.
+
 Los nombres de los chicos **no están en el código**: viven en la base
 (`familia/config`). Este repositorio es público.
 
@@ -130,19 +150,19 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-4` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-5` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-8` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-9` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
 | `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-1` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-1` |
-| `balance.js` | el balance del tiempo, los acuerdos, la auditoría | `balance-1` |
-| `agenda.js` | mi semana, arrastrando | `agenda-2` |
+| `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-2` |
+| `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-3` |
 | `familia.js` | Hoy y Chicos | `familia-2` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-6` |
-| `sw.js` | el cascarón sin señal | `tiempos-9` |
-| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v6 |
+| `estilos.css` | | `estilos-7` |
+| `sw.js` | el cascarón sin señal | `tiempos-10` |
+| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v7 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
 

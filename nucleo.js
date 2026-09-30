@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-4
+// Sello: nucleo-5
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -366,6 +366,11 @@ export function intervalosDe({ sesiones = [], bloques = [], uids = [], ahoraMs =
     const fin = s.estado === "en_curso" ? ahoraMs
       : Number.isFinite(s.finMs) ? s.finMs : s.inicioMs + horasDe(s) * 3600000;
     if (!(fin > s.inicioMs)) continue;
+    // nucleo-5: «todos juntos» es de los DOS, se marque desde donde se marque.
+    if (s.registro === "cuidado" && s.juntos === true) {
+      out.push({ uid: "*", desdeMs: s.inicioMs, hastaMs: fin, clase: "juntos", ninos: 0 });
+      continue;
+    }
     const clase = s.registro === "cuidado" || s.tipo === "ninos" ? "chicos"
       : s.tipo === "produccion" || s.tipo === "mantenimiento" ? "productivo"
       : s.tipo === "personal" ? "libre" : null;
@@ -383,16 +388,29 @@ export function intervalosDe({ sesiones = [], bloques = [], uids = [], ahoraMs =
 
 /* El barrido: se corta el tiempo en tramos donde nada cambia, y en cada
    tramo se mira qué hace cada uno. */
-export function balanceTiempo({ uids = [], intervalos = [], totalNinos = 0, desdeMs = -Infinity, hastaMs = Infinity } = {}) {
-  const cero = () => ({ carga: 0, productivo: 0, conChicos: 0, liberado: 0 });
+export function balanceTiempo({ uids = [], intervalos = [], totalNinos = 0, desdeMs = -Infinity, hastaMs = Infinity, pesoNoche = 1 } = {}) {
+  const cero = () => ({ carga: 0, productivo: 0, conChicos: 0, liberado: 0, juntos: 0 });
   const por = Object.fromEntries(uids.map((u) => [u, cero()]));
-  const ivs = intervalos.filter((i) => por[i.uid])
+  // «*» es de los dos: «todos juntos» y «salimos juntos» (nucleo-5).
+  const ivs = intervalos.filter((i) => por[i.uid] || i.uid === "*")
     .map((i) => ({ ...i, desdeMs: Math.max(i.desdeMs, desdeMs), hastaMs: Math.min(i.hastaMs, hastaMs) }))
     .filter((i) => i.hastaMs > i.desdeMs);
-  const cortes = [...new Set(ivs.flatMap((i) => [i.desdeMs, i.hastaMs]))].sort((a, b) => a - b);
+  const cortes = [...new Set([...ivs.flatMap((i) => [i.desdeMs, i.hastaMs]),
+    ...(pesoNoche !== 1 ? cortesDeNoche(ivs) : [])])].sort((a, b) => a - b);
   for (let k = 0; k + 1 < cortes.length; k++) {
     const a = cortes[k], b = cortes[k + 1], h = (b - a) / 3600000;
     const vivos = ivs.filter((i) => i.desdeMs <= a && i.hastaMs >= b);
+    if (!vivos.length) continue;
+    // «Cuando cualquiera marca todos juntos, se toma como ½ y ½»: los dos
+    // cargan la mitad y nadie libera. Aunque los dos lo marquen, es UN tramo.
+    if (vivos.some((i) => i.clase === "juntos")) {
+      for (const u of uids) { por[u].carga += h / 2; por[u].conChicos += h / 2; por[u].juntos += h; }
+      continue;
+    }
+    // «La salida juntos es neutra»: no carga ni libera a nadie, aunque uno
+    // de los dos la haya marcado como salida propia.
+    if (vivos.some((i) => i.clase === "neutro")) continue;
+    const peso = pesoNoche !== 1 && esNoche((a + b) / 2) ? pesoNoche : 1;
     const est = Object.fromEntries(uids.map((u) => {
       const mios = vivos.filter((i) => i.uid === u);
       const ninos = Math.max(0, ...mios.filter((i) => i.clase === "chicos").map((i) => i.ninos || 1));
@@ -407,7 +425,7 @@ export function balanceTiempo({ uids = [], intervalos = [], totalNinos = 0, desd
       if (e.chicos) por[u].conChicos += h;
       if (e.prod) por[u].productivo += h;
       if (e.chicos || e.prod) por[u].carga += h;
-      else if (e.libre || otroConTodos) por[u].liberado += h;
+      else if (e.libre || otroConTodos) por[u].liberado += h * peso;
     }
   }
   const [x, y] = uids;
@@ -576,4 +594,76 @@ export function colorHeredado(t, porId) {
     if (COLORES_TAREA.includes(x.color)) return x.color;
   }
   return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   nucleo-5 — las MARCAS de tiempo: la agenda y las salidas (30-sep-2026)
+   ═══════════════════════════════════════════════════════════════════════════
+   En palabras de Mauro: «Hay que ir descontando además las liberaciones de
+   tiempo… uno de los dos puede tener salidas semanales y el otro no. Eso no
+   cuenta como un día completo, pero sí como una fracción, y una salida
+   nocturna cuenta más que una actividad en la agenda. No tengo por qué ver
+   las actividades particulares de la agenda del otro, pero cualquiera puede
+   marcar y el sistema hace el balance. La salida juntos es neutra. Yo puedo
+   avisar la salida del otro aunque el otro no la haya marcado. Hay que
+   controlar que no se duplique el tiempo por doble marcación.»
+
+   Una MARCA (`marcas/{id}`) es lo único que el balance necesita saber de un
+   rato: DE QUIÉN es, QUÉ clase es y DE CUÁNDO A CUÁNDO. Nunca el título: la
+   actividad de la agenda sigue en la agenda de cada uno, que el otro no ve.
+     · la pone la agenda al cargar una actividad (con su clase, obligatoria);
+     · o la pone cualquiera en Balance: «salió Florencia», «salimos juntos».
+   La doble marcación no suma: el barrido mira, en cada tramo, SI alguien
+   está libre, no cuántas marcas lo dicen. Dos marcas del mismo rato valen
+   una; dos que se pisan a medias valen la unión. */
+export const CLASES_ACTIVIDAD = {
+  trabajo:  { nombre: "Trabajo",              clase: "productivo" },
+  tarea:    { nombre: "Tarea",                clase: "productivo" },
+  personal: { nombre: "Personal, sin los chicos", clase: "libre" },
+  ninos:    { nombre: "Con los chicos",       clase: "chicos" },
+};
+export const CLASES_MARCA = ["productivo", "chicos", "libre", "neutro"];
+
+/* La noche: de las 19 a las 7. Una salida de noche pesa más que un rato de
+   día (PESO_NOCHE), porque el que se queda acuesta a los chicos solo. */
+export const PESO_NOCHE = 1.5;
+export const esNoche = (ms) => { const h = new Date(ms).getHours(); return h >= 19 || h < 7; };
+function cortesDeNoche(ivs) {
+  if (!ivs.length) return [];
+  const min = Math.min(...ivs.map((i) => i.desdeMs)), max = Math.max(...ivs.map((i) => i.hastaMs));
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max - min > 400 * 86400000) return [];
+  const out = [];
+  const d = new Date(min); d.setHours(0, 0, 0, 0);
+  for (; d.getTime() <= max; d.setDate(d.getDate() + 1)) {
+    for (const hh of [7, 19]) { const c = new Date(d); c.setHours(hh); const t = c.getTime(); if (t > min && t < max) out.push(t); }
+  }
+  return out;
+}
+
+/* Una marca válida, o por qué no. */
+export function validarMarca(m, uids = []) {
+  const e = [];
+  if (!m || !CLASES_MARCA.includes(m.clase)) e.push("falta qué fue");
+  if (!m || !(m.uid === "*" || uids.includes(m.uid))) e.push("falta de quién");
+  if (m && m.clase === "neutro" && m.uid !== "*") e.push("una salida juntos es de los dos");
+  if (!m || !(msDeLocal(m.hasta) > msDeLocal(m.desde))) e.push("el final tiene que ser después del principio");
+  else if (msDeLocal(m.hasta) - msDeLocal(m.desde) > 3 * 86400000) e.push("una marca no pasa de tres días: para más, un acuerdo");
+  return e;
+}
+
+/* Las marcas como intervalos del barrido. */
+export function intervalosDeMarcas(marcas) {
+  return (marcas || []).filter((m) => m && CLASES_MARCA.includes(m.clase) && msDeLocal(m.hasta) > msDeLocal(m.desde))
+    .map((m) => ({ uid: m.clase === "neutro" ? "*" : m.uid, desdeMs: msDeLocal(m.desde), hastaMs: msDeLocal(m.hasta),
+                   clase: m.clase, ninos: 0, marca: m.id || null }));
+}
+
+/* ¿Ya hay una marca de esa persona que se pisa con ésta? Para avisar ANTES
+   de guardar («Florencia ya la marcó»), aunque guardarla igual no duplique. */
+export function marcasQueSePisan(nueva, marcas) {
+  const d = msDeLocal(nueva.desde), h = msDeLocal(nueva.hasta);
+  const quien = nueva.clase === "neutro" ? "*" : nueva.uid;
+  return (marcas || []).filter((m) => m && m.id !== nueva.id
+    && (m.clase === "neutro" ? "*" : m.uid) === quien
+    && msDeLocal(m.desde) < h && msDeLocal(m.hasta) > d);
 }
