@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-5
+// Sello: nucleo-6
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -388,15 +388,14 @@ export function intervalosDe({ sesiones = [], bloques = [], uids = [], ahoraMs =
 
 /* El barrido: se corta el tiempo en tramos donde nada cambia, y en cada
    tramo se mira qué hace cada uno. */
-export function balanceTiempo({ uids = [], intervalos = [], totalNinos = 0, desdeMs = -Infinity, hastaMs = Infinity, pesoNoche = 1 } = {}) {
+export function balanceTiempo({ uids = [], intervalos = [], totalNinos = 0, desdeMs = -Infinity, hastaMs = Infinity } = {}) {
   const cero = () => ({ carga: 0, productivo: 0, conChicos: 0, liberado: 0, juntos: 0 });
   const por = Object.fromEntries(uids.map((u) => [u, cero()]));
   // «*» es de los dos: «todos juntos» y «salimos juntos» (nucleo-5).
   const ivs = intervalos.filter((i) => por[i.uid] || i.uid === "*")
     .map((i) => ({ ...i, desdeMs: Math.max(i.desdeMs, desdeMs), hastaMs: Math.min(i.hastaMs, hastaMs) }))
     .filter((i) => i.hastaMs > i.desdeMs);
-  const cortes = [...new Set([...ivs.flatMap((i) => [i.desdeMs, i.hastaMs]),
-    ...(pesoNoche !== 1 ? cortesDeNoche(ivs) : [])])].sort((a, b) => a - b);
+  const cortes = [...new Set(ivs.flatMap((i) => [i.desdeMs, i.hastaMs]))].sort((a, b) => a - b);
   for (let k = 0; k + 1 < cortes.length; k++) {
     const a = cortes[k], b = cortes[k + 1], h = (b - a) / 3600000;
     const vivos = ivs.filter((i) => i.desdeMs <= a && i.hastaMs >= b);
@@ -407,10 +406,7 @@ export function balanceTiempo({ uids = [], intervalos = [], totalNinos = 0, desd
       for (const u of uids) { por[u].carga += h / 2; por[u].conChicos += h / 2; por[u].juntos += h; }
       continue;
     }
-    // «La salida juntos es neutra»: no carga ni libera a nadie, aunque uno
-    // de los dos la haya marcado como salida propia.
-    if (vivos.some((i) => i.clase === "neutro")) continue;
-    const peso = pesoNoche !== 1 && esNoche((a + b) / 2) ? pesoNoche : 1;
+
     const est = Object.fromEntries(uids.map((u) => {
       const mios = vivos.filter((i) => i.uid === u);
       const ninos = Math.max(0, ...mios.filter((i) => i.clase === "chicos").map((i) => i.ninos || 1));
@@ -425,7 +421,7 @@ export function balanceTiempo({ uids = [], intervalos = [], totalNinos = 0, desd
       if (e.chicos) por[u].conChicos += h;
       if (e.prod) por[u].productivo += h;
       if (e.chicos || e.prod) por[u].carga += h;
-      else if (e.libre || otroConTodos) por[u].liberado += h * peso;
+      else if (e.libre || otroConTodos) por[u].liberado += h;
     }
   }
   const [x, y] = uids;
@@ -624,20 +620,79 @@ export const CLASES_ACTIVIDAD = {
 };
 export const CLASES_MARCA = ["productivo", "chicos", "libre", "neutro"];
 
-/* La noche: de las 19 a las 7. Una salida de noche pesa más que un rato de
-   día (PESO_NOCHE), porque el que se queda acuesta a los chicos solo. */
-export const PESO_NOCHE = 1.5;
-export const esNoche = (ms) => { const h = new Date(ms).getHours(); return h >= 19 || h < 7; };
-function cortesDeNoche(ivs) {
-  if (!ivs.length) return [];
-  const min = Math.min(...ivs.map((i) => i.desdeMs)), max = Math.max(...ivs.map((i) => i.hastaMs));
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max - min > 400 * 86400000) return [];
-  const out = [];
-  const d = new Date(min); d.setHours(0, 0, 0, 0);
-  for (; d.getTime() <= max; d.setDate(d.getDate() + 1)) {
-    for (const hh of [7, 19]) { const c = new Date(d); c.setHours(hh); const t = c.getTime(); if (t > min && t < max) out.push(t); }
+/* ── Las SALIDAS se cuentan en DÍAS (nucleo-6, 30-sep-2026) ─────────────────
+   Mauro, el mismo día: «La noche es una actividad luego de las 8. Implica
+   que el otro se hace cargo de la cena con los niños, de acomodar la casa y
+   de acostarlos: cuenta como la mitad del día. Puede volver a la hora que
+   quiera, no tiene por qué marcar retorno. […] Si salgo y el otro se queda
+   con los niños, eso se tiene que acumular: aunque no sea en dinero, es en
+   salidas. Si uno sale dos noches en la semana, el otro podría salir un día
+   entero y tendría las salidas equiparadas.»
+   Entonces una salida no se mide en horas sino en FRACCIONES DE DÍA:
+     · día entero                     = 1
+     · noche (desde las 20, sin vuelta) = ½
+     · un rato de mañana o de tarde    = ¼
+   y el balance de salidas es cuántos días salió cada uno: al que salió
+   menos le queda esa diferencia a favor. */
+export const UNIDADES_SALIDA = {
+  dia:   { nombre: "Día entero",                 vale: 1 },
+  noche: { nombre: "Noche (desde las 20)",       vale: 0.5 },
+  rato:  { nombre: "Un rato de mañana o de tarde", vale: 0.25 },
+};
+export const HORA_NOCHE = "20:00";
+/* Qué fracción es una marca libre. La trae escrita si se cargó como salida;
+   si viene de la agenda, se deduce: empieza de las 20 en adelante → noche;
+   dura 10 horas o más → día entero; si no, un rato. */
+export function unidadDe(m) {
+  if (m && UNIDADES_SALIDA[m.unidad]) return m.unidad;
+  const hora = String((m && m.desde) || "").slice(11, 16);
+  if (hora >= HORA_NOCHE) return "noche";
+  if (msDeLocal(m.hasta) - msDeLocal(m.desde) >= 10 * 3600000) return "dia";
+  return "rato";
+}
+/* Las horas de cada salida, para ver si dos marcas son la misma: la noche
+   corre hasta las 7 del día siguiente (no se marca la vuelta). */
+export function marcaDeSalida({ uid, unidad, fecha, franja = "tarde", marcadoPor, nota = "" }) {
+  const man = sumarDias(fecha, 1);
+  const [desde, hasta] = unidad === "dia" ? [`${fecha}T07:00`, `${man}T07:00`]
+    : unidad === "noche" ? [`${fecha}T${HORA_NOCHE}`, `${man}T07:00`]
+    : franja === "manana" ? [`${fecha}T07:00`, `${fecha}T13:00`] : [`${fecha}T13:00`, `${fecha}T${HORA_NOCHE}`];
+  return { uid, clase: uid === "*" ? "neutro" : "libre", unidad, desde, hasta, origen: "salida", marcadoPor, nota: String(nota).slice(0, 120) };
+}
+
+/* El saldo de salidas de un período. Reglas, cada una con su por qué:
+   · Dos marcas de la misma persona que se pisan son UNA salida y vale la
+     mayor (una noche marcada por los dos vale ½; día entero + noche, 1).
+   · Una salida pisada por una «salimos juntos» no cuenta: es neutra.
+   · Sólo acumula si ese día los chicos estaban con la familia (`conChicos`
+     dice si sí; sin esa función, cuenta siempre). Si no estaban, nadie se
+     quedó a cargo y no hay nada que devolver. */
+export function saldoSalidas(marcas, uids, { desde = "", hasta = "9999", conChicos = null } = {}) {
+  const libres = (marcas || []).filter((m) => m && m.clase === "libre" && uids.includes(m.uid)
+    && msDeLocal(m.hasta) > msDeLocal(m.desde) && String(m.desde).slice(0, 10) >= desde && String(m.desde).slice(0, 10) < hasta);
+  const juntas = (marcas || []).filter((m) => m && m.clase === "neutro");
+  const pisa = (a, b) => msDeLocal(a.desde) < msDeLocal(b.hasta) && msDeLocal(a.hasta) > msDeLocal(b.desde);
+  const por = Object.fromEntries(uids.map((u) => [u, { dias: 0, salidas: [] }]));
+  for (const u of uids) {
+    const mias = libres.filter((m) => m.uid === u).sort((a, b) => msDeLocal(a.desde) - msDeLocal(b.desde));
+    const grupos = [];
+    for (const m of mias) {
+      const g = grupos.find((x) => x.some((y) => pisa(y, m)));
+      g ? g.push(m) : grupos.push([m]);
+    }
+    for (const g of grupos) {
+      const fecha = String(g[0].desde).slice(0, 10);
+      const unidad = g.map(unidadDe).sort((a, b) => UNIDADES_SALIDA[b].vale - UNIDADES_SALIDA[a].vale)[0];
+      let vale = UNIDADES_SALIDA[unidad].vale, motivo = "";
+      if (juntas.some((j) => g.some((m) => pisa(j, m)))) { vale = 0; motivo = "salieron juntos"; }
+      else if (conChicos && !conChicos(fecha)) { vale = 0; motivo = "ese día no estaban los chicos"; }
+      por[u].dias += vale;
+      por[u].salidas.push({ fecha, unidad, vale, motivo, marcas: g.map((m) => m.id || null), marcadas: g.length });
+    }
   }
-  return out;
+  const [x, y] = uids;
+  const dif = x && y ? por[x].dias - por[y].dias : 0;
+  return { por, aFavor: Math.abs(dif) < 1e-9 ? null : dif > 0 ? y : x, diferencia: Math.abs(dif) };
 }
 
 /* Una marca válida, o por qué no. */
@@ -646,6 +701,7 @@ export function validarMarca(m, uids = []) {
   if (!m || !CLASES_MARCA.includes(m.clase)) e.push("falta qué fue");
   if (!m || !(m.uid === "*" || uids.includes(m.uid))) e.push("falta de quién");
   if (m && m.clase === "neutro" && m.uid !== "*") e.push("una salida juntos es de los dos");
+  if (m && m.unidad !== undefined && !UNIDADES_SALIDA[m.unidad]) e.push("no se sabe si fue un día, una noche o un rato");
   if (!m || !(msDeLocal(m.hasta) > msDeLocal(m.desde))) e.push("el final tiene que ser después del principio");
   else if (msDeLocal(m.hasta) - msDeLocal(m.desde) > 3 * 86400000) e.push("una marca no pasa de tres días: para más, un acuerdo");
   return e;
@@ -653,7 +709,9 @@ export function validarMarca(m, uids = []) {
 
 /* Las marcas como intervalos del barrido. */
 export function intervalosDeMarcas(marcas) {
-  return (marcas || []).filter((m) => m && CLASES_MARCA.includes(m.clase) && msDeLocal(m.hasta) > msDeLocal(m.desde))
+  // nucleo-6: las libres y las «juntos» se cuentan en DÍAS (`saldoSalidas`),
+  // no en horas: al barrido van sólo el trabajo y los chicos de la agenda.
+  return (marcas || []).filter((m) => m && (m.clase === "productivo" || m.clase === "chicos") && msDeLocal(m.hasta) > msDeLocal(m.desde))
     .map((m) => ({ uid: m.clase === "neutro" ? "*" : m.uid, desdeMs: msDeLocal(m.desde), hastaMs: msDeLocal(m.hasta),
                    clase: m.clase, ninos: 0, marca: m.id || null }));
 }

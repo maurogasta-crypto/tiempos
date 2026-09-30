@@ -86,11 +86,12 @@ la documentación diga la verdad.
   agente resuelve `tiempos` como `casaverde`. Criterios en
   `protocolos/PROTOCOLO-AVISOS.md` de `datos`.
 - **Una colección nueva entra con su regla, en la misma tanda.**
-- **Una marca de tiempo (`marcas/`, reglas v7) no lleva título, y la regla lo
+- **Una marca de tiempo (`marcas/`, reglas v8) no lleva título, y la regla lo
   garantiza con `hasOnly`**: la agenda de cada uno es privada y al balance va
-  sólo de quién, qué clase y de cuándo a cuándo. Todos juntos es ½ y ½, salir
-  juntos es neutro, la noche pesa `PESO_NOCHE`, y la doble marcación no suma
-  (nucleo-5). El banco comprueba las tres cosas.
+  sólo de quién, qué clase, qué unidad y cuándo. **Las salidas se cuentan en
+  días** —noche ½ (desde las 20, sin vuelta), día entero 1, rato ¼—, todos
+  juntos es ½ y ½ en la carga, salir juntos es neutro y la doble marcación no
+  suma (nucleo-6). Son palabras de Mauro del 30-sep; el banco las comprueba.
 - **Lo de la casa que se edita vive en `familia/`** (app-8, 30-sep-2026): las
   cotidianas agregadas en `familia/config.cotidianasExtra` y la lista de
   compras en `familia/compras`, las dos como MAPAS para que dos teléfonos no se

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-3
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-4
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -25,7 +25,7 @@
 import { db, F, CV } from "./firebase-init.js";
 import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, eventosDelDia,
          DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado,
-         CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo } from "./nucleo.js";
+         CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
 
@@ -44,9 +44,12 @@ async function guardarActividad(f) {
   const tipo = (f.querySelector('[name="tipo"]:checked') || {}).value;
   if (!CLASES_ACTIVIDAD[tipo]) return aviso("Elegí qué es: trabajo, tarea, personal o con los chicos.", true);
   const titulo = f.titulo.value.trim(), dia = f.dia.value, hi = f.hi.value, hf = f.hf.value;
-  if (!titulo || !esISO(dia) || !hi || !hf) return aviso("Falta qué, qué día o el horario.", true);
+  if (!titulo || !esISO(dia) || !hi) return aviso("Falta qué, qué día o desde qué hora.", true);
+  // «La noche es una actividad luego de las 8, y puede volver a la hora que
+  // quiera: no tiene por qué marcar retorno.» Sin «hasta», sólo de noche.
+  if (!hf && hi < HORA_NOCHE) return aviso(`Poné hasta qué hora. Sin hora de vuelta va sólo lo que empieza desde las ${HORA_NOCHE}.`, true);
   // Si termina «antes» de empezar, cruzó la medianoche: una salida de 21 a 1.
-  const desde = `${dia}T${hi}`, hasta = `${hf <= hi ? sumarDias(dia, 1) : dia}T${hf}`;
+  const desde = `${dia}T${hi}`, hasta = !hf ? `${sumarDias(dia, 1)}T07:00` : `${hf <= hi ? sumarDias(dia, 1) : dia}T${hf}`;
   const marca = { uid: E.yo.uid, clase: CLASES_ACTIVIDAD[tipo].clase, desde, hasta, origen: "agenda", marcadoPor: E.yo.uid };
   const mal = validarMarca(marca, [E.yo.uid]);
   if (mal.length) return aviso("No se pudo: " + mal.join(", ") + ".", true);
@@ -55,7 +58,7 @@ async function guardarActividad(f) {
   const id = idNuevo("a");
   try {
     await F.setDoc(F.doc(db, "marcas", id), { ...marca, creadoEn: F.serverTimestamp() });
-    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { titulo: titulo.slice(0, 120), dia, desde, hasta, tipo } },
+    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { titulo: titulo.slice(0, 120), dia, desde, hasta, tipo, hf: hf || "" } },
       actualizadoEn: F.serverTimestamp() }, { merge: true });
     formActividad = false; aviso("Anotada. Al balance va sólo el horario y la clase, no el título."); repintar();
   } catch (e) { fallo(e); }
@@ -74,7 +77,8 @@ function formActividadHTML() {
   return `<form class="tarjeta ficha" id="form-actividad">
     <label>Qué <input name="titulo" maxlength="120" required placeholder="Ej.: salida con amigos, gimnasio, reunión"></label>
     <div class="dos"><label>Día <input type="date" name="dia" required value="${E.hoy}"></label>
-      <label>Desde <input type="time" name="hi" required></label><label>Hasta <input type="time" name="hf" required></label></div>
+      <label>Desde <input type="time" name="hi" required></label><label>Hasta <input type="time" name="hf"></label></div>
+    <p class="gris">Desde las 20 no hace falta la hora de vuelta: es una noche.</p>
     <fieldset class="clases"><legend>Es… <small class="gris">(obligatorio)</small></legend>
       ${Object.entries(CLASES_ACTIVIDAD).map(([k, c]) => `<label class="check"><input type="radio" name="tipo" value="${k}" required> ${esc(c.nombre)}</label>`).join("")}</fieldset>
     <p class="gris">El título queda en tu agenda, que ves sólo vos. Al balance va sólo el horario y qué es.</p>
@@ -147,7 +151,7 @@ export function pintarAgenda() {
     // Los acuerdos de tiempo que tocan el día («Mauro trabaja afuera»): los
     // ven los dos, y no se arrastran.
     h += bloquesDelDia(d).map((b) => `<div class="evento bloque-dia">⏱ <b>${esc(nombreDe(b.uid))}</b> ${esc(b.titulo || ({ productivo: "trabaja", chicos: "con los chicos", libre: "tiempo personal" })[b.clase] || "")}</div>`).join("");
-    h += actividadesDelDia(d).map(([id, a]) => `<div class="evento actividad" style="--c:${COLOR_ACT[a.tipo] || "#888"}">🗓 <b>${esc(String(a.desde).slice(11))}–${esc(String(a.hasta).slice(11))}</b> ${esc(a.titulo)}
+    h += actividadesDelDia(d).map(([id, a]) => `<div class="evento actividad" style="--c:${COLOR_ACT[a.tipo] || "#888"}">🗓 <b>${esc(String(a.desde).slice(11))}${a.hf === "" ? "" : "–" + esc(String(a.hasta).slice(11))}</b> ${esc(a.titulo)}
       <small class="gris">· ${esc((CLASES_ACTIVIDAD[a.tipo] || {}).nombre || a.tipo)}</small> <button class="mini nota" data-borrar-act="${esc(id)}" title="Sacar">✕</button></div>`).join("");
     h += evs.map((e) => `<div class="evento">👦 <b>${esc(e.hora || "")}</b> ${esc(e.titulo)}${(e.ninos || []).length ? ` <small>${e.ninos.map((id) => esc((ninoPorId(id) || {}).nombre || "")).join(", ")}</small>` : ""}${(e.quienes || []).length ? ` <small class="gris">· ${e.quienes.map((u) => esc(nombreDe(u))).join(" y ")}</small>` : ""}</div>`).join("");
     for (const f of FRANJAS) {

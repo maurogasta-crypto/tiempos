@@ -10,7 +10,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
 | Banco | `node pruebas.mjs` (72 casos, sin npm, sin red) |
 
-## Qué hace (app-9)
+## Qué hace (app-10)
 
 Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
 
@@ -92,25 +92,28 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
 - Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
   en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
 
-### Lo que se sumó el 30-sep-2026 (nucleo-5, app-9)
+### Lo que se sumó el 30-sep-2026 (nucleo-6, app-10)
 
-- **Todos juntos** —lo marque quien lo marque— es **½ y ½**: los dos cargan la
-  mitad de ese rato y nadie libera. Si los dos lo marcan, es un solo rato.
-- **Las marcas de tiempo** (`marcas/`): de quién, qué clase y de cuándo a
-  cuándo, **sin título**. Las pone:
-  - **la agenda**: una actividad propia se carga con su clase **obligatoria**
-    —trabajo, tarea, personal o con los chicos—; el título queda en la agenda
-    de cada uno, que el otro no ve, y al balance va sólo la marca;
-  - **cualquiera de los dos, en Balance → Salidas**: la salida propia o la del
-    otro («salió Florencia»), aunque el otro no la haya marcado. Quien salió
-    la puede sacar («No salí»).
-- **Salir juntos es neutro**: ese rato no carga ni libera a nadie, aunque uno
-  lo haya marcado también como salida propia.
-- **La noche pesa más**: de las 19 a las 7, el tiempo liberado se cuenta
-  ×`PESO_NOCHE` (1,5). Una salida es una fracción de día, medida en horas.
-- **La doble marcación no suma**: el barrido mira si alguien está libre en cada
-  tramo, no cuántas marcas lo dicen. Antes de guardar, la pantalla avisa si
-  esa persona ya tiene una marca que se pisa.
+- **Estar con los chicos vale lo mismo que producir**: es lo que deja producir
+  al otro. **Todos juntos** —lo marque quien lo marque— es **½ y ½** en la
+  carga; si lo marcan los dos, es un solo rato.
+- **Las salidas se cuentan en DÍAS, no en horas** (`saldoSalidas`):
+  una **noche** (desde las 20, **sin marcar la vuelta**) vale **½** —el otro
+  se hace cargo de la cena, la casa y de acostarlos—; un **día entero**, **1**;
+  un **rato** de mañana o de tarde, **¼**. Dos noches de uno equiparan un día
+  entero del otro. El Balance dice quién tiene salida **a favor** y cuánta.
+- **Las marca cualquiera**: en Balance → Salidas, la propia o la del otro
+  («salió Florencia»), aunque el otro no la haya marcado; quien salió la puede
+  sacar («No salí»). Y la **agenda**: una actividad se carga con su clase
+  **obligatoria** —trabajo, tarea, personal o con los chicos—; una personal
+  cuenta como salida (desde las 20 es noche, diez horas o más es un día, si no
+  un rato). El título queda en la agenda de cada uno: a `marcas/` va sólo de
+  quién, qué clase, qué unidad y cuándo, y la regla (v8) no deja que viaje más.
+- **Salir juntos es neutro**, aunque uno también la haya marcado como propia.
+- **La doble marcación no suma**: dos marcas de la misma persona que se pisan
+  son una salida, y vale la mayor (la noche marcada por los dos, ½).
+- **Sólo acumula si ese día estaban los chicos** (según con quién están cada
+  día, en Chicos). Si nunca se cargó eso, cuenta siempre.
 
 Los nombres de los chicos **no están en el código**: viven en la base
 (`familia/config`). Este repositorio es público.
@@ -150,19 +153,19 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-5` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-6` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-9` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-10` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
 | `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-1` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-1` |
-| `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-2` |
-| `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-3` |
+| `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
+| `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
 | `familia.js` | Hoy y Chicos | `familia-2` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-7` |
-| `sw.js` | el cascarón sin señal | `tiempos-10` |
-| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v7 |
+| `sw.js` | el cascarón sin señal | `tiempos-11` |
+| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v8 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
 

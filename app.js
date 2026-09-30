@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-9
+// Sello: app-10
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y

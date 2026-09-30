@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v7, 30-sep-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v8, 30-sep-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -15,6 +15,8 @@ rules_version = '2';
 //  v7: las MARCAS de tiempo (`marcas`): de quién, qué clase y de cuándo a
 //      cuándo, sin título, para el balance. Las pone la agenda o cualquiera
 //      de los dos («salió Florencia», «salimos juntos»).
+//  v8: la marca lleva `unidad` (día entero, noche o un rato): las salidas se
+//      cuentan en días.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -195,7 +197,7 @@ service cloud.firestore {
         && request.resource.data.marcadoPor == request.auth.uid
         && request.resource.data.clase in ['productivo', 'chicos', 'libre', 'neutro']
         && request.resource.data.desde is string && request.resource.data.hasta is string
-        && request.resource.data.keys().hasOnly(['uid', 'clase', 'desde', 'hasta', 'origen', 'marcadoPor', 'nota', 'creadoEn']);
+        && request.resource.data.keys().hasOnly(['uid', 'clase', 'unidad', 'desde', 'hasta', 'origen', 'marcadoPor', 'nota', 'creadoEn']);
       allow delete: if esPersona()
         && (resource.data.marcadoPor == request.auth.uid || resource.data.uid == request.auth.uid);
     }

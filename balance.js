@@ -1,14 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// balance.js — El balance del tiempo, los acuerdos y la auditoría. Sello: balance-2
+// balance.js — El balance del tiempo, los acuerdos y la auditoría. Sello: balance-3
 //
 // BALANCE    cuánta carga tuvo cada uno y cuánto tiempo liberado gastó, con la
 //            regla del 29-sep (`balanceTiempo` en nucleo.js). Lo que cuenta es
 //            lo MEDIDO (los relojes) y lo ACORDADO que los dos confirmaron.
 // ACUERDOS   «semana de trabajo afuera», «me quedo con los dos el finde».
 //            Se cargan antes, y cuando pasan se pide confirmación a los dos.
-// SALIDAS    (balance-2, 30-sep) «salió Florencia», «salimos juntos»: las
-//            marca cualquiera, a nombre de cualquiera, y van a `marcas` sin
-//            título. Una doble marcación no suma (ver nucleo-5).
+// SALIDAS    (balance-3, 30-sep) se cuentan en DÍAS: noche ½, día entero 1,
+//            un rato ¼. Las marca cualquiera, a nombre de cualquiera («salió
+//            Florencia»), sin título, y la noche no marca la vuelta. Salir
+//            juntos es neutro y una doble marcación no suma (nucleo-6).
 // HORAS      las horas por tipo, como antes.
 // AUDITORÍA  lo que se revisa solo (`auditar`) y las observaciones del
 //            agente sobre cómo se vienen haciendo los registros, con lugar
@@ -18,7 +19,8 @@
 import { db, F, CV } from "./firebase-init.js";
 import { esc, TIPOS, TIPO_CASA_VERDE, sumarPorTipo, fmtHoras, semanaDe, lunesDe, sumarDias, isoDe,
          CLASES_BLOQUE, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
-         auditar, intervalosDeMarcas, validarMarca, marcasQueSePisan, PESO_NOCHE, idNuevo } from "./nucleo.js";
+         auditar, intervalosDeMarcas, validarMarca, marcasQueSePisan, idNuevo,
+         UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, chicosDelDia } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, ninoPorId, fallo } from "./estado.js";
 
 let periodo = "semana";           // "semana" | "mes"
@@ -42,7 +44,8 @@ export function pintarBalance() {
     <button data-per="mes" aria-selected="${periodo === "mes"}">Este mes</button></nav>`;
   if (mias.length) h += `<h2>¿Se cumplió? (${mias.length})</h2>` + mias.map((b) => bloqueHTML(b, true)).join("");
   h += `<div id="bal-cuerpo"><p class="gris">Sumando…</p></div>`;
-  h += `<h2>Salidas</h2><p class="gris">Un rato libre sin los chicos: el tuyo o el del otro, aunque no lo haya marcado. De noche (19 a 7) pesa ${String(PESO_NOCHE).replace(".", ",")} veces. Salir juntos es neutro. Si los dos marcan la misma salida, cuenta una vez.</p>`;
+  h += `<h2>Salidas</h2>${saldoHTML()}
+    <p class="gris">Se cuentan en días: una noche (desde las 20, sin marcar la vuelta) es ½, un día entero 1, un rato de mañana o de tarde ¼. Cualquiera marca la suya o la del otro. Salir juntos es neutro, y si los dos marcan la misma salida cuenta una vez. Sólo acumula si ese día estaban los chicos.</p>`;
   h += formSalida ? formSalidaHTML() : `<button class="mini" data-nueva-salida>＋ Salida</button>`;
   const salidas = (E.marcas || []).filter((m) => m.origen !== "agenda" || m.uid === E.yo.uid)
     .sort((a, b) => String(b.desde).localeCompare(String(a.desde))).slice(0, 15);
@@ -81,17 +84,15 @@ async function calcular(esta, desdeMs, hastaMs, ahora) {
 
   const totalNinos = (E.familia.ninos || []).length;
   const ivs = [...intervalosDe({ sesiones, bloques: E.bloques, uids: uids(), ahoraMs: ahora }), ...intervalosDeMarcas(E.marcas)];
-  const b = balanceTiempo({ uids: uids(), intervalos: ivs, totalNinos, desdeMs, hastaMs: Math.min(hastaMs, ahora), pesoNoche: PESO_NOCHE });
+  const b = balanceTiempo({ uids: uids(), intervalos: ivs, totalNinos, desdeMs, hastaMs: Math.min(hastaMs, ahora) });
   const tot = sumarPorTipo(sesiones, { desdeMs, hastaMs, ahoraMs: ahora });
 
   let h = `<div class="tarjeta">` + personas().map((p) => {
     const x = b.por[p.id] || {};
     return `<div class="persona-bal"><h3>${esc(p.nombre)}</h3>
       <div class="barra-fila"><span>Carga</span><b class="num">${fmtHoras(x.carga)}</b><small class="gris">produciendo ${fmtHoras(x.productivo)} · con los chicos ${fmtHoras(x.conChicos)}</small></div>
-      <div class="barra-fila"><span>Tiempo liberado</span><b class="num">${fmtHoras(x.liberado)}</b><small class="gris">el cupo que gastó (la noche pesa más)</small></div>
       ${x.juntos ? `<div class="barra-fila"><span>Todos juntos</span><b class="num">${fmtHoras(x.juntos)}</b><small class="gris">la mitad a cada uno</small></div>` : ""}</div>`;
-  }).join("") + `<p>${b.masLiberado ? `<b>${esc(nombreDe(b.masLiberado))}</b> usó <b>${fmtHoras(b.diferencia)}</b> más de tiempo liberado que ${esc(personas().filter((p) => p.id !== b.masLiberado).map((p) => p.nombre).join(" y "))}.` : "Los dos gastaron el mismo tiempo liberado."}</p>
-    <p class="gris">Carga: con los chicos (aunque se haga otra cosa) o produciendo, sin contar dos veces. Tiempo liberado: algo personal sin los chicos, o cuando el otro está solo con los dos y uno no está produciendo.</p></div>`;
+  }).join("") + `<p class="gris">Carga: con los chicos (aunque se haga otra cosa) o produciendo, sin contar dos veces; estar con los chicos vale lo mismo que producir, porque es lo que deja producir al otro. «Todos juntos» es mitad y mitad. Las salidas se cuentan aparte, en días (abajo).</p></div>`;
   h += `<details class="tarjeta"><summary><b>Horas por tipo</b></summary>` + personas().map((p) => {
     const t = tot[p.id] || {};
     const max = Math.max(1, ...Object.values(t));
@@ -137,14 +138,37 @@ function bloqueHTML(b, preguntar) {
       : b.creadoPor === E.yo.uid && est !== "confirmado" ? `<button class="mini" data-borrar-bloque="${esc(b.id)}">Borrar</button>` : ""}</div>`;
 }
 
+/* El saldo de salidas del período, en días. */
+function rango() {
+  if (periodo === "semana") { const l = lunesDe(E.hoy); return { desde: l, hasta: sumarDias(l, 7) }; }
+  const d = E.hoy.slice(0, 8) + "01"; const [a, m] = d.split("-").map(Number);
+  return { desde: d, hasta: `${m === 12 ? a + 1 : a}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01` };
+}
+const fmtDias = (x) => { const n = Math.round(x * 4) / 4; return (n === 1 ? "1 día" : String(n).replace(".", ",") + " días"); };
+function saldoHTML() {
+  // Si nunca se cargó con quién están los chicos, no se descuenta nada por
+  // «no estaban»: sin el dato, se supone que estaban.
+  const hayDato = Object.keys(E.familia.patron || {}).length || Object.keys(E.turnos || {}).length;
+  const conChicos = hayDato ? (d) => Object.keys(chicosDelDia(d, E.familia.patron, E.turnos)).length > 0 : null;
+  const r = saldoSalidas(E.marcas, uids(), { ...rango(), conChicos });
+  const filas = personas().map((p) => {
+    const x = r.por[p.id] || { dias: 0, salidas: [] };
+    return `<div class="barra-fila"><span>${esc(p.nombre)}</span><b class="num">${fmtDias(x.dias)}</b>
+      <small class="gris">${x.salidas.filter((s) => s.vale).map((s) => `${esc(s.fecha.slice(8))}/${esc(s.fecha.slice(5, 7))} ${esc(UNIDADES_SALIDA[s.unidad].nombre.toLowerCase())}`).join(" · ")}</small></div>`;
+  }).join("");
+  const frase = r.aFavor ? `<b>${esc(nombreDe(r.aFavor))}</b> tiene <b>${fmtDias(r.diferencia)}</b> de salida a favor${r.diferencia >= 1 ? ` (un día entero${r.diferencia >= 1 ? " o dos noches" : ""})` : r.diferencia >= 0.5 ? " (una noche)" : ""}.`
+    : "Las salidas están parejas.";
+  return `<div class="tarjeta">${filas}<p>${frase}</p></div>`;
+}
 function marcaHTML(m) {
   const quien = m.clase === "neutro" ? "Salieron juntos" : esc(nombreDe(m.uid));
-  const que = m.origen === "agenda" ? `actividad de la agenda (${esc(({ libre: "personal", productivo: "trabajo o tarea", chicos: "con los chicos" })[m.clase] || m.clase)})`
-    : m.clase === "neutro" ? "neutro" : "salida";
+  const unidad = UNIDADES_SALIDA[unidadDe(m)] || {};
+  const que = m.origen === "agenda" ? `actividad de la agenda (${esc(({ libre: "personal · " + (unidad.nombre || "").toLowerCase(), productivo: "trabajo o tarea", chicos: "con los chicos" })[m.clase] || m.clase)})`
+    : `${esc((unidad.nombre || "salida").toLowerCase())}${m.clase === "neutro" ? " · neutro" : ""}`;
   const puedo = m.marcadoPor === E.yo.uid || m.uid === E.yo.uid;
   return `<div class="bloque" style="--c:${m.clase === "neutro" ? "#8fbf7f" : "#a8a49c"}">
     <div><b>${quien}</b> · ${que}${m.nota ? `<br><span>${esc(m.nota)}</span>` : ""}</div>
-    <small class="gris">${esc(fmtLocal(m.desde))} → ${esc(fmtLocal(m.hasta))}${m.marcadoPor && m.marcadoPor !== m.uid ? " · la marcó " + esc(nombreDe(m.marcadoPor)) : ""}</small>
+    <small class="gris">${esc(fmtLocal(m.desde))}${m.origen === "agenda" ? " → " + esc(fmtLocal(m.hasta)) : ""}${m.marcadoPor && m.marcadoPor !== m.uid ? " · la marcó " + esc(nombreDe(m.marcadoPor)) : ""}</small>
     ${puedo && m.origen !== "agenda" ? `<button class="mini" data-borrar-marca="${esc(m.id)}">${m.uid === E.yo.uid && m.marcadoPor !== E.yo.uid ? "No salí" : "Borrar"}</button>` : ""}</div>`;
 }
 function formSalidaHTML() {
@@ -152,8 +176,10 @@ function formSalidaHTML() {
   return `<form class="tarjeta ficha" id="form-salida">
     <label>Quién salió <select name="uid">${personas().map((p) => `<option value="${esc(p.id)}"${p.id === E.yo.uid ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}
       <option value="*">Salimos juntos (neutro)</option></select></label>
-    <div class="dos"><label>Desde <input type="datetime-local" name="desde" required value="${hoy}T20:00"></label>
-      <label>Hasta <input type="datetime-local" name="hasta" required value="${hoy}T23:00"></label></div>
+    <fieldset class="clases"><legend>Qué fue</legend>
+      ${Object.entries(UNIDADES_SALIDA).map(([k, u]) => `<label class="check"><input type="radio" name="unidad" value="${k}"${k === "noche" ? " checked" : ""}> ${esc(u.nombre)} <small class="gris">· ${String(u.vale).replace(".", ",")}</small></label>`).join("")}</fieldset>
+    <div class="dos"><label>Día <input type="date" name="fecha" required value="${hoy}"></label>
+      <label data-solo-rato hidden>Cuándo <select name="franja"><option value="manana">a la mañana</option><option value="tarde" selected>a la tarde</option></select></label></div>
     <label>Nota <input name="nota" maxlength="120" placeholder="opcional"></label>
     <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-cerrar-salida>Cancelar</button></div></form>`;
 }
@@ -179,11 +205,18 @@ function enganchar(v) {
     if (confirm("¿Sacar esta salida del balance?")) F.deleteDoc(F.doc(db, "marcas", b.dataset.borrarMarca)).catch(fallo);
   });
   const fs = $("form-salida");
+  if (fs) {
+    const unidadSel = () => (fs.querySelector('[name="unidad"]:checked') || {}).value;
+    const sr = () => { fs.querySelector("[data-solo-rato]").hidden = unidadSel() !== "rato"; };
+    for (const r of fs.querySelectorAll('[name="unidad"]')) r.onchange = sr;
+    sr();
+  }
   if (fs) fs.onsubmit = async (ev) => {
     ev.preventDefault();
-    const uid = fs.uid.value;
-    const m = { uid, clase: uid === "*" ? "neutro" : "libre", desde: fs.desde.value, hasta: fs.hasta.value,
-                origen: "salida", marcadoPor: E.yo.uid, nota: fs.nota.value.trim().slice(0, 120) };
+    const q = (n) => fs.querySelector(`[name="${n}"]`);
+    if (!fs.querySelector('[name="unidad"]:checked')) return aviso("Elegí si fue una noche, un día entero o un rato.", true);
+    const m = marcaDeSalida({ uid: q("uid").value, unidad: (fs.querySelector('[name="unidad"]:checked') || {}).value,
+      fecha: q("fecha").value, franja: q("franja").value, marcadoPor: E.yo.uid, nota: q("nota").value.trim() });
     const mal = validarMarca(m, uids());
     if (mal.length) return aviso("No se pudo: " + mal.join(", ") + ".", true);
     const ya = marcasQueSePisan(m, E.marcas);
