@@ -78,6 +78,13 @@ la documentación diga la verdad.
   cambio deja antes su copia en `_historial/`**, que puede crear y nunca
   editar ni borrar. Lo personal de cada uno queda fuera: abrirlo lo deciden
   Mauro y Florencia.
+- **Los avisos de Claude por WhatsApp no viven acá** (30-sep-2026, línea
+  `L-avisos`). El número, la clave de CallMeBot y el «que Claude me escriba»
+  de Mauro y Florencia están en `avisos_contacto` de Casa Verde, y el pie de
+  la app lleva el enlace a «Mis avisos» de allá: la gente es la misma, y el
+  número cargado dos veces sería un dato en dos lugares. La herramienta del
+  agente resuelve `tiempos` como `casaverde`. Criterios en
+  `protocolos/PROTOCOLO-AVISOS.md` de `datos`.
 - **Una colección nueva entra con su regla, en la misma tanda.**
 - **El reparto (`repartir`) no se muestra hasta que Mauro y Florencia lo
   acuerden.** Está probado; mostrarlo es una decisión de ellos.
