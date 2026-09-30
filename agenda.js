@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-1
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-2
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -24,7 +24,7 @@
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, eventosDelDia,
-         DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol } from "./nucleo.js";
+         DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
 
@@ -68,7 +68,7 @@ export function alternarEnAgenda(clave) {
 function candidatas() {
   const { porId } = arbol(E.tareas);
   const fam = E.tareas.filter((t) => !t.hecho).map((t) => ({
-    clave: "f:" + t.id, titulo: t.titulo, origen: "familia", color: TIPOS[tipoHeredado(t, porId)].color,
+    clave: "f:" + t.id, titulo: t.titulo, origen: "familia", color: colorHeredado(t, porId) || TIPOS[tipoHeredado(t, porId)].color,
     mia: (t.encargados || []).includes(E.yo.uid) || t.alcance === "personal", meta: !!t.meta }));
   const cv = (E.cvActs || []).map((a) => ({ clave: "cv:" + a.id, titulo: a.titulo || "(sin título)",
     origen: "casaverde", color: TIPOS.produccion.color, mia: (a.competencias || []).includes(E.cv && E.cv.uid) }));

@@ -15,7 +15,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          grillaDelMes, chicosDelDia, eventosDelDia, COTIDIANAS, progresoDia, alternarEncargado,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
-         validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS } from "./nucleo.js";
+         validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
+         cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -404,7 +405,7 @@ prueba("la regla de reportes exige que el uid sea el de quien escribe", () => {
 
 titulo("La pantalla, el HTML y las reglas");
 const html = fs.readFileSync("index.html", "utf8");
-const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js", "sugerir.js"];
+const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js", "sugerir.js", "compras.js"];
 const app = MODULOS.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 const reglas = fs.readFileSync("firestore.rules", "utf8");
 prueba("cada id que buscan las vistas existe en index.html", () => {
@@ -456,6 +457,55 @@ prueba("la lista de los chicos no está escrita en el código: vive en la base",
 prueba("todos los módulos que carga la app están en el SHELL del service worker", () => {
   const sw = fs.readFileSync("sw.js", "utf8");
   for (const f of MODULOS.concat(["nucleo.js", "firebase-init.js"])) assert.ok(sw.includes(`"${f}`), f);
+});
+
+titulo("Lo que pidió Mauro el 30-sep (nucleo-4 · app-8)");
+prueba("cada comida tiene su vajilla al lado, y cuenta en el día", () => {
+  for (const c of ["desayuno", "almuerzo", "merienda", "cena"]) {
+    const v = COTIDIANAS.find((x) => x.junto === c);
+    assert.ok(v && v.grupo === "comidas", c);
+  }
+  assert.equal(progresoDia({ "cena-vajilla": { hecho: true } }).listos, 1);
+});
+prueba("las cotidianas propias se suman en orden; las rotas o las que pisan una de siempre, no", () => {
+  const l = cotidianasDe({ b: { nombre: "Regar", grupo: "casa", orden: 2 }, a: { nombre: "Perro", grupo: "casa", orden: 1 },
+    x: { nombre: "", grupo: "casa" }, y: { nombre: "Otra", grupo: "cualquiera" }, cena: { nombre: "Pisada", grupo: "comidas" } });
+  assert.deepEqual(l.filter((c) => c.propia).map((c) => c.id), ["a", "b"]);
+  assert.equal(l.find((c) => c.id === "cena").nombre, "Cena");
+  assert.equal(cotidianasDe(undefined).length, COTIDIANAS.length);
+  assert.deepEqual(progresoDia({ a: { hecho: true } }, l), { listos: 1, total: COTIDIANAS.length + 2 });
+});
+prueba("la lista de compras: lo que falta primero, cuenta lo que falta, ignora lo roto", () => {
+  const ls = listasDeCompras({ listas: {
+    f: { nombre: "Ferretería", orden: 2, items: { t: { texto: "tornillos", hecho: true }, c: { texto: "cinta", orden: 5 } } },
+    s: { nombre: "Súper", orden: 1, items: { v: { texto: "  " }, l: { texto: "leche", orden: 1 }, p: { texto: "pan", orden: 2 } } },
+    roto: { items: {} } } });
+  assert.deepEqual(ls.map((l) => l.id), ["s", "f"]);
+  assert.deepEqual(ls[0].items.map((i) => i.texto), ["leche", "pan"]);
+  assert.deepEqual(ls[1].items.map((i) => i.texto), ["cinta", "tornillos"]);
+  assert.equal(ls[1].faltan, 1);
+  assert.deepEqual(listasDeCompras(undefined), []);
+});
+prueba("el color del proyecto lo heredan las de adentro, salvo que tengan el suyo; sin ciclos", () => {
+  const [rojo, azul] = [COLORES_TAREA[0], COLORES_TAREA[5]];
+  const porId = { p: { id: "p", color: rojo }, h: { id: "h", parentId: "p" }, n: { id: "n", parentId: "h", color: azul },
+    raro: { id: "raro", color: "javascript:alert(1)" }, c1: { id: "c1", parentId: "c2" }, c2: { id: "c2", parentId: "c1" } };
+  assert.equal(colorHeredado(porId.h, porId), rojo);
+  assert.equal(colorHeredado(porId.n, porId), azul);
+  assert.equal(colorHeredado(porId.raro, porId), null);
+  assert.equal(colorHeredado(porId.c1, porId), null);
+});
+prueba("dos ids nuevos en el mismo milisegundo no chocan", () => {
+  assert.notEqual(idNuevo("c", 5), idNuevo("c", 5));
+});
+prueba("no se pueden agregar chicos desde la app, y el reloj ofrece ambos y todos juntos", () => {
+  const fam = fs.readFileSync("familia.js", "utf8");
+  assert.ok(!/data-form-nino/.test(fam));
+  assert.ok(/Todos juntos/.test(app) && /Ambos/.test(app) && /juntos/.test(app));
+});
+prueba("la lista de compras vive en familia/, que ya tiene su regla", () => {
+  assert.ok(/F\.doc\(db, "familia", "compras"\)/.test(app));
+  assert.ok(/match \/familia\//.test(reglas));
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

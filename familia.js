@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// familia.js — Lo de la casa que ven los dos. Sello: familia-1
+// familia.js — Lo de la casa que ven los dos. Sello: familia-2
 //
 // HOY    lo cotidiano: desayuno, almuerzo, merienda, cena, la basura, los
 //        cuartos, la ropa. Se TILDA, no se cronometra, y cada tilde puede
@@ -17,7 +17,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F } from "./firebase-init.js";
-import { esc, COTIDIANAS, progresoDia, chicosDelDia, eventosDelDia, grillaDelMes, semanaISO,
+import { esc, cotidianasDe, idNuevo, progresoDia, chicosDelDia, eventosDelDia, grillaDelMes, semanaISO,
          lunesDe, sumarDias, DIAS, MESES, esISO } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, ninoPorId, fallo } from "./estado.js";
 
@@ -45,17 +45,26 @@ const guardarDia = (datos) =>
 export function pintarHoy() {
   const v = $("v-hoy");
   const iso = E.diaVisto;
-  const { listos, total } = progresoDia(dia.hechos);
+  const lista = cotidianasDe(E.familia.cotidianasExtra);
+  const { listos, total } = progresoDia(dia.hechos, lista);
   const chicos = chicosDelDia(iso, E.familia.patron, E.turnos);
   const evs = eventosDelDia(iso, E.eventos);
-  const grupo = (g, titulo) => `<h2>${titulo}</h2>` + COTIDIANAS.filter((c) => c.grupo === g).map((c) => {
+  const quien = (h) => h.hecho === true ? `<small class="gris">${esc(h.por === E.yo.uid ? "vos" : h.nombre || nombreDe(h.por))}${h.hora ? " · " + esc(h.hora) : ""}</small>` : "";
+  // La vajilla de cada comida va en su mismo renglón (nucleo-4): es otra
+  // tarea, con su propio tilde y su propio «quién».
+  const junto = (c) => lista.filter((x) => x.junto === c.id).map((x) => {
+    const h = dia.hechos[x.id] || {};
+    return `<label class="check junto"><input type="checkbox" data-c="${x.id}"${h.hecho === true ? " checked" : ""}> 🍽 ${esc(x.nombre)} ${quien(h)}</label>`;
+  }).join("");
+  const grupo = (g, titulo) => `<h2>${titulo}</h2>` + lista.filter((c) => c.grupo === g && !c.junto).map((c) => {
     const h = dia.hechos[c.id] || {};
     return `<div class="cotidiana${h.hecho === true ? " lista" : ""}">
       <label class="check"><input type="checkbox" data-c="${c.id}"${h.hecho === true ? " checked" : ""}> <b>${esc(c.nombre)}</b>
-        ${h.hecho === true ? `<small class="gris">${esc(h.por === E.yo.uid ? "vos" : h.nombre || nombreDe(h.por))}${h.hora ? " · " + esc(h.hora) : ""}</small>` : ""}</label>
+        ${quien(h)}</label>${junto(c)}
         ${h.nota || notasAbiertas.has(c.id) ? "" : `<button class="mini nota" data-abrir-nota="${c.id}">＋ nota</button>`}
+        ${c.propia ? `<button class="mini nota" data-quitar-cot="${esc(c.id)}" title="Quitarla de la lista">✕</button>` : ""}
       ${h.nota || notasAbiertas.has(c.id) ? `<input class="obs" data-obs="${c.id}" maxlength="300" placeholder="observación" value="${esc(h.nota || "")}">` : ""}</div>`;
-  }).join("");
+  }).join("") + `<form class="dos agregar-cot" data-agregar-cot="${g}"><input name="nombre" maxlength="60" placeholder="＋ Agregar otra" required><button class="mini">Agregar</button></form>`;
   v.innerHTML = `<div class="nav-semana"><button class="mini" data-d="-1">‹</button><b>${iso === E.hoy ? "Hoy, " : ""}${fmtDia(iso)}</b>
       <button class="mini" data-d="1"${iso >= E.hoy ? " disabled" : ""}>›</button></div>
     <p class="gris">${listos} de ${total} hechas.</p>
@@ -86,6 +95,17 @@ export function pintarHoy() {
     guardarDia({ hechos: { [id]: { ...antes, hecho: antes.hecho === true, nota: o.value.slice(0, 300) } } });
   };
   $("nota-dia").onchange = (ev) => guardarDia({ nota: ev.target.value.slice(0, 2000) });
+  // Una cotidiana nueva es de los dos y queda para todos los días.
+  for (const f of v.querySelectorAll("[data-agregar-cot]")) f.onsubmit = (ev) => {
+    ev.preventDefault();
+    const nombre = f.nombre.value.trim(); if (!nombre) return;
+    guardarConfig({ cotidianasExtra: { [idNuevo("c")]: { nombre: nombre.slice(0, 60), grupo: f.dataset.agregarCot, orden: Date.now() } } });
+  };
+  for (const b of v.querySelectorAll("[data-quitar-cot]")) b.onclick = () => {
+    const c = lista.find((x) => x.id === b.dataset.quitarCot);
+    if (!c || !confirm(`¿Sacar «${c.nombre}» de la lista de todos los días? Lo tildado en días anteriores queda.`)) return;
+    guardarConfig({ cotidianasExtra: { [c.id]: F.deleteField() } });
+  };
 }
 
 /* ── CHICOS ───────────────────────────────────────────────────────────────── */
@@ -102,7 +122,7 @@ export function pintarChicos() {
   if (!lunesVisto) lunesVisto = lunesDe(E.hoy);
   let h = `<nav class="solapas chicas"><button data-vc="semana" aria-selected="${vista === "semana"}">Semana</button>
     <button data-vc="mes" aria-selected="${vista === "mes"}">Mes</button></nav>`;
-  if (!ninos.length) h += `<p class="aviso">Todavía no están cargados los chicos. Abajo, en «Los chicos».</p>`;
+  if (!ninos.length) h += `<p class="aviso">No aparecen los chicos: están en la base (<code>familia/config</code>). Pedíselo al agente.</p>`;
   h += vista === "mes" ? mes() : semana();
   if (diaElegido) h += editorDia(diaElegido);
   h += proximos();
@@ -206,7 +226,7 @@ function listaNinos() {
   const ninos = E.familia.ninos || [];
   return `<details class="tarjeta"${ninos.length ? "" : " open"}><summary><b>Los chicos</b></summary>
     ${ninos.map((n) => `<div class="fila"><i class="punto grande" style="--c:${esc(n.color)}"></i><span class="txt">${esc(n.nombre)}</span></div>`).join("")}
-    <form data-form-nino class="dos chicos-ed"><input name="nombre" maxlength="30" placeholder="Nombre" required><button class="mini">Agregar</button></form></details>`;
+    <p class="gris">Son los que son: acá no se agregan chicos (pedido de Mauro, 30-sep).</p></details>`;
 }
 
 const guardarConfig = (datos) => F.setDoc(F.doc(db, "familia", "config"), { ...datos, actualizadoEn: F.serverTimestamp() }, { merge: true }).catch(fallo);
@@ -230,13 +250,6 @@ function enganchar(v) {
     const actual = ((E.familia.patron[w] || {})[uid]) || [];
     const nuevo = c.checked ? [...new Set([...actual, nino])] : actual.filter((x) => x !== nino);
     guardarConfig({ patron: { [w]: { [uid]: nuevo } } });
-  });
-  todos("[data-form-nino]", (f) => f.onsubmit = (ev) => {
-    ev.preventDefault();
-    const nombre = f.nombre.value.trim(); if (!nombre) return;
-    const ninos = E.familia.ninos || [];
-    const id = "n" + Date.now().toString(36);
-    guardarConfig({ ninos: [...ninos, { id, nombre: nombre.slice(0, 30), color: COLORES[ninos.length % COLORES.length] }] });
   });
   todos("[data-nuevo-ev]", (b) => b.onclick = () => { editandoEvento = "nuevo"; if (b.dataset.nuevoEv !== E.hoy) diaElegido = b.dataset.nuevoEv; repintar(); });
   todos("[data-ed-ev]", (b) => b.onclick = () => { editandoEvento = b.dataset.edEv; repintar(); });

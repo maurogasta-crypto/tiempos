@@ -179,3 +179,16 @@ body.arrastrando-algo { user-select:none; -webkit-user-select:none; }
 /* ── estilos-5: la flechita que pliega un grupo ───────────────────────────── */
 .flecha { flex:0 0 28px; height:40px; border:0; background:none; color:var(--gris); font-size:1rem; padding:0; }
 .flecha.vacia { display:inline-block; }
+
+/* app-8 (30-sep-2026): colores de tareas, vajilla junto a la comida, cotidianas propias y la lista de compras */
+.fila-tarea.con-color { border-left:4px solid var(--col); }
+.colores { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:.4rem 0; }
+.colores .color { width:26px; height:26px; border-radius:50%; border:2px solid transparent; background:var(--c); padding:0; cursor:pointer; }
+.colores .color.on { border-color:var(--tinta, #222); box-shadow:0 0 0 2px #fff inset; }
+.cotidiana label.check.junto { flex:0 0 auto; font-size:.88rem; }
+.agregar-cot { margin:.3rem 0 .6rem; }
+.agregar-cot input { font-size:.88rem; }
+.compra .fila .txt { cursor:pointer; }
+.item-compra { display:flex; align-items:center; gap:6px; border-top:1px solid var(--linea); padding:2px 0; }
+.item-compra label.check { flex:1; margin:.2rem 0; }
+.item-compra.hecho label { color:var(--gris); text-decoration:line-through; }

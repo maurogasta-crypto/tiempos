@@ -10,14 +10,15 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
 | Banco | `node pruebas.mjs` (72 casos, sin npm, sin red) |
 
-## Qué hace (app-7)
+## Qué hace (app-8)
 
 Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
 
 - **Ahora**: un solo cronómetro de tarea. Se elige una tarea de la familia o de
   Casa Verde y corre; mientras corre uno no arranca otro en ninguna de las dos
   bases. Se para con «queda pendiente» o «terminé». Aparte, y **en paralelo**,
-  «Estoy con» un chico o los dos: ese reloj no frena ni bloquea el de la tarea.
+  «Estoy con» un chico, **ambos** o **todos juntos** (la familia entera; la
+  sesión lo marca con `juntos`): ese reloj no frena ni bloquea el de la tarea.
   Arriba lo que **te pidieron**, después lo que tomaste, lo de los dos sin
   encargado, y Casa Verde. Cada tarea se despliega con «⋯».
 - **Los grupos se pliegan** con la flechita ▾/▸, como en Casa Verde (app-7):
@@ -25,15 +26,21 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
 - **Ficha de una tarea de la familia**: en la tarea de arriba de un grupo, su
   **ámbito** (las hijas lo heredan); «Me ocupo yo» (un clic), «Pedírsela al
   otro» (con una nota), «Meta de la semana», «A mi agenda», el detalle y para
-  cuándo. Quien recibe un pedido lo acepta («Me ocupo») o lo devuelve («No
+  cuándo, y **su color** (app-8: lo de adentro lo hereda, salvo que tenga el
+  suyo). «＋ Tarea adentro» mete una tarea adentro de cualquier otra, sin límite
+  de niveles; «A mi agenda y ubicarla» la pone en la agenda y lleva ahí, donde
+  se mueve en la semana con el agarre ⠿. Quien recibe un pedido lo acepta («Me ocupo») o lo devuelve («No
   puedo»); al aceptar, pasa a ser suya y deja de ser de quien la pidió.
 - **Ficha de una tarea de Casa Verde**: el detalle, las fechas, la hora, cada
   cuánto se repite, el monto, quiénes la hacen, la última vez, y **los
   registros**: quién le dedicó tiempo, cuándo y cuánto, con el total. Se puede
   dar por hecha sin cronómetro (`Core.tildar`) y abrir en Casa Verde.
 - **Hoy**: lo cotidiano se **tilda**, no se cronometra —desayuno, almuerzo,
-  merienda, cena, la basura, los cuartos, lavar, doblar y guardar—. Queda quién
-  y a qué hora, y cada una puede llevar una observación; abajo, las del día.
+  merienda, cena, la basura, los cuartos, lavar, doblar y guardar—, con **la
+  vajilla al lado de cada comida** (app-8). Queda quién y a qué hora, y cada
+  una puede llevar una observación; abajo, las del día. **«＋ Agregar otra»**
+  suma una cotidiana para todos los días (`familia/config.cotidianasExtra`);
+  las agregadas se sacan con ✕, las de siempre no.
 - **Agenda**: mi semana, en mañana, tarde y noche, **arrastrando** del ⠿. Es de
   cada uno: el otro no la ve. Cada día muestra con quién están los chicos y
   sus actividades, que en la agenda aparecen para los dos y no se arrastran.
@@ -41,12 +48,17 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
 - **Tareas**: la **pizarra de la semana** —las metas, agrupadas por quién se
   ocupa; lo que no se terminó sigue la semana siguiente— y la lista entera.
   Una tarea tiene su ámbito (producción, mantenimiento, chicos, casa y comida,
-  personal), y puede ser de los dos o sólo mía.
+  personal), y puede ser de los dos o sólo mía. Un **proyecto** es una tarea
+  suelta: «Adentro de» deja elegir cualquier tarea, a cualquier nivel.
+  **Compras** (app-8): listas editables —súper, ferretería, materiales, lo que
+  sea— que se despliegan con sus casillas; lo comprado se tacha y se saca con un
+  botón. Viven en `familia/compras`, de los dos.
 - **Chicos**: la semana o el mes, con un señalador por persona y por chico.
   Sale de **lo acordado** para cada día de la semana, y un día distinto se
   cambia tocándolo. Las **actividades** —básquet, kung fu, amigos, la
   psicóloga— se cargan acá, pueden repetirse cada semana, y las ven los dos
-  siempre, las cargue quien las cargue.
+  siempre, las cargue quien las cargue. **Los chicos no se agregan desde la
+  app** (pedido de Mauro, 30-sep): son los que están en `familia/config`.
 - **Plata**: lo disponible por moneda (nunca se suman entre sí), los gastos y
   las entradas del mes. Un gasto se carga con la **foto de la boleta** (cámara
   o archivo), que la IA de Casa Verde lee y deja como sugerencia editable. Un
@@ -118,17 +130,18 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-3` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-4` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-7` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-8` |
+| `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
 | `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-1` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-1` |
 | `balance.js` | el balance del tiempo, los acuerdos, la auditoría | `balance-1` |
-| `agenda.js` | mi semana, arrastrando | `agenda-1` |
-| `familia.js` | Hoy y Chicos | `familia-1` |
+| `agenda.js` | mi semana, arrastrando | `agenda-2` |
+| `familia.js` | Hoy y Chicos | `familia-2` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-5` |
-| `sw.js` | el cascarón sin señal | `tiempos-7` |
+| `estilos.css` | | `estilos-6` |
+| `sw.js` | el cascarón sin señal | `tiempos-9` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v6 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

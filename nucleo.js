@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-3
+// Sello: nucleo-4
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -213,6 +213,13 @@ export const COTIDIANAS = [
   { id: "almuerzo", nombre: "Almuerzo", grupo: "comidas" },
   { id: "merienda", nombre: "Merienda", grupo: "comidas" },
   { id: "cena",     nombre: "Cena",     grupo: "comidas" },
+  // nucleo-4 (30-sep, pedido de Mauro): «al lado de cada comida, la lavada de
+  // vajilla». Es otra tarea —la puede hacer otro— y se dibuja en el mismo
+  // renglón que su comida (`junto`).
+  { id: "desayuno-vajilla", nombre: "Vajilla", grupo: "comidas", junto: "desayuno" },
+  { id: "almuerzo-vajilla", nombre: "Vajilla", grupo: "comidas", junto: "almuerzo" },
+  { id: "merienda-vajilla", nombre: "Vajilla", grupo: "comidas", junto: "merienda" },
+  { id: "cena-vajilla",     nombre: "Vajilla", grupo: "comidas", junto: "cena" },
   { id: "basura",   nombre: "Sacar la basura",    grupo: "casa" },
   { id: "cuartos",  nombre: "Limpieza de cuartos", grupo: "casa" },
   { id: "lavado",   nombre: "Lavado de ropa",      grupo: "casa" },
@@ -515,4 +522,58 @@ export function auditar({ sesiones = [], movs = [], bloques = [], dias = {}, uid
   const cuidadoSinChicos = sesiones.filter((s) => s.registro === "cuidado" && !(Array.isArray(s.ninos) && s.ninos.length));
   if (cuidadoSinChicos.length) out.push({ nivel: "ojo", tema: "chicos", texto: `${cuidadoSinChicos.length} registro(s) con los chicos sin decir con cuál.` });
   return out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   nucleo-4 — lo que pidió Mauro desde el globo 💡 (30-sep-2026)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Cotidianas agregadas por ellos ──────────────────────────────────────────
+   «De las tareas cotidianas a tildar, tiene que estar la opción de agregar una
+   nueva.» Las de siempre están en el código; las agregadas viven en
+   `familia/config.cotidianasExtra` como MAPA ({id: {nombre, grupo, orden}}) y
+   no como lista, para que dos teléfonos que agregan a la vez no se pisen. */
+export const GRUPOS_COTIDIANOS = ["comidas", "casa"];
+export function cotidianasDe(extra) {
+  const suma = Object.entries(extra || {})
+    .filter(([id, c]) => c && typeof c.nombre === "string" && c.nombre.trim() && GRUPOS_COTIDIANOS.includes(c.grupo)
+      && !COTIDIANAS.some((b) => b.id === id))
+    .sort((a, b) => (a[1].orden || 0) - (b[1].orden || 0))
+    .map(([id, c]) => ({ id, nombre: c.nombre.trim().slice(0, 60), grupo: c.grupo, propia: true }));
+  return [...COTIDIANAS, ...suma];
+}
+export const idNuevo = (prefijo, ahoraMs = Date.now()) =>
+  prefijo + ahoraMs.toString(36) + Math.random().toString(36).slice(2, 6);
+
+/* ── La lista de compras ─────────────────────────────────────────────────────
+   «Falta la lista de compras. En categorías editables —súper, ferretería, o
+   alimentos, materiales—; al entrar se despliega la lista con checkbox.»
+   Vive en `familia/compras`: { listas: { id: { nombre, orden, items: { id:
+   { texto, hecho, por, orden } } } } }. Mapas y no listas por lo mismo de
+   arriba: cada tilde toca una sola clave. */
+export const LISTAS_DE_ENTRADA = ["Súper", "Verdulería", "Farmacia", "Ferretería"];
+export function listasDeCompras(doc) {
+  return Object.entries((doc && doc.listas) || {})
+    .filter(([, l]) => l && typeof l.nombre === "string")
+    .map(([id, l]) => {
+      const items = Object.entries(l.items || {})
+        .filter(([, it]) => it && typeof it.texto === "string" && it.texto.trim())
+        .map(([iid, it]) => ({ id: iid, texto: it.texto, hecho: it.hecho === true, por: it.por || "", orden: it.orden || 0 }))
+        .sort((a, b) => Number(a.hecho) - Number(b.hecho) || a.orden - b.orden || a.texto.localeCompare(b.texto));
+      return { id, nombre: l.nombre, orden: l.orden || 0, items, faltan: items.filter((i) => !i.hecho).length };
+    })
+    .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+}
+
+/* ── Colores de las tareas ───────────────────────────────────────────────────
+   «Y elegirle colores.» Un proyecto lleva su color y lo que tiene adentro lo
+   hereda, salvo que tenga uno propio; sin color, el de su ámbito. */
+export const COLORES_TAREA = ["#e57373", "#f0a35e", "#e3c34f", "#7fbf7f", "#5fb3b3", "#6c9bd8", "#a987d8", "#d88fb5", "#8d8d8d"];
+export function colorHeredado(t, porId) {
+  const vistos = new Set();
+  for (let x = t; x && !vistos.has(x.id); x = x.parentId ? porId[x.parentId] : null) {
+    vistos.add(x.id);
+    if (COLORES_TAREA.includes(x.color)) return x.color;
+  }
+  return null;
 }

@@ -86,5 +86,10 @@ la documentación diga la verdad.
   agente resuelve `tiempos` como `casaverde`. Criterios en
   `protocolos/PROTOCOLO-AVISOS.md` de `datos`.
 - **Una colección nueva entra con su regla, en la misma tanda.**
+- **Lo de la casa que se edita vive en `familia/`** (app-8, 30-sep-2026): las
+  cotidianas agregadas en `familia/config.cotidianasExtra` y la lista de
+  compras en `familia/compras`, las dos como MAPAS para que dos teléfonos no se
+  pisen. Por eso no hizo falta una regla nueva. **Los chicos no se agregan
+  desde la app**: lo pidió Mauro.
 - **El reparto (`repartir`) no se muestra hasta que Mauro y Florencia lo
   acuerden.** Está probado; mostrarlo es una decisión de ellos.

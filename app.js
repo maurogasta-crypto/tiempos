@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-7
+// Sello: app-8
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -26,12 +26,14 @@
 import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
 import { TIPOS, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
          alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
-         separarEnCurso, chicosDelDia, eventosDelDia, bloquesPorConfirmar, automaticosPendientes } from "./nucleo.js";
+         separarEnCurso, chicosDelDia, eventosDelDia, bloquesPorConfirmar, automaticosPendientes,
+         COLORES_TAREA, colorHeredado } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
 import { pintarAgenda, alternarEnAgenda, estaEnAgenda } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
+import { pintarCompras } from "./compras.js";
 import { montarGlobo } from "./sugerir.js";
 
 const SOLAPAS = ["ahora", "hoy", "agenda", "tareas", "chicos", "plata", "balance"];
@@ -155,9 +157,13 @@ function escucharFamilia() {
   F.onSnapshot(F.collection(db, "miembros"), (s) => { E.miembros = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar(); });
   F.onSnapshot(F.doc(db, "familia", "config"), (d) => {
     const x = d.exists() ? d.data() : {};
-    E.familia = { ninos: Array.isArray(x.ninos) ? x.ninos : [], patron: x.patron || {} };
+    E.familia = { ninos: Array.isArray(x.ninos) ? x.ninos : [], patron: x.patron || {}, cotidianasExtra: x.cotidianasExtra || {} };
     pintar();
   }, mal("los datos de los chicos"));
+  // app-8: la lista de compras, en el mismo documento para los dos.
+  F.onSnapshot(F.doc(db, "familia", "compras"), (d) => {
+    E.compras = d.exists() ? d.data() : {}; pintar();
+  }, mal("la lista de compras"));
   F.onSnapshot(F.collection(db, "turnos"), (s) => {
     E.turnos = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); pintar();
   }, mal("los turnos"));
@@ -217,10 +223,10 @@ async function frenarFamilia(terminada) {
    «En paralelo a eso está la dedicación a los niños»: estar con ellos es un
    reloj APARTE, que no frena ni bloquea el de la tarea. Cuenta como «chicos»,
    que en la carga vale la mitad (TIPOS.ninos.peso). */
-async function empezarCuidado(ninos) {
+async function empezarCuidado(ninos, juntos = false) {
   if (E.cuidado) return aviso("Ya estás contado con los chicos.", true);
   await F.addDoc(F.collection(db, "sesiones"), {
-    tareaId: null, tareaTitulo: "", tipo: "ninos", ninos,
+    tareaId: null, tareaTitulo: "", tipo: "ninos", ninos, juntos,
     uid: E.yo.uid, nombre: E.miembro.nombre || "",
     inicio: F.Timestamp.now(), fin: null, horas: 0, estado: "en_curso",
     registro: "cuidado", creadoEn: F.serverTimestamp(),
@@ -370,7 +376,8 @@ function pintarCuidado() {
   const c = $("cuidado");
   const ninos = E.familia.ninos || [];
   if (E.cuidado) {
-    const quienes = (E.cuidado.ninos || []).map((id) => (ninoPorId(id) || {}).nombre || "?").join(" y ");
+    const quienes = E.cuidado.juntos ? "todos juntos"
+      : (E.cuidado.ninos || []).map((id) => (ninoPorId(id) || {}).nombre || "?").join(" y ");
     c.innerHTML = `<div class="cuidado-vivo"><span>Con <b>${esc(quienes || "los chicos")}</b></span>
       <span id="reloj-chicos" class="reloj-chico">0:00:00</span>
       <button class="mini" id="fin-cuidado">Terminé</button></div>`;
@@ -378,12 +385,19 @@ function pintarCuidado() {
     pintarReloj();
     return;
   }
-  if (!ninos.length) { c.innerHTML = `<p class="gris">Los chicos se cargan en la solapa «Chicos».</p>`; return; }
+  if (!ninos.length) { c.innerHTML = `<p class="gris">No aparecen los chicos: están en la base, pedíselo al agente.</p>`; return; }
+  // app-8, pedido de Mauro: «con Yacko, con Kala, ambos o todos». «Todos
+  // juntos» es la familia entera: los mismos chicos que «ambos», y la sesión
+  // lo dice (`juntos`) para que el balance lo pueda distinguir.
   c.innerHTML = `<div class="cuidado-botones"><span class="gris">Estoy con</span>` +
     ninos.map((n) => `<button class="mini nino" style="--c:${esc(n.color || "#c89bd8")}" data-con="${esc(n.id)}">${esc(n.nombre)}</button>`).join("") +
-    (ninos.length > 1 ? `<button class="mini nino" data-con="*">los ${ninos.length}</button>` : "") + `</div>`;
-  for (const b of c.querySelectorAll("[data-con]")) b.onclick = () =>
-    empezarCuidado(b.dataset.con === "*" ? ninos.map((n) => n.id) : [b.dataset.con]).catch(fallo);
+    (ninos.length > 1 ? `<button class="mini nino" data-con="*">${ninos.length === 2 ? "Ambos" : "Los " + ninos.length}</button>` : "") +
+    `<button class="mini nino" data-con="todos">Todos juntos</button></div>`;
+  for (const b of c.querySelectorAll("[data-con]")) b.onclick = () => {
+    const todos = ninos.map((n) => n.id);
+    const x = b.dataset.con;
+    empezarCuidado(x === "*" || x === "todos" ? todos : [x], x === "todos").catch(fallo);
+  };
 }
 
 /* ── Plegar un grupo (app-7) ──────────────────────────────────────────────────
@@ -420,6 +434,9 @@ function filaTarea(t, nivel, porId, hijos, cuantos = 0) {
   const f = document.createElement("div");
   f.className = "fila-tarea" + (t.hecho ? " hecha" : "");
   f.style.paddingLeft = (nivel * 16) + "px";
+  // app-8: el color del proyecto, heredado por lo que tiene adentro.
+  const col = colorHeredado(t, porId);
+  if (col) { f.classList.add("con-color"); f.style.setProperty("--col", col); }
   const abierta = E.abierta === "f:" + t.id;
   f.innerHTML = `<div class="fila">${flecha("f:" + t.id, cuantos)}
       ${t.hecho ? `<span class="play apagado">✓</span>` : `<button class="play" aria-label="Empezar">▶</button>`}
@@ -449,11 +466,14 @@ function fichaTarea(t, hijos) {
       <button class="mini${mia ? " on" : ""}" data-a="yo">${mia ? "✓ Me ocupo yo" : "Me ocupo yo"}</button>
       ${comun && o ? `<button class="mini" data-a="pedir">Pedírsela a ${esc(o.nombre || "el otro")}</button>` : ""}
       ${comun ? `<button class="mini${t.meta ? " on" : ""}" data-a="meta">${t.meta ? "★ Meta de la semana" : "☆ Meta de la semana"}</button>` : ""}
-      <button class="mini${estaEnAgenda("f:" + t.id) ? " on" : ""}" data-a="agenda">${estaEnAgenda("f:" + t.id) ? "📅 En mi agenda" : "📅 A mi agenda"}</button>
+      <button class="mini${estaEnAgenda("f:" + t.id) ? " on" : ""}" data-a="agenda">${estaEnAgenda("f:" + t.id) ? "📅 En mi agenda" : "📅 A mi agenda y ubicarla"}</button>
+      <button class="mini" data-a="adentro">＋ Tarea adentro</button>
       <button class="mini" data-a="hecha">✔ Hecha</button>`}
       ${t.duenio === E.yo.uid ? `<button class="mini" data-a="borrar">Borrar</button>` : ""}
     </div>
     ${!t.parentId ? `<label>Ámbito <select data-a="tipo">${Object.entries(TIPOS).map(([k, x]) => `<option value="${k}"${t.tipo === k ? " selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></label>` : ""}
+    <div class="colores"><span class="gris">Color</span>${COLORES_TAREA.map((c) => `<button class="color${t.color === c ? " on" : ""}" data-color="${c}" style="--c:${c}" aria-label="Color ${c}"></button>`).join("")}
+      <button class="mini${t.color ? "" : " on"}" data-color="">${t.parentId ? "el del proyecto" : "sin color"}</button></div>
     <label>Detalle <textarea data-a="detalle" rows="3" maxlength="2000" placeholder="Lo que haga falta saber para hacerla">${esc(t.detalle || "")}</textarea></label>
     <label>Para cuándo <input type="date" data-a="limite" value="${esc(t.limite || "")}"></label>`;
   const up = (x) => F.updateDoc(F.doc(db, "tareas", t.id), { ...x, actualizadoEn: F.serverTimestamp() }).catch(fallo);
@@ -462,7 +482,30 @@ function fichaTarea(t, hijos) {
   on("meta", () => up({ meta: t.meta ? null : lunes }));
   on("hecha", () => up({ hecho: true, hechoPor: E.yo.uid }));
   on("reabrir", () => up({ hecho: false }));
-  on("agenda", () => alternarEnAgenda("f:" + t.id));
+  // «Un botón para arrastrar a mi agenda y ahí poder moverla en la semana»:
+  // la pone en la agenda y lleva ahí, donde se arrastra con el agarre ⠿.
+  on("agenda", () => {
+    const ya = estaEnAgenda("f:" + t.id);
+    alternarEnAgenda("f:" + t.id);
+    if (!ya) irA("agenda");
+  });
+  // «Dentro del proyecto agregar una tarea, y dentro de ella puede haber
+  // otra»: sin límite de niveles. Hereda el ámbito y a quién se ve.
+  on("adentro", async () => {
+    const titulo = (prompt(`Tarea adentro de «${t.titulo}»`, "") || "").trim();
+    if (!titulo) return;
+    const { porId } = arbol(E.tareas);
+    try {
+      await F.addDoc(F.collection(db, "tareas"), {
+        titulo: titulo.slice(0, 120), parentId: t.id, tipo: tipoHeredado(t, porId),
+        alcance: t.alcance === "personal" ? "personal" : "comun",
+        duenio: E.yo.uid, hecho: false, encargados: t.alcance === "personal" ? [E.yo.uid] : [],
+        meta: null, detalle: "", creadoEn: F.serverTimestamp(),
+      });
+      if (plegado.has("f:" + t.id)) alternarPlegado("f:" + t.id);
+    } catch (e) { fallo(e); }
+  });
+  for (const b of d.querySelectorAll("[data-color]")) b.onclick = () => up({ color: b.dataset.color || null });
   on("aceptar", () => { try { up(responderPedido(t, E.yo.uid, true)); } catch (e) { fallo(e); } });
   on("devolver", () => { try { up(responderPedido(t, E.yo.uid, false)); } catch (e) { fallo(e); } });
   on("pedir", () => {
@@ -644,15 +687,20 @@ function pintarTareas() {
   const lunes = lunesPizarra || lunesDe(E.hoy);
   for (const b of document.querySelectorAll("[data-vt]")) b.setAttribute("aria-selected", String(b.dataset.vt === E.vistaTareas));
   const sel = $("nueva-padre");
-  const { raices, porId } = arbol(E.tareas.filter((t) => !t.hecho));
+  const { raices, porId, hijos: hijosSel } = arbol(E.tareas.filter((t) => !t.hecho));
   const antes = sel.value;
-  sel.innerHTML = `<option value="">— Nueva, suelta —</option>` +
-    raices.map((r) => `<option value="${esc(r.id)}">${esc(r.titulo)} (${esc(TIPOS[tipoHeredado(r, porId)].nombre)})</option>`).join("");
+  // app-8: se puede meter adentro de cualquier tarea, no sólo de un proyecto.
+  const opciones = [];
+  const bajarSel = (t, n) => { opciones.push(`<option value="${esc(t.id)}">${"— ".repeat(n)}${esc(t.titulo)}${n ? "" : " (" + esc(TIPOS[tipoHeredado(t, porId)].nombre) + ")"}</option>`); for (const h of hijosSel[t.id] || []) bajarSel(h, n + 1); };
+  for (const r of raices) bajarSel(r, 0);
+  sel.innerHTML = `<option value="">— Proyecto nuevo (suelto) —</option>` + opciones.join("");
   sel.value = antes;
   $("nueva-tipo").parentElement.hidden = !!sel.value;
   sel.onchange = () => { $("nueva-tipo").parentElement.hidden = !!sel.value; };
   $("nueva-meta").parentElement.hidden = E.vistaTareas !== "pizarra";
+  $("form-tarea").hidden = E.vistaTareas === "compras";
   const v = $("v-tareas-lista"); v.replaceChildren();
+  if (E.vistaTareas === "compras") { pintarCompras(v); return; }
 
   if (E.vistaTareas === "pizarra") {
     const nav = document.createElement("div"); nav.className = "nav-semana";
