@@ -97,5 +97,12 @@ la documentación diga la verdad.
   compras en `familia/compras`, las dos como MAPAS para que dos teléfonos no se
   pisen. Por eso no hizo falta una regla nueva. **Los chicos no se agregan
   desde la app**: lo pidió Mauro.
+- **Las tareas tienen un campo `pizarra` que esta app no escribe** (2-oct-2026):
+  un mapa uid → true que pone la app de Android **Pizarra**
+  (`maurogasta-crypto/pizarra`) para saber qué tareas muestra cada uno en su
+  widget. Desde ahí también se tacha, escribiendo exactamente lo que «✔ Hecha»
+  (`hecho`, `hechoPor`) y «Volver a pendiente» (`hecho: false`). **Si cambia
+  alguno de esos dos botones, cambia `cuerpoTachar` de la pizarra en la misma
+  tanda.** No hizo falta tocar la regla de `tareas`.
 - **El reparto (`repartir`) no se muestra hasta que Mauro y Florencia lo
   acuerden.** Está probado; mostrarlo es una decisión de ellos.
