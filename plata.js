@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-1
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-2
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -132,6 +132,9 @@ const leerCampos = (f) => ({
 
 /* La boleta, leída por la IA de Casa Verde. Nunca bloquea: si no anda, se
    completa a mano. */
+const MODELO_BOLETA = "gemini-2.5-flash-lite";
+const TOKENS_BOLETA = 2000;
+
 async function leerBoleta(file) {
   const CV2 = CV.CV2;
   const blob = await CV2.comprimirImagen(file);
@@ -139,7 +142,10 @@ async function leerBoleta(file) {
   const cats = Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === "salio").map(([k, c]) => `${k} (${c.nombre})`).join(", ");
   const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gemini-2.5-flash", max_tokens: 600, messages: [{ role: "user", content: [
+    // plata-2 (tiempos:A10): flash-lite y 2000 tokens. «gemini-2.5-flash»
+    // piensa antes de contestar, el pensamiento se come el límite y el JSON
+    // llega cortado — pasó igual en el inventario de remate.
+    body: JSON.stringify({ model: MODELO_BOLETA, max_tokens: TOKENS_BOLETA, messages: [{ role: "user", content: [
       { type: "image", source: { type: "base64", media_type: "image/jpeg", data } },
       { type: "text", text: `Es una boleta o comprobante de un gasto de una familia en Brasil o Uruguay. Devolvé SOLO un JSON, sin texto alrededor:
 {"monto": número total pagado, "moneda": "BRL" | "UYU" | "USD", "fecha": "AAAA-MM-DD", "comercio": nombre del comercio, "categoria": una de [${cats}], "detalle": qué se compró, en pocas palabras}.

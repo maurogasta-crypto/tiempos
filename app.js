@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-10
+// Sello: app-11
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -27,7 +27,7 @@ import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
 import { TIPOS, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
          alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
          separarEnCurso, chicosDelDia, eventosDelDia, bloquesPorConfirmar, automaticosPendientes,
-         COLORES_TAREA, colorHeredado } from "./nucleo.js";
+         COLORES_TAREA, colorHeredado, estaCorriendo } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
 import { pintarAgenda, alternarEnAgenda, estaEnAgenda } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
@@ -445,13 +445,16 @@ function filaTarea(t, nivel, porId, hijos, cuantos = 0) {
   const col = colorHeredado(t, porId);
   if (col) { f.classList.add("con-color"); f.style.setProperty("--col", col); }
   const abierta = E.abierta === "f:" + t.id;
+  // app-11: la que corre muestra ■ (parar) y queda recuadrada.
+  const corre = estaCorriendo(E.enCursoCV, E.enCursoFam, "f", t.id);
+  if (corre) f.classList.add("corriendo");
   f.innerHTML = `<div class="fila">${flecha("f:" + t.id, cuantos)}
-      ${t.hecho ? `<span class="play apagado">✓</span>` : `<button class="play" aria-label="Empezar">▶</button>`}
+      ${t.hecho ? `<span class="play apagado">✓</span>` : corre ? `<button class="play parar" aria-label="Parar">■</button>` : `<button class="play" aria-label="Empezar">▶</button>`}
       <span class="txt">${esc(t.titulo)}${chipsDe(t, porId)}${cuantos && plegado.has("f:" + t.id) ? ` <small class="gris">· ${cuantos} adentro</small>` : ""}</span>
       <button class="mas" aria-label="Más">${abierta ? "▴" : "⋯"}</button></div>`;
   engancharFlecha(f);
   const p = f.querySelector("button.play");
-  if (p) p.onclick = () => arrancarFamilia(t).catch(fallo);
+  if (p) p.onclick = () => (corre ? frenarFamilia(false) : arrancarFamilia(t)).catch(fallo);
   f.querySelector(".mas").onclick = () => { E.abierta = abierta ? null : "f:" + t.id; pintar(); };
   if (abierta) f.append(fichaTarea(t, hijos));
   return f;
@@ -570,13 +573,15 @@ function filaCV(a, nivel, cuantos = 0) {
   f.style.paddingLeft = (nivel * 16) + "px";
   const abierta = E.abierta === "cv:" + a.id;
   const s = semaforoCV(a);
+  const corre = estaCorriendo(E.enCursoCV, E.enCursoFam, "cv", a.id);
+  if (corre) f.classList.add("corriendo");
   f.innerHTML = `<div class="fila">${flecha("cv:" + a.id, cuantos)}
-      <button class="play" aria-label="Empezar">▶</button>
+      ${corre ? `<button class="play parar" aria-label="Parar">■</button>` : `<button class="play" aria-label="Empezar">▶</button>`}
       <span class="txt"><i class="sem" style="background:${s.c}" title="${esc(s.t)}"></i>${esc(a.titulo || "(sin título)")}
         <small class="gris"> ${esc(s.t)}${cuantos && plegado.has("cv:" + a.id) ? ` · ${cuantos} adentro` : ""}</small>${estaEnAgenda("cv:" + a.id) ? ` <span class="ag">📅</span>` : ""}</span>
       <button class="mas" aria-label="Más">${abierta ? "▴" : "⋯"}</button></div>`;
   engancharFlecha(f);
-  f.querySelector(".play").onclick = () => arrancarCV(a);
+  f.querySelector(".play").onclick = () => (corre ? frenarCV(false).catch(fallo) : arrancarCV(a));
   f.querySelector(".mas").onclick = () => {
     E.abierta = abierta ? null : "cv:" + a.id;
     if (!abierta && !registrosCV[a.id]) cargarRegistrosCV(a.id);

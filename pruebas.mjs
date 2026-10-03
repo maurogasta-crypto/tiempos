@@ -18,7 +18,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
          cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
-         UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas } from "./nucleo.js";
+         UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -99,6 +99,22 @@ prueba("con algo corriendo en Casa Verde no arranca nada de la familia, y al rev
   assert.equal(quePuedoArrancar({ titulo: "Limpieza" }, null).puede, false);
   assert.equal(quePuedoArrancar(null, { titulo: "Cena" }).puede, false);
   assert.equal(quePuedoArrancar(null, null).puede, true);
+});
+prueba("la tarea que corre se reconoce en su fila (■ y recuadro, tiempos:A1)", () => {
+  assert.equal(estaCorriendo({ actividadId: "a1" }, null, "cv", "a1"), true);
+  assert.equal(estaCorriendo({ actividadId: "a1" }, null, "cv", "a2"), false);
+  assert.equal(estaCorriendo(null, { tareaId: "t1" }, "f", "t1"), true);
+  assert.equal(estaCorriendo(null, { tareaId: "t1" }, "cv", "t1"), false, "una tarea de la familia no marca una de Casa Verde con el mismo id");
+  assert.equal(estaCorriendo(null, { tareaId: undefined }, "f", undefined), false, "sin id no corre nada");
+  assert.equal(estaCorriendo(null, null, "f", "t1"), false);
+  const app = fs.readFileSync("app.js", "utf8");
+  assert.equal((app.match(/estaCorriendo\(E\.enCursoCV, E\.enCursoFam/g) || []).length, 2, "las dos filas (familia y Casa Verde) lo usan");
+});
+prueba("las boletas se leen con flash-lite y tokens de sobra (tiempos:A10)", () => {
+  const plata = fs.readFileSync("plata.js", "utf8");
+  assert.match(plata, /const MODELO_BOLETA = "gemini-2\.5-flash-lite";/);
+  assert.ok(Number((/const TOKENS_BOLETA = (\d+)/.exec(plata) || [])[1]) >= 1500);
+  assert.ok(!/model: "gemini-2\.5-flash"/.test(plata), "el modelo que piensa y corta el JSON no vuelve");
 });
 
 titulo("Lo demás");

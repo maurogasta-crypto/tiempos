@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-5
+/* estilos.css — Tiempos. Sello: estilos-8
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -196,3 +196,7 @@ body.arrastrando-algo { user-select:none; -webkit-user-select:none; }
 .evento.actividad { border-left:4px solid var(--c); padding-left:6px; }
 fieldset.clases { border:1px solid var(--linea); border-radius:10px; padding:.4rem .7rem; margin:.4rem 0; display:flex; flex-wrap:wrap; gap:4px 14px; }
 fieldset.clases legend { font-size:.85rem; }
+
+/* app-11 (tiempos:A1): la tarea que corre se ve sin buscarla. */
+.fila-tarea.corriendo { outline:2px solid var(--acento); outline-offset:-2px; border-radius:10px; background:color-mix(in srgb, var(--acento) 12%, transparent); }
+.play.parar { background:var(--tinta); color:var(--acento); }

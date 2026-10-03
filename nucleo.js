@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-6
+// Sello: nucleo-7
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -126,6 +126,17 @@ export function quePuedoArrancar(enCursoCasaVerde, enCursoFamilia) {
   if (enCursoCasaVerde) return { puede: false, motivo: `Ya está corriendo «${enCursoCasaVerde.titulo || "una tarea"}» de Casa Verde. Frenala primero.` };
   if (enCursoFamilia) return { puede: false, motivo: `Ya está corriendo «${enCursoFamilia.titulo || "una tarea"}». Frenala primero.` };
   return { puede: true };
+}
+
+/* ¿Es ésta la tarea que está corriendo? (nucleo-7, tiempos:A1). Mauro, 1-oct:
+   «es difícil identificar que inició, el botón del play no cambia». La fila
+   que corre muestra ■ y queda recuadrada; las demás siguen con ▶. Casa Verde
+   guarda la actividad en `actividadId`, la familia la tarea en `tareaId`. */
+export function estaCorriendo(enCursoCasaVerde, enCursoFamilia, origen, id) {
+  if (!id) return false;
+  if (origen === "cv") return !!enCursoCasaVerde && enCursoCasaVerde.actividadId === id;
+  if (origen === "f") return !!enCursoFamilia && enCursoFamilia.tareaId === id;
+  return false;
 }
 
 /* Semana de lunes a domingo, en hora local. */

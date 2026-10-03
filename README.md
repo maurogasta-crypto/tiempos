@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (72 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (97 casos, sin npm, sin red) |
 
 ## Qué hace (app-10)
 
@@ -92,6 +92,15 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
 - Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
   en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
 
+### Lo que se sumó el 3-oct-2026 (nucleo-7, app-11, plata-2)
+
+- **La tarea que corre se ve en su fila**: el ▶ pasa a **■** (tocarlo para,
+  y queda pendiente) y la fila queda recuadrada, en Casa Verde y en la
+  familia (`estaCorriendo`). Lo pidió Mauro al probar el cronómetro.
+- **Las boletas se leen con `gemini-2.5-flash-lite` y 2000 tokens**: el
+  `gemini-2.5-flash` piensa antes de contestar y el JSON llegaba cortado,
+  como en el inventario de remate. El banco fija el modelo.
+
 ### Lo que se sumó el 30-sep-2026 (nucleo-6, app-10)
 
 - **Estar con los chicos vale lo mismo que producir**: es lo que deja producir
@@ -153,18 +162,18 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-6` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-7` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-10` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-11` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
 | `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-1` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-1` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-2` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
 | `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
 | `familia.js` | Hoy y Chicos | `familia-2` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-7` |
-| `sw.js` | el cascarón sin señal | `tiempos-11` |
+| `estilos.css` | | `estilos-8` |
+| `sw.js` | el cascarón sin señal | `tiempos-12` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v8 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
