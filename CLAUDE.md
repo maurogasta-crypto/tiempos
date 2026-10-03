@@ -63,6 +63,10 @@ la documentación diga la verdad.
   lo escribe; lo que ya trajo se sabe por el `origen` del pendiente del panel.
   La nota que dice que contesta una IA y el plazo va antes de Mandar, y el
   banco comprueba lo que dice.
+- **El globo despierta al chat de Claude en el acto** (sugerir-2, 3-oct-2026):
+  después de guardar, `avisarClaude` manda la base y el id —nunca el texto— a
+  `avisar-claude` del Netlify de Casa Verde, que verifica `miembros/{uid}` y
+  dispara la rutina «Consulta en vivo». Si falla, la ronda diaria lo trae igual.
 - **Las boletas usan los recursos de Casa Verde**, importados de su sitio:
   `CV2.subirImagen` y su función de IA. Se suben al GUARDAR, nunca al elegir.
 - **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente

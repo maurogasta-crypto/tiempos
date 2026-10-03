@@ -166,14 +166,14 @@ Florencia la acuerden.
 | `estado.js` | lo que comparten las vistas | `estado-1` |
 | `app.js` | entrar, los relojes, Ahora, Tareas | `app-11` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
-| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-1` |
+| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-2` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-2` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
 | `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
 | `familia.js` | Hoy y Chicos | `familia-2` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-8` |
-| `sw.js` | el cascarón sin señal | `tiempos-12` |
+| `sw.js` | el cascarón sin señal | `tiempos-13` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v8 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

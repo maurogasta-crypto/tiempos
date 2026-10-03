@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-1
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-2
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -18,7 +18,7 @@
 // pide tiene derecho a saberlo.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { db, F } from "./firebase-init.js";
+import { db, auth, F } from "./firebase-init.js";
 import { esc } from "./nucleo.js";
 import { E, $, aviso, repintar, fallo } from "./estado.js";
 
@@ -89,14 +89,36 @@ function pintarHoja() {
     if (!E.yo || !E.yo.uid) return aviso("No hay sesión: volvé a entrar.", true);
     enviando = true; pintarHoja();
     try {
-      await F.addDoc(F.collection(db, "reportes"), {
+      const ref = await F.addDoc(F.collection(db, "reportes"), {
         uid: E.yo.uid, nombre: (E.miembro && E.miembro.nombre) || "", email: E.yo.email || "",
         pagina: E.solapa, texto: texto.slice(0, 2000), esperaba: f.esperaba.value.trim().slice(0, 600),
         tipo: modo, imagen: "", [m.campo]: (h.querySelector(".tira button.on") || {}).dataset.v || m.opciones[0][0],
         estado: "nuevo", creadoEn: F.serverTimestamp(),
       });
+      avisarClaude(ref.id);    // sugerir-2: despierta al chat en el acto
       enviando = false; abierta = false; pintarHoja();
       aviso("Mandado. Lo toma la ronda de mañana.");
     } catch (e) { enviando = false; pintarHoja(); fallo(e); }
   };
+}
+
+/* CONSULTA EN VIVO (sugerir-2, 3-oct-2026). Pedido de Mauro: que una consulta
+   despierte al chat de Claude en el momento. La misma forma que los sitios
+   (CV2.avisarClaude de Casa Verde): sólo la base y el id, con el token de la
+   sesión; la función avisar-claude del Netlify de Casa Verde verifica que la
+   persona esté en miembros/ y dispara la rutina. Nunca bloquea: si falla, la
+   ronda diaria lo levanta igual. La nota no cambia hasta que esto se vea
+   andando: prometer «en minutos» antes sería prometer de más. */
+const AVISAR_CLAUDE = "https://serene-scone-76bd4e.netlify.app/.netlify/functions/avisar-claude";
+async function avisarClaude(reporteId) {
+  try {
+    const u = auth && auth.currentUser;
+    if (!u || !reporteId) return;
+    const t = await u.getIdToken();
+    await fetch(AVISAR_CLAUDE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
+      body: JSON.stringify({ base: "tiempos", reporteId }),
+    });
+  } catch (e) { /* silencio a propósito: el reporte ya quedó guardado */ }
 }
