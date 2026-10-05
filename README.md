@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (121 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (122 casos, sin npm, sin red) |
 
 ## Qué hace (app-10)
 
@@ -91,6 +91,14 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
   tienen carga, nadie gasta cupo.
 - Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
   en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
+
+### Lo que enseñó la primera prueba real (sugerir-9, 5-oct-2026, 00:37)
+
+«Preguntar a Florencia por la hora en el dentista. Marcar la pizarra y
+generar una alarma para mañana a las 10:30» salió con dos errores de la IA:
+la alarma quedó para el 6 (a las 00:37 «mañana» es el 5) y la tarea se llamó
+«Marcar la pizarra». Ahora Gemini recibe la hora, la regla de la madrugada y
+que «pizarra» es el lugar, nunca el título.
 
 ### La app del teléfono (app-14, sugerir-8 · pizarra-2)
 
@@ -268,7 +276,7 @@ Florencia la acuerden.
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Ahora | `propone-4` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-1` |
-| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-8` |
+| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-9` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-3` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
 | `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |

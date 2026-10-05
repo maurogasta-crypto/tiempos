@@ -257,6 +257,12 @@ prueba("app-14: ?dictar= abre el dictado precargado, se borra de la dirección y
   assert.match(w, /searchParams\.has\("dictar"\)\) return;/);
   assert.match(g, /if \(precargar && texto\)/);
 });
+prueba("sugerir-9: la IA sabe la HORA (a la madrugada «mañana» es hoy) y que «pizarra» no es el título de una tarea", () => {
+  const g = fs.readFileSync("sugerir.js", "utf8");
+  assert.match(g, /y son las \$\{ahoraHM\}/);
+  assert.match(g, /Entre las 00:00 y las 05:00, «mañana» quiere decir HOY/);
+  assert.match(g, /la palabra «pizarra» nunca es el título/);
+});
 prueba("a la IA va MI agenda de dos semanas, con ids, y nada más", () => {
   const a = agendaParaIA({ x: { titulo: "Gimnasio", dia: "2026-10-06", desde: "2026-10-06T18:00", hasta: "2026-10-06T19:00" },
     y: { titulo: "Viejo", dia: "2026-09-01", desde: "2026-09-01T10:00", hasta: "2026-09-01T11:00" },

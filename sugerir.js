@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-8
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-9
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -69,6 +69,9 @@ async function interpretar(texto, archivo) {
   if (!CV2) throw new Error("sin Casa Verde no hay IA");
   const hoy = E.hoy;
   const dia = new Date(hoy + "T12:00").toLocaleDateString("es", { weekday: "long" });
+  // sugerir-9: la HORA también. A las 00:37 «mañana» es el día que empieza al
+  // despertarse, o sea HOY por fecha: sin la hora, la IA lo corría un día.
+  const ahoraHM = new Date().toTimeString().slice(0, 5);
   const otroN = ((E.miembros || []).find((m) => m.id !== E.yo.uid) || {}).nombre || "la otra persona";
   const yoN = (E.miembro && E.miembro.nombre) || "quien dicta";
   // sugerir-5: MI agenda de las próximas dos semanas, para que pueda colgar un
@@ -82,7 +85,7 @@ async function interpretar(texto, archivo) {
     const data = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = mal; r.readAsDataURL(blob); });
     contenido.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } });
   }
-  contenido.push({ type: "text", text: `Hoy es ${dia} ${hoy} (Uruguay/Brasil). ${yoN} vive con ${otroN} y sus hijos, y dictó algo para organizar su tiempo. ${archivo ? "Adjunta la captura de un flyer o anuncio. " : ""}Lo dictado (puede tener errores del dictado del teléfono y expresiones espontáneas): «${texto || "(nada: sólo la captura)"}».
+  contenido.push({ type: "text", text: `Hoy es ${dia} ${hoy} y son las ${ahoraHM} (Uruguay/Brasil). ${yoN} vive con ${otroN} y sus hijos, y dictó algo para organizar su tiempo. ${archivo ? "Adjunta la captura de un flyer o anuncio. " : ""}Lo dictado (puede tener errores del dictado del teléfono y expresiones espontáneas): «${texto || "(nada: sólo la captura)"}».
 Su agenda de las próximas dos semanas (JSON): ${JSON.stringify(agenda)}
 Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin texto alrededor:
 {"resumen": una línea con lo que entendiste,
@@ -97,6 +100,8 @@ Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin 
    {"tipo":"pedido","titulo","detalle","dia"}  — algo que le pide a ${otroN} que haga (va a la pizarra de ${otroN}) ],
  "dudas": [lo que no quedó claro]}.
 Elegí con criterio lo que corresponde, puede ser más de una acción: algo decidido con día y hora es una actividad (si es con los chicos, "chicos": true y va también al calendario compartido de los chicos); algo que quisiera pero no está decidido es un deseo; «no olvidar comprar…» es una compra; «pedirle a ${otroN}…» o «que ${otroN} …» es un pedido; «acordarme de…» es un recordatorio (y una alarma si hay una hora en que tiene que salir); preparar algo es una tarea.
+Entre las 00:00 y las 05:00, «mañana» quiere decir HOY por fecha (${hoy}): la persona todavía no se fue a dormir.
+«Anotar/marcar/poner en la pizarra X» es UNA tarea cuyo título es X; la palabra «pizarra» nunca es el título. Si la frase no dice qué anotar, el título es lo que pidió hacer (por ejemplo «Preguntarle a ${otroN} la hora del dentista»).
 Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sobre"); no lo dupliques como actividad. Fechas relativas («mañana», «el jueves») desde hoy. Si un dato no se sabe, dejalo vacío y ponelo en dudas. No inventes.` });
   const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
     method: "POST", headers: { "Content-Type": "application/json" },
