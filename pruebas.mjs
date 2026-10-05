@@ -253,7 +253,7 @@ prueba("deseos-1: está en el SHELL, sube el flyer al guardar, y las reglas v10 
 });
 prueba("app-14: ?dictar= abre el dictado precargado, se borra de la dirección y no queda en la caché", () => {
   const a = fs.readFileSync("app.js", "utf8"), w = fs.readFileSync("sw.js", "utf8"), g = fs.readFileSync("sugerir.js", "utf8");
-  assert.match(a, /get\("dictar"\)[\s\S]{0,120}history\.replaceState[\s\S]{0,80}abrirDictado\([\s\S]{0,60}precargar: true/);
+  assert.match(a, /get\("dictar"\)[\s\S]{0,120}history\.replaceState[\s\S]{0,300}abrirDictado\([\s\S]{0,60}precargar: true/);
   assert.match(w, /searchParams\.has\("dictar"\)\) return;/);
   assert.match(g, /if \(precargar && texto\)/);
 });
@@ -262,6 +262,15 @@ prueba("sugerir-9: la IA sabe la HORA (a la madrugada «mañana» es hoy) y que 
   assert.match(g, /y son las \$\{ahoraHM\}/);
   assert.match(g, /Entre las 00:00 y las 05:00, «mañana» quiere decir HOY/);
   assert.match(g, /la palabra «pizarra» nunca es el título/);
+});
+prueba("app-15: la captura que sube la app viaja como &imagen=, sólo de nuestra cuenta, y no se vuelve a subir", async () => {
+  const g = fs.readFileSync("sugerir.js", "utf8"), a = fs.readFileSync("app.js", "utf8");
+  const { imagenNuestra } = await import("./sugerir.js").catch(() => ({}));
+  assert.match(g, /export const imagenNuestra = \(u\) => typeof u === "string" && u\.startsWith\("https:\/\/res\.cloudinary\.com\/dnwfu8ffn\/"\)/);
+  assert.match(g, /if \(imagenNuestra\(imagen\)\)/);
+  assert.match(g, /imagen = fotoSubida \|\| await CV\.CV2\.subirImagen\(foto, "tiempos"\)/);
+  assert.match(a, /params\.get\("imagen"\)[\s\S]{0,120}abrirDictado\([\s\S]{0,60}imagen \}/);
+  assert.match(g, /pon[eé] el link en "detalle"/);
 });
 prueba("a la IA va MI agenda de dos semanas, con ids, y nada más", () => {
   const a = agendaParaIA({ x: { titulo: "Gimnasio", dia: "2026-10-06", desde: "2026-10-06T18:00", hasta: "2026-10-06T19:00" },

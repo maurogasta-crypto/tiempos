@@ -100,6 +100,9 @@ la documentación diga la verdad.
   pizarra-2): dicta y abre `?dictar=` (app-14), suena las `alertas/` y
   muestra «Hoy se puede». `posiblesDelDia` está también en su `Logica.kt`:
   si cambia acá, cambia allá en la misma tanda.
+  Desde pizarra-7 recibe «Compartir» de cualquier app: el link va al texto y
+  una captura viaja ya subida como `&imagen=` (app-15), que el sitio acepta
+  sólo de nuestra cuenta de Cloudinary y no vuelve a subir.
 - **Las boletas usan los recursos de Casa Verde**, importados de su sitio:
   `CV2.subirImagen` y su función de IA. Se suben al GUARDAR, nunca al elegir.
 - **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente

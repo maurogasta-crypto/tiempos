@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-14
+// Sello: app-15
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -101,10 +101,13 @@ async function entrarAlaApp() {
   // app-14: la app del teléfono (la Pizarra) dicta con el reconocedor de
   // Android —el mismo del micrófono del teclado, que sí anda— y abre Tiempos
   // con ?dictar=<texto>. Se saca de la dirección para que recargar no lo repita.
-  const dictado = new URLSearchParams(location.search).get("dictar");
+  const params = new URLSearchParams(location.search);
+  const dictado = params.get("dictar");
   if (dictado) {
     history.replaceState(null, "", location.pathname);
-    abrirDictado(dictado.slice(0, 2000), null, { precargar: true });
+    // app-15: y si compartiste una captura desde la app, viene subida (&imagen=).
+    const imagen = params.get("imagen") || "";
+    abrirDictado(dictado.slice(0, 2000), null, { precargar: true, imagen });
   }
   clearInterval(E.reloj);
   E.reloj = setInterval(() => {

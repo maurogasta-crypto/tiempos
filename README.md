@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (122 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (123 casos, sin npm, sin red) |
 
 ## Qué hace (app-10)
 
@@ -91,6 +91,17 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
   tienen carga, nadie gasta cupo.
 - Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
   en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
+
+### Compartir desde Instagram o cualquier red (app-15, sugerir-10 · pizarra-7)
+
+En el teléfono, «Compartir → Tiempos» desde Instagram, Facebook, TikTok,
+WhatsApp o el navegador abre la app con el link (limpio de `?igsh=` y
+compañía) en la caja del dictado. Instagram no deja leer sus publicaciones
+desde afuera, así que la app pide una 📷 captura del reel o del flyer; al
+tocar Seguir la sube a Cloudinary (la cuenta de Casa Verde, carpeta `tiempos`)
+y abre el sitio con `&imagen=`. El sitio la baja para Gemini **sin volver a
+subirla** (`fotoSubida`) y sólo si es de nuestra cuenta; la IA pone el link en
+el detalle de lo que propone.
 
 ### Lo que enseñó la primera prueba real (sugerir-9, 5-oct-2026, 00:37)
 
@@ -272,18 +283,18 @@ Florencia la acuerden.
 |---|---|---|
 | `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-12` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-14` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-15` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Ahora | `propone-4` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-1` |
-| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-9` |
+| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-10` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-3` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
 | `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-10` |
-| `sw.js` | el cascarón sin señal | `tiempos-18` |
+| `sw.js` | el cascarón sin señal | `tiempos-20` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v10 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

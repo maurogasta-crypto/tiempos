@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-9
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-10
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -52,6 +52,7 @@ let abierta = false, modo = "agenda", enviando = false;   // sugerir-3: lo prime
 const Reconocer = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
 let dictando = null;          // el reconocedor activo, o null
 let foto = null;              // el archivo elegido, todavía sin subir
+let fotoSubida = "";          // sugerir-10: la URL si ya la subió la app del teléfono
 let precarga = null;          // sugerir-4: lo que entendió Gemini, para corregir y agendar
 let precargando = false;
 let textoDictado = "";
@@ -101,6 +102,7 @@ Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin 
  "dudas": [lo que no quedó claro]}.
 Elegí con criterio lo que corresponde, puede ser más de una acción: algo decidido con día y hora es una actividad (si es con los chicos, "chicos": true y va también al calendario compartido de los chicos); algo que quisiera pero no está decidido es un deseo; «no olvidar comprar…» es una compra; «pedirle a ${otroN}…» o «que ${otroN} …» es un pedido; «acordarme de…» es un recordatorio (y una alarma si hay una hora en que tiene que salir); preparar algo es una tarea.
 Entre las 00:00 y las 05:00, «mañana» quiere decir HOY por fecha (${hoy}): la persona todavía no se fue a dormir.
+Si el texto trae un «Link (Instagram/Facebook/…)», es de una publicación que no podés abrir: sacá los datos de la captura y del texto, y poné el link en "detalle" de lo que propongas (actividad o deseo) para que se pueda volver a verlo.
 «Anotar/marcar/poner en la pizarra X» es UNA tarea cuyo título es X; la palabra «pizarra» nunca es el título. Si la frase no dice qué anotar, el título es lo que pidió hacer (por ejemplo «Preguntarle a ${otroN} la hora del dentista»).
 Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sobre"); no lo dupliques como actividad. Fechas relativas («mañana», «el jueves») desde hoy. Si un dato no se sabe, dejalo vacío y ponelo en dudas. No inventes.` });
   const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
@@ -149,7 +151,7 @@ async function agendarPrecarga(tp) {
   const hecho = [], paraClaude = [];
   try {
     let imagen = "";
-    if (foto) imagen = await CV.CV2.subirImagen(foto, "tiempos");      // al aceptar, nunca al elegir
+    if (foto) imagen = fotoSubida || await CV.CV2.subirImagen(foto, "tiempos");      // al aceptar, nunca al elegir
     for (const a of marcadas) {
       if (a.tipo === "actividad") {
         if (a.quien === "otro") { paraClaude.push(`Que lo agende el otro: ${a.titulo} ${a.dia} ${a.hi}`); continue; }
@@ -206,7 +208,7 @@ async function agendarPrecarga(tp) {
       extra: { yaAgendado: hecho.length ? "plan" : "", quien: paraClaude.length ? "coordinar" : "yo" } });
     if (deseoAgendando && hecho.some((x) => x.startsWith("📅"))) await F.updateDoc(F.doc(db, "deseos", deseoAgendando), { estado: "agendado" }).catch(() => {});
     deseoAgendando = null;
-    foto = null; precarga = null; textoDictado = ""; enviando = false; abierta = false; pintarHoja();
+    foto = null; fotoSubida = ""; precarga = null; textoDictado = ""; enviando = false; abierta = false; pintarHoja();
     aviso(hecho.length ? "Listo: " + hecho.length + " cosa(s)." + (paraClaude.length ? " Claude coordina el resto." : "") : "Mandado a Claude.");
     repintar();
   } catch (e) { enviando = false; fallo(e); }
@@ -289,7 +291,7 @@ function pintarHoja() {
   for (const b of h.querySelectorAll("[data-modo]")) b.onclick = () => { if (dictando) dictando.stop(); modo = b.dataset.modo; pintarHoja(); };
   const mic = h.querySelector("[data-dictar]");
   if (mic) mic.onclick = () => empezarDictado(h.querySelector("[name=texto]"), mic);
-  for (const i of h.querySelectorAll("[data-flyer]")) i.onchange = () => { foto = i.files && i.files[0] || null; pintarHoja(); };
+  for (const i of h.querySelectorAll("[data-flyer]")) i.onchange = () => { foto = i.files && i.files[0] || null; fotoSubida = ""; pintarHoja(); };
   const pre = h.querySelector("[data-precargar]");
   if (pre) pre.onclick = async () => {
     const texto = h.querySelector("[name=texto]").value.trim();
@@ -323,7 +325,7 @@ function pintarHoja() {
       // La imagen se sube al MANDAR y ANTES del documento: un corte de red no
       // deja un pedido apuntando a una imagen que no existe.
       let imagen = "";
-      if (modo === "agenda" && foto) imagen = await CV.CV2.subirImagen(foto, "tiempos");
+      if (modo === "agenda" && foto) imagen = fotoSubida || await CV.CV2.subirImagen(foto, "tiempos");
       await mandarReporte({ texto, esperaba: f.esperaba.value.trim(), tipo: modo === "agenda" ? "pedido" : modo,
         agenda: modo === "agenda", imagen, [m.campo]: (h.querySelector(".tira button.on") || {}).dataset.v || m.opciones[0][0] });
       foto = null;
@@ -335,7 +337,16 @@ function pintarHoja() {
 
 /* Abrir el globo en Agenda con un texto ya escrito (un deseo que se agenda). */
 let deseoAgendando = null;
-export function abrirDictado(texto, deseoId = null, { precargar = false } = {}) {
+export async function abrirDictado(texto, deseoId = null, { precargar = false, imagen = "" } = {}) {
+  // sugerir-10: la captura de un reel o un flyer que compartió la app del
+  // teléfono ya está en Cloudinary; se baja para que la lea la IA y NO se
+  // vuelve a subir. Sólo de nuestra cuenta: otra dirección no se toca.
+  if (imagenNuestra(imagen)) {
+    try {
+      const b = await (await fetch(imagen)).blob();
+      foto = new File([b], "captura.jpg", { type: b.type || "image/jpeg" }); fotoSubida = imagen;
+    } catch (e) { aviso("No pude traer la captura: mandala de nuevo desde la app.", true); }
+  }
   modo = "agenda"; precarga = null; deseoAgendando = deseoId; abierta = true; escucharMios(); pintarHoja();
   const t = document.querySelector("#hoja-sugerir [name=texto]");
   if (t) { t.value = texto; t.focus(); }
@@ -343,6 +354,8 @@ export function abrirDictado(texto, deseoId = null, { precargar = false } = {}) 
   // corregido allá; se precarga solo y uno ve la tarjeta para marcar.
   if (precargar && texto) { const b = document.querySelector("#hoja-sugerir [data-precargar]"); if (b) b.click(); }
 }
+
+export const imagenNuestra = (u) => typeof u === "string" && u.startsWith("https://res.cloudinary.com/dnwfu8ffn/");
 
 /* Un pedido a reportes/, con la forma de los sitios, y el aviso en vivo. Lo
    usa también la tarjeta de Claude en Ahora para devolver una respuesta. */
