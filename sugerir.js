@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-3
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-4
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -19,7 +19,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, auth, F, CV } from "./firebase-init.js";
-import { esc } from "./nucleo.js";
+import { esc, leerAgendaIA, CLASES_ACTIVIDAD, esISO } from "./nucleo.js";
+import { agendarMio } from "./propone.js";
 import { E, $, aviso, repintar, fallo } from "./estado.js";
 
 export const MODOS = {
@@ -50,6 +51,89 @@ let abierta = false, modo = "agenda", enviando = false;   // sugerir-3: lo prime
 const Reconocer = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
 let dictando = null;          // el reconocedor activo, o null
 let foto = null;              // el archivo elegido, todavía sin subir
+let precarga = null;          // sugerir-4: lo que entendió Gemini, para corregir y agendar
+let precargando = false;
+let textoDictado = "";
+
+/* ── sugerir-4 (5-oct-2026): PRECARGAR CON GEMINI ────────────────────────────
+   Mauro: «se puede usar la misma API de Gemini para que precargue todo en la
+   agenda en el momento». La app le pregunta a Gemini por claude-proxy (el de
+   las boletas) y llena la tarjeta al instante. Uno la corrige y agenda en SU
+   agenda; y el pedido igual le llega a Claude, que hace lo que Gemini no
+   puede: cruzar con el otro y preguntarle al que queda libre.
+   A Gemini no le van los nombres de los chicos (no entran al código ni a un
+   tercero): sólo si la actividad es con ellos. */
+async function interpretar(texto, archivo) {
+  const CV2 = CV && CV.CV2;
+  if (!CV2) throw new Error("sin Casa Verde no hay IA");
+  const hoy = E.hoy;
+  const dia = new Date(hoy + "T12:00").toLocaleDateString("es", { weekday: "long" });
+  const otroN = ((E.miembros || []).find((m) => m.id !== E.yo.uid) || {}).nombre || "la otra persona";
+  const contenido = [];
+  if (archivo) {
+    const blob = await CV2.comprimirImagen(archivo);
+    const data = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = mal; r.readAsDataURL(blob); });
+    contenido.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } });
+  }
+  contenido.push({ type: "text", text: `Hoy es ${dia} ${hoy} (Uruguay/Brasil). ${(E.miembro && E.miembro.nombre) || "Una persona"} quiere agregar algo a su agenda familiar. ${archivo ? "Adjunta la captura de un flyer o anuncio. " : ""}Lo que dictó (puede tener errores del dictado del teléfono y expresiones espontáneas): «${texto || "(nada: sólo la captura)"}».
+Interpretalo buscando la forma más consistente y devolvé SOLO un JSON, sin texto alrededor:
+{"titulo": qué es, corto; "dia": "AAAA-MM-DD" (fechas relativas como «el jueves» o «mañana» desde hoy); "hi": "HH:MM" en 24 h («a las 3» de una actividad de tarde es 15:00); "hf": "HH:MM" o "" si no se sabe; "lugar": dónde o ""; "tipo": "trabajo" | "tarea" | "personal" | "ninos" (ninos si es con los chicos); "quien": "yo" (lo hace quien dictó) | "otro" (lo hace ${otroN}) | "los-dos" | "familia"; "chicos": true si participan los chicos; "modo": "recordar" (para no olvidarse) | "invitar" (un evento para proponer a los demás); "dudas": [lo que no quedó claro, en pocas palabras]}.
+Si un dato no se entiende con seguridad, dejalo vacío y ponelo en dudas. No inventes.` });
+  const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    // flash-lite: el que piensa se come los tokens y corta el JSON (plata-2).
+    body: JSON.stringify({ model: "gemini-2.5-flash-lite", max_tokens: 2000, messages: [{ role: "user", content: contenido }] }),
+  });
+  if (!r.ok) throw new Error("la IA contestó " + r.status);
+  const j = await r.json();
+  return leerAgendaIA(((j.content || [])[0] || {}).text);
+}
+
+function tarjetaPrecarga(d) {
+  const otroN = ((E.miembros || []).find((m) => m.id !== E.yo.uid) || {}).nombre || "el otro";
+  return `<div class="tarjeta ficha propone" data-precarga>
+    <p class="gris">✨ Esto entendí — corregilo si hace falta</p>
+    <label>Qué <input name="p-titulo" maxlength="120" value="${esc(d.titulo)}"></label>
+    <div class="dos"><label>Día <input name="p-dia" type="date" value="${esc(d.dia)}"></label>
+      <label>Lugar <input name="p-lugar" maxlength="120" value="${esc(d.lugar)}"></label></div>
+    <div class="dos"><label>Desde <input name="p-hi" type="time" value="${esc(d.hi)}"></label>
+      <label>Hasta <input name="p-hf" type="time" value="${esc(d.hf)}"></label></div>
+    <div class="tira-clase">${Object.entries(CLASES_ACTIVIDAD).map(([k, c]) =>
+      `<label class="check"><input type="radio" name="p-tipo" value="${k}"${d.tipo === k ? " checked" : ""}> ${esc(c.nombre)}</label>`).join("")}</div>
+    <label>Quién <select name="p-quien">${[["yo", "Yo"], ["otro", "Lo hace " + otroN], ["los-dos", "Los dos"], ["familia", "Toda la familia"]]
+      .map(([v, t]) => `<option value="${v}"${d.quien === v ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>
+    <label class="check"><input type="checkbox" name="p-chicos"${d.chicos ? " checked" : ""}> También en el calendario de los chicos</label>
+    <label class="check"><input type="checkbox" name="p-recordar" checked> Recordármelo ese día por WhatsApp</label>
+    ${d.dudas.length ? `<p class="aviso">No estoy seguro de: ${d.dudas.map(esc).join(", ")}.</p>` : ""}
+    <div class="botones"><button type="button" class="boton" data-agendar>Agendar</button><button type="button" class="mini" data-otra-vez>Volver al texto</button></div>
+    <p class="gris">Al agendar, Claude lo mira también: si el otro queda libre en ese rato, le pregunta qué va a hacer.</p>
+  </div>`;
+}
+
+async function agendarPrecarga(tp) {
+  const v = (n) => tp.querySelector(`[name="p-${n}"]`);
+  const d = { titulo: v("titulo").value.trim(), dia: v("dia").value, lugar: v("lugar").value.trim(), hi: v("hi").value, hf: v("hf").value,
+    tipo: (tp.querySelector('[name="p-tipo"]:checked') || {}).value || "", recordar: v("recordar").checked, modo: (precarga || {}).modo };
+  const quien = v("quien").value, chicos = v("chicos").checked;
+  if (enviando) return;
+  enviando = true;
+  try {
+    let imagen = "";
+    if (foto) imagen = await CV.CV2.subirImagen(foto, "tiempos");      // al agendar, nunca al elegir
+    let mio = null;
+    if (quien !== "otro") { mio = await agendarMio({ ...d, imagen }, { origen: "dictado" }); if (!mio) { enviando = false; return; } }
+    if (chicos && esISO(d.dia)) await F.addDoc(F.collection(db, "eventos"), { titulo: d.titulo.slice(0, 120) || "(sin título)", fecha: d.dia, hora: d.hi || "",
+      horaFin: d.hf || "", semanal: false, ninos: [], quienes: quien === "otro" ? [] : [E.yo.uid], nota: d.lugar ? "En " + d.lugar.slice(0, 280) : "",
+      excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
+    // Claude igual lo mira: cruzar con el otro y preguntarle al que queda libre.
+    await mandarReporte({ texto: textoDictado || d.titulo || "Agendar lo de la captura.", agenda: true, imagen,
+      esperaba: `${quien === "otro" ? "Para que lo agende el otro" : "Ya lo agendé"}: ${d.titulo} · ${d.dia} ${d.hi}${d.hf ? "–" + d.hf : ""} · quién: ${quien}${chicos ? " · con los chicos" : ""}`.slice(0, 600),
+      extra: { yaAgendado: mio || "", quien } });
+    foto = null; precarga = null; textoDictado = ""; enviando = false; abierta = false; pintarHoja();
+    if (quien === "otro") aviso("Mandado: a la otra persona le va a llegar la propuesta.");
+    repintar();
+  } catch (e) { enviando = false; fallo(e); }
+}
 function empezarDictado(area, boton) {
   if (!Reconocer) return aviso("Este navegador no dicta. Usá el micrófono del teclado o escribilo.", true);
   if (dictando) { dictando.stop(); return; }
@@ -104,7 +188,8 @@ function pintarHoja() {
   h.innerHTML = `<div class="hoja-caja sugerir-ed${modo === "agenda" ? " modo-agenda" : ""}">
     <div class="hoja-cab"><b>${esc(m.titulo)}</b><button class="mas" data-cerrar aria-label="Cerrar">✕</button></div>
     <nav class="solapas chicas"><button data-modo="agenda" aria-selected="${modo === "agenda"}">🎙 Agenda</button><button data-modo="pedido" aria-selected="${modo === "pedido"}">Sugerencia</button><button data-modo="falla" aria-selected="${modo === "falla"}">Algo anda mal</button></nav>
-    <form>
+    ${modo === "agenda" && precarga ? tarjetaPrecarga(precarga) : ""}
+    <form ${modo === "agenda" && precarga ? "hidden" : ""}>
       ${modo === "agenda" ? `<div class="dictado"><button type="button" class="microfono${dictando ? " grabando" : ""}" data-dictar aria-label="Dictar">${dictando ? "■" : "🎙"}</button>
         <small class="gris">${Reconocer ? "Tocá, hablá, y corregí abajo lo que entendió el teléfono." : "Este navegador no dicta: usá el micrófono del teclado."}</small></div>` : ""}
       <label>${esc(m.que)} <textarea name="texto" rows="${modo === "agenda" ? 4 : 3}" maxlength="2000" ${modo === "agenda" ? "" : "required"} placeholder="${esc(m.quePh)}">${esc(antes.t)}</textarea></label>
@@ -116,7 +201,9 @@ function pintarHoja() {
       <div class="tira">${m.opciones.map(([v, t], i) => `<button type="button" data-v="${v}" class="mini${(marcado && m.opciones.some((o) => o[0] === marcado.v) ? marcado.v === v : i === 0) ? " on" : ""}">${esc(t)}</button>`).join("")}</div>
       ${modo === "agenda" ? `<p class="gris">Lo interpreta <b>una IA</b> (Claude) y te deja una propuesta en <b>Ahora</b> para aceptar o corregir: <b>nada entra a tu agenda ni a la de nadie sin que esa persona lo acepte</b>. Suele tardar unos minutos; si no, la ronda de la mañana. Va con tu nombre.</p>` : ""}
       <p class="gris nota-ia">Lo lee <b>una IA</b> (el agente de Claude) en la ronda de cada mañana, y lo pasa al panel de Mauro como pendiente. <b>Puede tardar hasta un día.</b> Si hace falta algo más, te va a preguntar en la app o en el chat. Va con tu nombre y la solapa en la que estás (${esc(NOMBRE_SOLAPA[E.solapa] || E.solapa)}).</p>
-      <button class="boton" ${enviando ? "disabled" : ""}>${enviando ? "Mandando…" : "Mandar"}</button>
+      ${modo === "agenda" ? `<div class="botones"><button type="button" class="boton" data-precargar ${precargando ? "disabled" : ""}>${precargando ? "Leyendo…" : "✨ Precargar"}</button>
+        <button class="mini" ${enviando ? "disabled" : ""}>${enviando ? "Mandando…" : "Mandar a Claude sin precargar"}</button></div>`
+      : `<button class="boton" ${enviando ? "disabled" : ""}>${enviando ? "Mandando…" : "Mandar"}</button>`}
     </form>
     ${mios.length ? `<h4>Lo que mandaste</h4>${mios.slice(0, 8).map((r) => `<div class="mandado"><small class="gris">${esc(r.agenda ? "agenda" : r.tipo === "falla" ? "falla" : "sugerencia")} · ${esc(r.estado === "nuevo" ? "esperando la ronda" : r.estado || "")}</small><br>${esc(String(r.texto || "").slice(0, 140))}</div>`).join("")}` : ""}
   </div>`;
@@ -126,6 +213,23 @@ function pintarHoja() {
   const mic = h.querySelector("[data-dictar]");
   if (mic) mic.onclick = () => empezarDictado(h.querySelector("[name=texto]"), mic);
   for (const i of h.querySelectorAll("[data-flyer]")) i.onchange = () => { foto = i.files && i.files[0] || null; pintarHoja(); };
+  const pre = h.querySelector("[data-precargar]");
+  if (pre) pre.onclick = async () => {
+    const texto = h.querySelector("[name=texto]").value.trim();
+    if (!texto && !foto) return aviso("Dictá algo o elegí una captura.", true);
+    if (dictando) dictando.stop();
+    textoDictado = texto;
+    precargando = true; pintarHoja();
+    try { precarga = await interpretar(texto, foto); }
+    catch (e) { precarga = null; aviso("No pude precargar (" + (e.message || e) + "): completalo a mano.", true); }
+    if (!precarga) precarga = leerAgendaIA("{}");
+    precargando = false; pintarHoja();
+  };
+  const tp = h.querySelector("[data-precarga]");
+  if (tp) {
+    tp.querySelector("[data-otra-vez]").onclick = () => { precarga = null; pintarHoja(); };
+    tp.querySelector("[data-agendar]").onclick = () => agendarPrecarga(tp).catch(fallo);
+  }
   for (const b of h.querySelectorAll(".tira button")) b.onclick = () => {
     for (const x of h.querySelectorAll(".tira button")) x.classList.toggle("on", x === b);
   };
@@ -160,6 +264,7 @@ export async function mandarReporte(c) {
     pagina: E.solapa, texto: String(c.texto || "").slice(0, 2000), esperaba: String(c.esperaba || "").slice(0, 600),
     tipo: c.tipo || "pedido", imagen: c.imagen || "", agenda: !!c.agenda,
     ...(c.respondeA ? { respondeA: String(c.respondeA).slice(0, 60) } : {}),
+    ...(c.extra ? { yaAgendado: String(c.extra.yaAgendado || "").slice(0, 60), quien: String(c.extra.quien || "").slice(0, 20) } : {}),
     ...(c.gravedad ? { gravedad: c.gravedad } : { urgencia: c.urgencia || "pronto" }),
     estado: "nuevo", creadoEn: F.serverTimestamp(),
   });

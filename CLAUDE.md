@@ -76,6 +76,11 @@ la documentación diga la verdad.
   ni leer `agendas/`, y por eso no hizo falta abrirla. Si cambia la forma de
   una actividad de agenda (`guardarActividad` de agenda.js), cambia
   `actividadDePropuesta` de nucleo.js en la misma tanda.
+  **Y desde sugerir-4 la tarjeta se precarga con Gemini en el momento**
+  (claude-proxy, como las boletas; `leerAgendaIA` la lee con desconfianza),
+  uno corrige y agenda; Claude recibe igual el pedido (`yaAgendado`) para
+  cruzar con el otro. **A Gemini no le van los nombres de los chicos**, y el
+  banco lo comprueba.
 - **Las boletas usan los recursos de Casa Verde**, importados de su sitio:
   `CV2.subirImagen` y su función de IA. Se suben al GUARDAR, nunca al elegir.
 - **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente

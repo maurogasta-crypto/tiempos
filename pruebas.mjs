@@ -19,7 +19,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
-         actividadDePropuesta, paraMi, MODOS_AGENDA } from "./nucleo.js";
+         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -160,6 +160,22 @@ prueba("el dictado: el audio no viaja, la imagen se sube al mandar y antes del d
   assert.ok(/SpeechRecognition/.test(src));
   assert.ok(src.indexOf("CV.CV2.subirImagen(foto") < src.indexOf("await mandarReporte({ texto, esperaba"), "primero la imagen");
   assert.ok(!/MediaRecorder|getUserMedia/.test(src), "no se graba audio");
+});
+
+prueba("lo que precarga Gemini se lee con desconfianza (sugerir-4)", () => {
+  const r = leerAgendaIA('```json\n{"titulo":"Básquet","dia":"2026-10-08","hi":"15:00","hf":"18:00","tipo":"ninos","quien":"yo","chicos":true,"modo":"recordar","dudas":[]}\n```');
+  assert.equal(r.titulo, "Básquet"); assert.equal(r.dia, "2026-10-08"); assert.equal(r.tipo, "ninos"); assert.equal(r.chicos, true);
+  assert.deepEqual(r.dudas, []);
+  const mal = leerAgendaIA('{"titulo":"","dia":"el jueves","hi":"3pm","tipo":"deporte","quien":"cualquiera","chicos":"sí"}');
+  assert.equal(mal.dia, ""); assert.equal(mal.hi, ""); assert.equal(mal.tipo, ""); assert.equal(mal.quien, "yo"); assert.equal(mal.chicos, false);
+  for (const x of ["qué es", "el día", "la hora"]) assert.ok(mal.dudas.includes(x), x);
+  assert.equal(leerAgendaIA("no entendí nada"), null);
+});
+prueba("a Gemini no le van los nombres de los chicos", () => {
+  const src = fs.readFileSync("sugerir.js", "utf8");
+  const i = src.indexOf("async function interpretar"), k = src.indexOf("function tarjetaPrecarga");
+  assert.ok(i > 0 && k > i);
+  assert.ok(!/familia\.ninos|ninoPorId|E\.familia/.test(src.slice(i, k)));
 });
 
 titulo("Lo demás");

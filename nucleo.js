@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-8
+// Sello: nucleo-9
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -782,4 +782,38 @@ export function actividadDePropuesta(d, uid) {
     origen: "claude", modo: MODOS_AGENDA[x.modo] ? x.modo : "sugerida", recordar: !!x.recordar,
     lugar: String(x.lugar || "").slice(0, 120), imagen: /^https:\/\//.test(String(x.imagen || "")) ? String(x.imagen).slice(0, 400) : "" };
   return { ok: true, actividad, marca, supuesto };
+}
+
+/* ── Lo que precarga Gemini al dictar (nucleo-9, 5-oct-2026) ─────────────────
+   Mauro: «se puede usar la misma API de Gemini para que precargue todo en la
+   agenda en el momento». La app le pregunta a Gemini (claude-proxy de Casa
+   Verde, como las boletas) y llena la tarjeta al instante; uno la corrige y
+   agenda. Esto lee su respuesta con DESCONFIANZA: lo que no tiene forma
+   válida va vacío y a `dudas`, nunca se inventa. */
+export const QUIENES_AGENDA = ["yo", "otro", "los-dos", "familia"];
+export function leerAgendaIA(texto) {
+  let j = null;
+  const t = String(texto || "").replace(/```(?:json)?/gi, "");
+  const i = t.indexOf("{"), k = t.lastIndexOf("}");
+  if (i !== -1 && k > i) { try { j = JSON.parse(t.slice(i, k + 1)); } catch { j = null; } }
+  if (!j || typeof j !== "object") return null;
+  const dudas = Array.isArray(j.dudas) ? j.dudas.map((x) => String(x).slice(0, 80)).slice(0, 5) : [];
+  const hora = (h) => HORA_RE.test(String(h || "")) ? h : "";
+  const r = {
+    titulo: String(j.titulo || "").trim().slice(0, 120),
+    dia: esISO(j.dia) ? j.dia : "",
+    hi: hora(j.hi), hf: hora(j.hf),
+    lugar: String(j.lugar || "").slice(0, 120),
+    tipo: CLASES_ACTIVIDAD[j.tipo] ? j.tipo : "",
+    quien: QUIENES_AGENDA.includes(j.quien) ? j.quien : "yo",
+    chicos: j.chicos === true,
+    modo: MODOS_AGENDA[j.modo] ? j.modo : "recordar",
+    dudas,
+  };
+  if (!r.titulo) dudas.push("qué es");
+  if (!r.dia) dudas.push("el día");
+  if (!r.hi) dudas.push("la hora");
+  if (!r.tipo) dudas.push("si es trabajo, tarea, personal o con los chicos");
+  r.dudas = [...new Set(dudas)];
+  return r;
 }

@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (105 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (107 casos, sin npm, sin red) |
 
 ## Qué hace (app-10)
 
@@ -91,6 +91,21 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
   tienen carga, nadie gasta cupo.
 - Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
   en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
+
+### Lo que se sumó el 5-oct-2026, a la tarde (nucleo-9, sugerir-4, propone-2)
+
+- **«✨ Precargar» con Gemini, en el momento.** Después de dictar (o de
+  elegir la captura), la app le pregunta a Gemini por `claude-proxy` —el
+  mismo de las boletas— y llena la tarjeta al instante: qué, día, horas,
+  lugar, clase, quién, si es con los chicos. Se corrige y se toca
+  **Agendar**: va a tu agenda (y, si se marca, al calendario de los
+  chicos). Lo que Gemini contesta se lee con desconfianza
+  (`leerAgendaIA`): lo que no tiene forma va vacío y a «no estoy seguro».
+  A Gemini **no le van los nombres de los chicos**.
+- **El pedido igual le llega a Claude**, con `yaAgendado`: él cruza con el
+  otro y, si queda libre en ese rato, le deja la pregunta en Ahora. Si se
+  eligió «lo hace el otro», no se agenda nada tuyo y Claude le propone a él
+  o ella.
 
 ### Lo que se sumó el 5-oct-2026 (nucleo-8, app-12, sugerir-3, propone-1)
 
@@ -183,19 +198,19 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-8` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-9` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
 | `app.js` | entrar, los relojes, Ahora, Tareas | `app-12` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
-| `propone.js` | lo que Claude propone para tu agenda y lo que te pregunta, en Ahora, para aceptar | `propone-1` |
-| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-3` |
+| `propone.js` | lo que Claude propone para tu agenda y lo que te pregunta, en Ahora, para aceptar | `propone-2` |
+| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-4` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-3` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
 | `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
 | `familia.js` | Hoy y Chicos | `familia-2` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-9` |
-| `sw.js` | el cascarón sin señal | `tiempos-14` |
+| `sw.js` | el cascarón sin señal | `tiempos-15` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v8 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

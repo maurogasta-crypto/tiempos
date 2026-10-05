@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// propone.js — Lo que Claude propone para TU agenda, en Ahora. Sello: propone-1
+// propone.js — Lo que Claude propone para TU agenda, en Ahora. Sello: propone-2
 //
 // 5-oct-2026, pedido de Mauro: que lo dictado (o la captura de un flyer)
 // vuelva «en la misma interfaz, para que el usuario dé ok». Claude lo
@@ -100,18 +100,26 @@ async function decidir(id, estado, resultadoId = null) {
 
 /* Aceptar = lo mismo que cargarla a mano en Agenda: la marca (sin título) y la
    actividad en MI agenda, con el mismo id. */
-async function aceptarAgenda(id, corregido) {
-  const p = (E.propuestas || []).find((x) => x.id === id); if (!p) return;
-  const r = actividadDePropuesta({ ...(p.datos || {}), ...corregido }, E.yo.uid);
-  if (!r.ok) return aviso("Antes de aceptar: " + r.motivos.join(", ") + ".", true);
+/* Agendar en MI agenda: lo usa aceptar una propuesta y también la tarjeta que
+   precarga Gemini al dictar (sugerir.js). Devuelve el id, o null si no se pudo. */
+export async function agendarMio(datos, extra = {}) {
+  const r = actividadDePropuesta(datos, E.yo.uid);
+  if (!r.ok) { aviso("Antes de agendar: " + r.motivos.join(", ") + ".", true); return null; }
   const ya = marcasQueSePisan(r.marca, E.marcas);
-  if (ya.length && !confirm(`Ya tenés ${ya.length} cosa(s) en ese horario. En el balance ese rato cuenta una sola vez. ¿Aceptar igual?`)) return;
+  if (ya.length && !confirm(`Ya tenés ${ya.length} cosa(s) en ese horario. En el balance ese rato cuenta una sola vez. ¿Agendar igual?`)) return null;
   const nuevo = idNuevo("a");
   await F.setDoc(F.doc(db, "marcas", nuevo), { ...r.marca, creadoEn: F.serverTimestamp() });
-  await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [nuevo]: { ...r.actividad, propuesta: id } },
+  await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [nuevo]: { ...r.actividad, ...extra } },
     actualizadoEn: F.serverTimestamp() }, { merge: true });
-  await decidir(id, "aprobada", nuevo);
   aviso(r.supuesto ? "Agendado. No decía hasta qué hora: puse una hora, corregila en Agenda si hace falta." : "Agendado.");
+  return nuevo;
+}
+
+async function aceptarAgenda(id, corregido) {
+  const p = (E.propuestas || []).find((x) => x.id === id); if (!p) return;
+  const nuevo = await agendarMio({ ...(p.datos || {}), ...corregido }, { propuesta: id });
+  if (!nuevo) return;
+  await decidir(id, "aprobada", nuevo);
   repintar();
 }
 
