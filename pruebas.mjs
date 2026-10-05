@@ -19,7 +19,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
-         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA } from "./nucleo.js";
+         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -176,6 +176,75 @@ prueba("a Gemini no le van los nombres de los chicos", () => {
   const i = src.indexOf("async function interpretar"), k = src.indexOf("function tarjetaPrecarga");
   assert.ok(i > 0 && k > i);
   assert.ok(!/familia\.ninos|ninoPorId|E\.familia/.test(src.slice(i, k)));
+});
+
+titulo("Un dictado es un plan (app-13)");
+prueba("«recordar ir antes al gimnasio para llevar los títulos a Pedro» → tarea, recordatorio y alarma colgados del gimnasio", () => {
+  const plan = leerPlanIA(JSON.stringify({ resumen: "Mañana salir antes al gimnasio para llevarle los títulos del auto a Pedro",
+    acciones: [
+      { tipo: "tarea", titulo: "Juntar los títulos del auto para Pedro" },
+      { tipo: "recordatorio", texto: "Llevar los títulos del auto a Pedro", dia: "2026-10-06", hora: "08:00", sobre: "a123" },
+      { tipo: "alarma", texto: "Salir para el gimnasio (con los títulos)", dia: "2026-10-06", hora: "17:30", sobre: "a123" },
+      { tipo: "actividad", titulo: "Gimnasio", dia: "2026-10-06", hi: "18:00" } ], dudas: [] }));
+  assert.deepEqual(plan.acciones.map((a) => a.tipo), ["tarea", "recordatorio", "alarma", "actividad"]);
+  assert.equal(plan.acciones[2].sobre, "a123");
+  const act = plan.acciones[3];
+  assert.equal(act.clase, "", "una actividad sin clase no se inventa la clase");
+  assert.ok(plan.dudas.some((d) => d.includes("Gimnasio")));
+});
+prueba("una foto con «me gustaría que los chicos vayan»: deseo; «coordinar con Flor»: deseo + pregunta", () => {
+  const p = leerPlanIA('{"acciones":[{"tipo":"deseo","titulo":"Taller de cerámica","para":"chicos","cuando":"sábados 10 h"},{"tipo":"coordinar","texto":"¿Podés quedarte con los chicos los martes de 19 a 21 para que tome la clase?"}]}');
+  assert.equal(p.acciones[0].para, "chicos"); assert.equal(p.acciones[1].tipo, "coordinar");
+});
+prueba("lo que no tiene forma se descarta o va a dudas, nunca se inventa", () => {
+  const p = leerPlanIA('{"acciones":[{"tipo":"borrar-todo"},{"tipo":"tarea","titulo":""},{"tipo":"alarma","texto":"Salir","dia":"mañana","hora":"5pm"},{"tipo":"actividad","titulo":"Básquet","dia":"2026-10-08","hi":"15:00","tipo_clase":"ninos"}]}');
+  assert.deepEqual(p.acciones.map((a) => a.tipo), ["alarma", "actividad"]);
+  assert.equal(p.acciones[0].dia, ""); assert.equal(p.acciones[0].hora, "");
+  assert.equal(p.acciones[1].clase, "ninos");
+  assert.ok(p.dudas.length >= 2);
+  assert.equal(leerPlanIA("nada"), null);
+  assert.ok(Object.keys(ACCIONES).length === 8);
+});
+prueba("«no olvidar comprar» va a compras; «pedile a Flor» es un pedido; sin texto, nada", () => {
+  const p = leerPlanIA('{"acciones":[{"tipo":"compra","texto":"Pilas AA","lista":"Ferretería"},{"tipo":"pedido","titulo":"Pasar a buscar el pan","dia":"2026-10-07"},{"tipo":"compra","texto":""},{"tipo":"pedido","titulo":"x","dia":"el jueves"}]}');
+  assert.deepEqual(p.acciones.map((a) => a.tipo), ["compra", "pedido", "pedido"]);
+  assert.equal(p.acciones[0].lista, "Ferretería"); assert.equal(p.acciones[1].dia, "2026-10-07"); assert.equal(p.acciones[2].dia, "");
+});
+prueba("la compra cae en la lista que se llama así, sin tildes ni mayúsculas; si no hay, null", () => {
+  const ls = [{ id: "a", nombre: "Súper" }, { id: "b", nombre: "Ferretería" }];
+  assert.equal(listaParaCompra(ls, "super"), "a"); assert.equal(listaParaCompra(ls, "ferreteria"), "b");
+  assert.equal(listaParaCompra(ls, "Farmacia"), null); assert.equal(listaParaCompra(ls, ""), null);
+});
+prueba("el dictado repetido de Android se limpia; un texto normal queda igual", () => {
+  assert.equal(limpiarDictado("el el jueves el jueves el jueves llevo el jueves llevo los el jueves llevo los niños a el jueves llevo los niños a básquetbol"),
+    "el jueves llevo los niños a básquetbol");
+  assert.equal(limpiarDictado("el jueves llevo los niños a el club y el viernes compro pan"), "el jueves llevo los niños a el club y el viernes compro pan");
+  assert.equal(limpiarDictado("comprar comprar leche comprar leche y pan"), "comprar leche y pan");
+  assert.equal(limpiarDictado(""), "");
+});
+prueba("un pedido va a la pizarra del OTRO como tarea común; una compra, a familia/compras", () => {
+  const s = fs.readFileSync("sugerir.js", "utf8");
+  assert.match(s, /alcance: "comun", duenio: E\.yo\.uid,[\s\S]{0,120}encargados: \[o\.id\][\s\S]{0,40}pizarra: \{ \[o\.id\]: true \}/);
+  assert.match(s, /F\.doc\(db, "familia", "compras"\)/);
+});
+prueba("a la IA va MI agenda de dos semanas, con ids, y nada más", () => {
+  const a = agendaParaIA({ x: { titulo: "Gimnasio", dia: "2026-10-06", desde: "2026-10-06T18:00", hasta: "2026-10-06T19:00" },
+    y: { titulo: "Viejo", dia: "2026-09-01", desde: "2026-09-01T10:00", hasta: "2026-09-01T11:00" },
+    z: { titulo: "Lejos", dia: "2026-12-01", desde: "2026-12-01T10:00", hasta: "2026-12-01T11:00" } }, "2026-10-05");
+  assert.deepEqual(a, [{ id: "x", titulo: "Gimnasio", dia: "2026-10-06", desde: "18:00", hasta: "19:00", lugar: "" }]);
+});
+prueba("las reglas v9: alertas de su dueño (el agente lee), deseos de los dos", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  const al = /match \/alertas\/\{id\} \{([\s\S]*?)\n    \}/.exec(r)[1];
+  assert.ok(/allow read: if esAgente\(\) \|\| \(esPersona\(\) && resource\.data\.uid == request\.auth\.uid\)/.test(al));
+  assert.ok(!/esAgente\(\)[^;]*\n?[^;]*allow create/.test(al) && !/allow (create|update|delete): if esAgente/.test(al), "el agente no escribe alertas");
+  const de = /match \/deseos\/\{id\} \{([\s\S]*?)\n    \}/.exec(r)[1];
+  assert.ok(/allow read: if esPersona\(\) \|\| esAgente\(\)/.test(de));
+});
+prueba("hacer lo marcado: la tarea va a MI pizarra y las alertas a mi nombre", () => {
+  const src = fs.readFileSync("sugerir.js", "utf8");
+  assert.ok(/pizarra: \{ \[E\.yo\.uid\]: true \}/.test(src));
+  assert.ok(/F\.collection\(db, "alertas"\), \{ uid: E\.yo\.uid/.test(src));
 });
 
 titulo("Lo demás");

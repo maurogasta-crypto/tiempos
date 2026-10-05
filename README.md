@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (107 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (117 casos, sin npm, sin red) |
 
 ## Qué hace (app-10)
 
@@ -91,6 +91,43 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
   tienen carga, nadie gasta cupo.
 - Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
   en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
+
+### Lo que se sumó el 5-oct-2026, a la noche (nucleo-11, sugerir-6, propone-3, app-13, reglas v9)
+
+- **Un dictado es un PLAN, no una sola actividad.** «Mañana tengo que ir antes
+  al gimnasio para llevar los títulos del auto a Pedro» → Gemini recibe TU
+  agenda de las próximas dos semanas (`agendaParaIA`, sólo título, día, horas
+  y clase), encuentra el gimnasio y propone varias acciones, cada una con su
+  casilla: una **tarea** en tu pizarra («juntar títulos del auto para Pedro»),
+  un **recordatorio** temprano y una **alarma** un rato antes del gimnasio.
+  Se destilda lo que no va y se toca **Hacer**. `leerPlanIA` lo lee con
+  desconfianza: una acción que no tiene forma no aparece.
+- **Las acciones posibles** (`ACCIONES` de `nucleo.js`): actividad (a tu
+  agenda, y al calendario de los chicos si es de ellos), tarea (personal, con
+  `pizarra` marcada para vos), recordatorio y alarma (a `alertas/`), deseo (a
+  `deseos/`), coordinar (se lo pasa a Claude), **compra** («no olvidar
+  comprar pilas» → a la lista de compras que se llame así, o una nueva) y
+  **pedido** («pedile a Flor que…» → una tarea común a cargo del otro,
+  marcada para SU pizarra; Claude además le avisa por WhatsApp si lo
+  encendió). Gemini recibe los nombres de las listas de compras para elegir.
+- **El dictado de Android repetía lo que iba entendiendo** («el el jueves el
+  jueves llevo…»). Ahora se rearma con todos los resultados y
+  `limpiarDictado` saca los tramos repetidos, también antes de mandarlo a la
+  IA — sirve igual para el micrófono del teclado.
+- **La lista de deseos.** «Me gustaría que los chicos vayan a esta actividad»
+  o «quisiera coordinar con Florencia para tomar esta clase», con la captura:
+  queda como deseo, con la imagen, en Ahora → Deseos. Claude lo cruza con los
+  turnos del otro y pregunta; cuando lo acuerdan, «Ya lo acordamos: agendar»
+  abre el dictado con el deseo cargado, y al agendar el deseo pasa a
+  «agendado». «Ya no» lo descarta.
+- **Los recordatorios** se ven en Ahora → «Te recordás». Por WhatsApp los
+  manda la ronda de Claude, con el mismo candado de «Mis avisos»: sólo a
+  quien encendió «que Claude me escriba». **La alarma que suena a la hora
+  necesita la APK** (línea `tiempos:V3`): la web no puede sonar con el
+  teléfono bloqueado. Hasta entonces se guarda y se ve en la lista.
+- **Reglas v9**: `alertas/` (las lee su dueño y el agente; las escribe sólo
+  su dueño) y `deseos/` (los leen los dos y el agente; los crea su dueño).
+  Hay que publicarlas desde el panel.
 
 ### Lo que se sumó el 5-oct-2026, a la tarde (nucleo-9, sugerir-4, propone-2)
 
@@ -198,20 +235,20 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-9` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-11` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-12` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-13` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
-| `propone.js` | lo que Claude propone para tu agenda y lo que te pregunta, en Ahora, para aceptar | `propone-2` |
-| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-4` |
+| `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Ahora | `propone-3` |
+| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-6` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-3` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
 | `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
 | `familia.js` | Hoy y Chicos | `familia-2` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-9` |
-| `sw.js` | el cascarón sin señal | `tiempos-15` |
-| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v8 |
+| `sw.js` | el cascarón sin señal | `tiempos-16` |
+| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v9 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
 

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-9
+// Sello: nucleo-11
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -816,4 +816,115 @@ export function leerAgendaIA(texto) {
   if (!r.tipo) dudas.push("si es trabajo, tarea, personal o con los chicos");
   r.dudas = [...new Set(dudas)];
   return r;
+}
+
+/* ── Un dictado es un PLAN de acciones (nucleo-10, 5-oct-2026) ───────────────
+   Mauro: «mañana tengo que recordar ir antes al gimnasio para llevar los
+   títulos del auto a Pedro» tiene que hacer que la IA busque la cita del
+   gimnasio en la agenda, anote en la pizarra «juntar títulos del auto para
+   Pedro», deje un recordatorio temprano ese día y una alarma un rato antes del
+   gimnasio. Y una foto con «me gustaría que los chicos vayan a esto» es un
+   DESEO, que se coordina con el otro hasta que se agenda.
+   Gemini devuelve una lista de acciones; esto la lee con desconfianza y
+   descarta la que no tiene forma, sin inventar nada. Cada tipo dice qué se
+   escribe al aceptar (ver sugerir.js). */
+export const ACCIONES = {
+  actividad:    "a tu agenda",
+  tarea:        "a tu pizarra",
+  recordatorio: "un recordatorio",
+  alarma:       "una alarma",
+  deseo:        "a la lista de deseos",
+  coordinar:    "preguntarle al otro",
+  // nucleo-11, 5-oct-2026: «no olvidar comprar tal cosa» va a la lista de
+  // compras de la casa, y «pedile a Flor que…» es una tarea en SU pizarra.
+  compra:       "a la lista de compras",
+  pedido:       "un pedido para el otro",
+};
+export const PARA_DESEO = ["yo", "chicos", "familia"];
+export function leerPlanIA(texto) {
+  let j = null;
+  const t = String(texto || "").replace(/```(?:json)?/gi, "");
+  const i = t.indexOf("{"), k = t.lastIndexOf("}");
+  if (i !== -1 && k > i) { try { j = JSON.parse(t.slice(i, k + 1)); } catch { j = null; } }
+  if (!j || typeof j !== "object") return null;
+  const corto = (x, n) => String(x == null ? "" : x).trim().slice(0, n);
+  const hora = (h) => HORA_RE.test(String(h || "")) ? h : "";
+  const dia = (d) => esISO(d) ? d : "";
+  const dudas = Array.isArray(j.dudas) ? j.dudas.map((x) => corto(x, 80)).filter(Boolean).slice(0, 6) : [];
+  const acciones = [];
+  for (const a of Array.isArray(j.acciones) ? j.acciones.slice(0, 8) : []) {
+    if (!a || !ACCIONES[a.tipo]) continue;
+    if (a.tipo === "actividad") {
+      // La clase viene como «tipo_clase» (o «clase»): «tipo» es el de la acción.
+      const x = leerAgendaIA(JSON.stringify({ ...a, tipo: a.tipo_clase || a.clase }));
+      if (!x || !x.titulo) continue;
+      dudas.push(...x.dudas.map((d) => `${d} de «${x.titulo.slice(0, 30)}»`));
+      acciones.push({ ...x, clase: x.tipo, tipo: "actividad" });
+    } else if (a.tipo === "tarea") {
+      const titulo = corto(a.titulo, 120); if (!titulo) continue;
+      acciones.push({ tipo: "tarea", titulo, detalle: corto(a.detalle, 300) });
+    } else if (a.tipo === "recordatorio" || a.tipo === "alarma") {
+      const texto = corto(a.texto, 200); if (!texto) continue;
+      const x = { tipo: a.tipo, texto, dia: dia(a.dia), hora: hora(a.hora), sobre: corto(a.sobre, 60) };
+      if (!x.dia) dudas.push(`el día de «${texto.slice(0, 30)}»`);
+      if (a.tipo === "alarma" && !x.hora) dudas.push(`la hora de la alarma «${texto.slice(0, 30)}»`);
+      acciones.push(x);
+    } else if (a.tipo === "deseo") {
+      const titulo = corto(a.titulo, 120); if (!titulo) continue;
+      acciones.push({ tipo: "deseo", titulo, detalle: corto(a.detalle, 400), para: PARA_DESEO.includes(a.para) ? a.para : "yo",
+        lugar: corto(a.lugar, 120), cuando: corto(a.cuando, 120) });
+    } else if (a.tipo === "coordinar") {
+      const texto = corto(a.texto, 300); if (!texto) continue;
+      acciones.push({ tipo: "coordinar", texto });
+    } else if (a.tipo === "compra") {
+      const texto = corto(a.texto, 80); if (!texto) continue;
+      acciones.push({ tipo: "compra", texto, lista: corto(a.lista, 40) });
+    } else if (a.tipo === "pedido") {
+      const titulo = corto(a.titulo, 120); if (!titulo) continue;
+      acciones.push({ tipo: "pedido", titulo, detalle: corto(a.detalle, 300), dia: dia(a.dia) });
+    }
+  }
+  return { resumen: corto(j.resumen, 200), acciones, dudas: [...new Set(dudas)] };
+}
+
+/* La lista de compras donde va una cosa: la que se llama como dijo la IA
+   (sin mayúsculas ni tildes), o null si no hay ninguna así. */
+const plano = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+export function listaParaCompra(listas, nombre) {
+  const n = plano(nombre);
+  if (!n) return null;
+  const l = (listas || []).find((x) => plano(x.nombre) === n)
+    || (listas || []).find((x) => plano(x.nombre).includes(n) || n.includes(plano(x.nombre)));
+  return l ? l.id : null;
+}
+
+/* El dictado del teléfono, en Android, a veces repite lo que va entendiendo:
+   «el el jueves el jueves llevo el jueves llevo los niños…» (captura de
+   Mauro, 5-oct-2026). Se parte en tramos que empiezan con la misma palabra y
+   se tira cada tramo que es el comienzo del siguiente. Un texto sin
+   repeticiones queda igual. */
+export function limpiarDictado(texto) {
+  const pal = String(texto || "").trim().split(/\s+/).filter(Boolean);
+  if (pal.length < 3) return pal.join(" ");
+  const tramos = [];
+  for (const w of pal) {
+    const ult = tramos[tramos.length - 1];
+    if (!ult || plano(w) === plano(ult[0])) tramos.push([w]); else ult.push(w);
+  }
+  const esComienzo = (x, y) => x.length <= y.length && x.every((w, i) => plano(w) === plano(y[i]));
+  const quedan = tramos.filter((t, i) => !(i + 1 < tramos.length && esComienzo(t, tramos[i + 1])));
+  return quedan.flat().join(" ");
+}
+
+/* Lo que se le manda a la IA de MI agenda: lo de las próximas dos semanas, con
+   su id, para que pueda decir «el gimnasio de mañana» y colgarle algo. Es MI
+   agenda, la manda MI sesión: la del otro nunca viaja. */
+export function agendaParaIA(actividades, hoy, dias = 14) {
+  const hasta = sumarDias(hoy, dias);
+  return Object.entries(actividades || {})
+    .filter(([, a]) => a && esISO(a.dia) && a.dia >= hoy && a.dia <= hasta)
+    .sort((x, y) => String(x[1].desde).localeCompare(String(y[1].desde)))
+    .slice(0, 40)
+    .map(([id, a]) => ({ id, titulo: String(a.titulo || "").slice(0, 80), dia: a.dia,
+      desde: String(a.desde || "").slice(11, 16), hasta: String(a.hasta || "").slice(11, 16), lugar: a.lugar || "" }));
 }

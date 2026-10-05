@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v8, 30-sep-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v9, 5-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -17,6 +17,11 @@ rules_version = '2';
 //      de los dos («salió Florencia», «salimos juntos»).
 //  v8: la marca lleva `unidad` (día entero, noche o un rato): las salidas se
 //      cuentan en días.
+//  v9: lo que se dicta (app-13): las ALERTAS de cada uno (`alertas`:
+//      recordatorios y alarmas, de su dueño; el agente las lee para avisar
+//      por WhatsApp y la APK para sonar) y la lista de DESEOS (`deseos`: lo
+//      que uno quisiera hacer, o que hagan los chicos, hasta que se acuerda
+//      y se agenda; la ven los dos, porque es para coordinar).
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -279,6 +284,42 @@ service cloud.firestore {
         && request.resource.data.texto.size() > 0
         && request.resource.data.texto.size() <= 2000;
       allow read: if esAgente() || (esPersona() && resource.data.uid == request.auth.uid);
+    }
+
+    // ── v9 · Alertas: recordatorios y alarmas de cada uno ──────────────
+    // De su dueño, que las crea al aceptar lo que dictó. El agente las LEE
+    // (para mandar el recordatorio por WhatsApp) y no las escribe.
+    match /alertas/{id} {
+      allow read: if esAgente() || (esPersona() && resource.data.uid == request.auth.uid);
+      allow create: if esPersona()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.tipo in ['recordatorio', 'alarma']
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() > 0
+        && request.resource.data.texto.size() <= 200
+        && request.resource.data.dia is string
+        && request.resource.data.hora is string;
+      allow update: if esPersona() && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid;
+      allow delete: if esPersona() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── v9 · La lista de deseos ────────────────────────────────────────
+    // Lo que uno quisiera hacer (o que hagan los chicos), con la imagen del
+    // flyer, hasta que se acuerda con el otro y se agenda. La ven los dos;
+    // la escribe y la mueve quien la anotó. El agente la lee.
+    match /deseos/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if esPersona()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.titulo is string
+        && request.resource.data.titulo.size() > 0
+        && request.resource.data.titulo.size() <= 120
+        && request.resource.data.estado in ['deseo', 'coordinando', 'agendado', 'descartado'];
+      allow update: if esPersona()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.estado in ['deseo', 'coordinando', 'agendado', 'descartado'];
+      allow delete: if esPersona() && resource.data.uid == request.auth.uid;
     }
   }
 }

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// propone.js — Lo que Claude propone para TU agenda, en Ahora. Sello: propone-2
+// propone.js — Lo que Claude propone para TU agenda, en Ahora. Sello: propone-3
 //
 // 5-oct-2026, pedido de Mauro: que lo dictado (o la captura de un flyer)
 // vuelva «en la misma interfaz, para que el usuario dé ok». Claude lo
@@ -26,7 +26,7 @@
 import { db, F } from "./firebase-init.js";
 import { esc, CLASES_ACTIVIDAD, MODOS_AGENDA, actividadDePropuesta, paraMi, marcasQueSePisan, idNuevo } from "./nucleo.js";
 import { E, aviso, repintar, fallo } from "./estado.js";
-import { mandarReporte } from "./sugerir.js";
+import { mandarReporte, abrirDictado } from "./sugerir.js";
 
 export const CLASES_PROPONE = ["agenda", "consulta"];
 const editando = {};          // id de propuesta → campos corregidos
@@ -131,4 +131,44 @@ async function responder(id, texto) {
   await decidir(id, "aprobada");
   aviso("Respondido.");
   repintar();
+}
+
+/* ── propone-3 (app-13): lo que te recordás hoy y la lista de deseos ─────────
+   Las alertas son de cada uno: un recordatorio (aviso ese día) o una alarma
+   (con hora; suena en la APK cuando exista, y mientras tanto llega por
+   WhatsApp en la ronda). Los deseos los ven los dos: lo que uno quisiera
+   hacer, o que hagan los chicos, hasta que se acuerda y se agenda. */
+const nombreMiembro = (uid) => ((E.miembros || []).find((m) => m.id === uid) || {}).nombre || "el otro";
+export function alertasYDeseos(v) {
+  const hoy = (E.alertas || []).filter((a) => a.dia === E.hoy).sort((a, b) => String(a.hora).localeCompare(String(b.hora)));
+  const proximas = (E.alertas || []).filter((a) => a.dia > E.hoy).length;
+  if (hoy.length || proximas) {
+    const c = document.createElement("div");
+    c.innerHTML = `<h2>Te recordás</h2><div class="tarjeta chica">${hoy.map((a) =>
+      `<div class="fila"><span class="txt">${a.tipo === "alarma" ? "⏰" : "🔔"} hoy ${esc(a.hora || "")} <b>${esc(a.texto)}</b></span>
+       <button class="mini" data-alerta-borrar="${esc(a.id)}">Listo</button></div>`).join("")}
+      ${proximas ? `<small class="gris">${hoy.length ? "y " : ""}${proximas} para los próximos días</small>` : ""}</div>`;
+    v.append(c);
+    for (const b of c.querySelectorAll("[data-alerta-borrar]"))
+      b.onclick = () => F.deleteDoc(F.doc(db, "alertas", b.dataset.alertaBorrar)).catch(fallo);
+  }
+  const deseos = (E.deseos || []).filter((d) => d.estado === "deseo" || d.estado === "coordinando");
+  if (deseos.length) {
+    const c = document.createElement("div");
+    c.innerHTML = `<h2>Deseos (${deseos.length})</h2>` + deseos.map((d) => `<div class="tarjeta chica deseo">
+      ${d.imagen ? `<a href="${esc(d.imagen)}" target="_blank" rel="noopener"><img class="flyer" src="${esc(d.imagen)}" alt=""></a>` : ""}
+      <div><b>${esc(d.titulo)}</b> <small class="gris">${esc(d.uid === E.yo.uid ? "tuyo" : "de " + nombreMiembro(d.uid))}${d.para === "chicos" ? " · para los chicos" : d.para === "familia" ? " · familia" : ""}${d.estado === "coordinando" ? " · coordinando" : ""}</small></div>
+      ${d.cuando || d.lugar ? `<small class="gris">${esc([d.cuando, d.lugar].filter(Boolean).join(" · "))}</small>` : ""}
+      ${d.uid === E.yo.uid ? `<div class="botones"><button class="mini" data-deseo-agendar="${esc(d.id)}">Ya lo acordamos: agendar</button><button class="mini" data-deseo-no="${esc(d.id)}">Ya no</button></div>` : ""}
+    </div>`).join("");
+    v.append(c);
+    for (const b of c.querySelectorAll("[data-deseo-no]"))
+      b.onclick = () => F.updateDoc(F.doc(db, "deseos", b.dataset.deseoNo), { estado: "descartado" }).catch(fallo);
+    for (const b of c.querySelectorAll("[data-deseo-agendar]")) b.onclick = () => {
+      const d = (E.deseos || []).find((x) => x.id === b.dataset.deseoAgendar); if (!d) return;
+      // Se agenda dictando CUÁNDO: el globo abre con el deseo ya escrito. Al
+      // agendarse, el deseo pasa a «agendado» (sugerir.js).
+      abrirDictado(`Agendar «${d.titulo}»${d.lugar ? " en " + d.lugar : ""}: `, d.id);
+    };
+  }
 }

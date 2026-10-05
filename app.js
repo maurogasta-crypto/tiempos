@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-12
+// Sello: app-13
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -35,7 +35,7 @@ import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
 import { pintarCompras } from "./compras.js";
 import { montarGlobo } from "./sugerir.js";
-import { tarjetasPropone, CLASES_PROPONE } from "./propone.js";
+import { tarjetasPropone, CLASES_PROPONE, alertasYDeseos } from "./propone.js";
 
 const SOLAPAS = ["ahora", "hoy", "agenda", "tareas", "chicos", "plata", "balance"];
 const mostrar = (id) => { for (const s of ["cargando", "entrar", "acceso", "app"]) $(s).hidden = s !== id; };
@@ -176,6 +176,13 @@ function escucharFamilia() {
     E.actividades = (d.exists() && d.data().actividades) || {};     // app-9: las propias, con su clase
     pintar();
   }, mal("tu agenda"));
+  // app-13: mis alertas (recordatorios y alarmas) y la lista de deseos de los dos.
+  F.onSnapshot(F.query(F.collection(db, "alertas"), F.where("uid", "==", E.yo.uid)), (s) => {
+    E.alertas = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
+  }, mal("tus alertas"));
+  F.onSnapshot(F.collection(db, "deseos"), (s) => {
+    E.deseos = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
+  }, mal("los deseos"));
   // app-9: las marcas de tiempo de los dos meses últimos (el balance mira el
   // mes). Son de los dos y sin título: ver nucleo-5.
   F.onSnapshot(F.query(F.collection(db, "marcas"), F.where("desde", ">=", sumarDias(E.hoy, -62))), (s) => {
@@ -669,6 +676,8 @@ function pintarAhora() {
   }
   // app-12: lo que Claude propone para TU agenda, para aceptar o corregir.
   tarjetasPropone(v);
+  // app-13: lo que te recordás hoy y la lista de deseos.
+  alertasYDeseos(v);
   // Lo que te pidieron va primero: está esperando una respuesta tuya.
   const pedidos = pedidosPara(E.tareas, E.yo.uid);
   if (pedidos.length) {

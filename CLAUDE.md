@@ -81,6 +81,17 @@ la documentación diga la verdad.
   uno corrige y agenda; Claude recibe igual el pedido (`yaAgendado`) para
   cruzar con el otro. **A Gemini no le van los nombres de los chicos**, y el
   banco lo comprueba.
+  **Y desde sugerir-5 un dictado es un PLAN de varias acciones** (`ACCIONES`
+  de nucleo.js: actividad, tarea, recordatorio, alarma, deseo, coordinar, y
+  desde sugerir-6 compra —a `familia/compras`— y pedido —tarea común a cargo
+  del otro, con `pizarra` marcada para él o ella—),
+  cada una con su casilla. Para encontrar «el gimnasio» Gemini recibe la
+  agenda de quien dicta (`agendaParaIA`: título, día, horas y clase, nada
+  más) — es su propia agenda, mandada por su sesión. Los recordatorios y
+  alarmas van a `alertas/` (de su dueño; el agente los LEE para avisar por
+  WhatsApp con el candado de «Mis avisos») y los deseos a `deseos/` (los ven
+  los dos). Reglas v9. **La alarma que suena a la hora es de la APK**
+  (`tiempos:V3`), no de la web.
 - **Las boletas usan los recursos de Casa Verde**, importados de su sitio:
   `CV2.subirImagen` y su función de IA. Se suben al GUARDAR, nunca al elegir.
 - **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente
