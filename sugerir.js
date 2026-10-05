@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-7
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-8
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -330,10 +330,13 @@ function pintarHoja() {
 
 /* Abrir el globo en Agenda con un texto ya escrito (un deseo que se agenda). */
 let deseoAgendando = null;
-export function abrirDictado(texto, deseoId = null) {
+export function abrirDictado(texto, deseoId = null, { precargar = false } = {}) {
   modo = "agenda"; precarga = null; deseoAgendando = deseoId; abierta = true; escucharMios(); pintarHoja();
   const t = document.querySelector("#hoja-sugerir [name=texto]");
   if (t) { t.value = texto; t.focus(); }
+  // sugerir-8: lo que llega dictado desde la app del teléfono ya está
+  // corregido allá; se precarga solo y uno ve la tarjeta para marcar.
+  if (precargar && texto) { const b = document.querySelector("#hoja-sugerir [data-precargar]"); if (b) b.click(); }
 }
 
 /* Un pedido a reportes/, con la forma de los sitios, y el aviso en vivo. Lo

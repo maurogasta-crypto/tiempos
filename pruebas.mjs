@@ -251,6 +251,12 @@ prueba("deseos-1: está en el SHELL, sube el flyer al guardar, y las reglas v10 
   assert.match(bloque, /allow update: if esPersona\(\)\s*&& request\.resource\.data\.uid == resource\.data\.uid/);
   assert.match(bloque, /dias\.size\(\) <= 7/); assert.match(r, /v10, 5-oct-2026/);
 });
+prueba("app-14: ?dictar= abre el dictado precargado, se borra de la dirección y no queda en la caché", () => {
+  const a = fs.readFileSync("app.js", "utf8"), w = fs.readFileSync("sw.js", "utf8"), g = fs.readFileSync("sugerir.js", "utf8");
+  assert.match(a, /get\("dictar"\)[\s\S]{0,120}history\.replaceState[\s\S]{0,80}abrirDictado\([\s\S]{0,60}precargar: true/);
+  assert.match(w, /searchParams\.has\("dictar"\)\) return;/);
+  assert.match(g, /if \(precargar && texto\)/);
+});
 prueba("a la IA va MI agenda de dos semanas, con ids, y nada más", () => {
   const a = agendaParaIA({ x: { titulo: "Gimnasio", dia: "2026-10-06", desde: "2026-10-06T18:00", hasta: "2026-10-06T19:00" },
     y: { titulo: "Viejo", dia: "2026-09-01", desde: "2026-09-01T10:00", hasta: "2026-09-01T11:00" },

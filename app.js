@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-13
+// Sello: app-14
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -34,7 +34,7 @@ import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
 import { pintarCompras } from "./compras.js";
-import { montarGlobo } from "./sugerir.js";
+import { montarGlobo, abrirDictado } from "./sugerir.js";
 import { tarjetasPropone, CLASES_PROPONE, alertasYDeseos } from "./propone.js";
 
 const SOLAPAS = ["ahora", "hoy", "agenda", "tareas", "chicos", "plata", "balance"];
@@ -98,6 +98,14 @@ async function entrarAlaApp() {
   escucharFamilia();
   await conectarCasaVerde();
   pintar();
+  // app-14: la app del teléfono (la Pizarra) dicta con el reconocedor de
+  // Android —el mismo del micrófono del teclado, que sí anda— y abre Tiempos
+  // con ?dictar=<texto>. Se saca de la dirección para que recargar no lo repita.
+  const dictado = new URLSearchParams(location.search).get("dictar");
+  if (dictado) {
+    history.replaceState(null, "", location.pathname);
+    abrirDictado(dictado.slice(0, 2000), null, { precargar: true });
+  }
   clearInterval(E.reloj);
   E.reloj = setInterval(() => {
     pintarReloj();

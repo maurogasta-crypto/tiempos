@@ -96,6 +96,10 @@ la documentación diga la verdad.
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,
   flyer— y la editan los dos; el flyer se sube al Guardar.
+- **La app del teléfono es la Pizarra** (`maurogasta-crypto/pizarra`,
+  pizarra-2): dicta y abre `?dictar=` (app-14), suena las `alertas/` y
+  muestra «Hoy se puede». `posiblesDelDia` está también en su `Logica.kt`:
+  si cambia acá, cambia allá en la misma tanda.
 - **Las boletas usan los recursos de Casa Verde**, importados de su sitio:
   `CV2.subirImagen` y su función de IA. Se suben al GUARDAR, nunca al elegir.
 - **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente
