@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-2
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-3
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -44,7 +44,7 @@ export function pintarPlata() {
     .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   const total = disponible(movs);
   const mes = disponible(movs, { desde: mesVisto + "-01", hasta: mesVisto + "-31" });
-  const props = (E.propuestas || []).filter((p) => p.estado === "pendiente");
+  const props = (E.propuestas || []).filter((p) => p.estado === "pendiente" && p.clase !== "agenda" && p.clase !== "consulta");   // plata-3: ésas van en Ahora
   const autos = automaticosPendientes(E.recurrentes, movs, E.hoy);
 
   let h = "";

@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-8
+/* estilos.css — Tiempos. Sello: estilos-9
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -200,3 +200,15 @@ fieldset.clases legend { font-size:.85rem; }
 /* app-11 (tiempos:A1): la tarea que corre se ve sin buscarla. */
 .fila-tarea.corriendo { outline:2px solid var(--acento); outline-offset:-2px; border-radius:10px; background:color-mix(in srgb, var(--acento) 12%, transparent); }
 .play.parar { background:var(--tinta); color:var(--acento); }
+
+/* estilos-9 (app-12): dictar a la agenda y lo que propone Claude. El botón
+   «parece una grabación»: redondo, y late en rojo mientras escucha. */
+.dictado { display:flex; align-items:center; gap:12px; margin:.4rem 0; }
+.microfono { flex:0 0 56px; height:56px; border-radius:50%; border:0; font-size:1.5rem; background:var(--acento); color:var(--tinta); }
+.microfono.grabando { background:var(--mal); color:#fff; animation:latido 1.1s ease-in-out infinite; }
+@keyframes latido { 0%,100% { box-shadow:0 0 0 0 color-mix(in srgb, var(--mal) 55%, transparent); } 50% { box-shadow:0 0 0 10px transparent; } }
+@media (prefers-reduced-motion: reduce) { .microfono.grabando { animation:none; } }
+.propone { border-left:4px solid var(--acento); }
+.propone .flyer { display:block; max-width:100%; max-height:220px; border-radius:8px; margin:.3rem 0; object-fit:contain; }
+.tira-clase { display:flex; flex-wrap:wrap; gap:4px 12px; margin:.3rem 0; }
+.sugerir-ed.modo-agenda .nota-ia { display:none; }   /* en Agenda va su propia nota */

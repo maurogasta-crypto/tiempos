@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-7
+// Sello: nucleo-8
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -735,4 +735,51 @@ export function marcasQueSePisan(nueva, marcas) {
   return (marcas || []).filter((m) => m && m.id !== nueva.id
     && (m.clase === "neutro" ? "*" : m.uid) === quien
     && msDeLocal(m.desde) < h && msDeLocal(m.hasta) > d);
+}
+
+/* ── Lo que propone Claude para la agenda (nucleo-8, 5-oct-2026) ─────────────
+   Pedido de Mauro: dictar o mandar la captura de un flyer, que Claude lo
+   interprete y que a cada uno le aparezca una tarjeta para ACEPTAR. Nada entra
+   a la agenda de nadie sin ese toque: la agenda es de cada uno y la escribe su
+   dueño, como siempre. Esto convierte la propuesta en la misma actividad que
+   se carga a mano (agenda.js, guardarActividad), con las mismas reglas:
+   clase obligatoria, y sin «hasta» sólo lo que empieza de noche — salvo que
+   acá, como lo dictado suele no traer hora de fin, se supone una hora y se
+   dice que se supuso. */
+export const MODOS_AGENDA = {
+  recordar: "para recordar",
+  invitar:  "invitación",
+  sugerida: "sugerida",
+};
+const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const sumarHora = (hhmm, min) => {
+  const [h, m] = hhmm.split(":").map(Number); const t = h * 60 + m + min;
+  return { hora: `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`, pasa: t >= 1440 };
+};
+export const paraMi = (p, uid) => {
+  const para = p && p.datos && p.datos.para;
+  return Array.isArray(para) ? para.includes(uid) : para === uid;
+};
+export function actividadDePropuesta(d, uid) {
+  const x = d || {};
+  const motivos = [];
+  const titulo = String(x.titulo || "").trim().slice(0, 120);
+  const tipo = CLASES_ACTIVIDAD[x.tipo] ? x.tipo : null;
+  if (!titulo) motivos.push("falta qué es");
+  if (!tipo) motivos.push("falta si es trabajo, tarea, personal o con los chicos");
+  if (!esISO(x.dia)) motivos.push("falta el día");
+  if (!HORA_RE.test(String(x.hi || ""))) motivos.push("falta desde qué hora");
+  if (motivos.length) return { ok: false, motivos };
+  let hf = HORA_RE.test(String(x.hf || "")) ? x.hf : "";
+  let supuesto = false;
+  if (!hf && x.hi < HORA_NOCHE) { hf = sumarHora(x.hi, 60).hora; supuesto = true; }
+  const desde = `${x.dia}T${x.hi}`;
+  const hasta = !hf ? `${sumarDias(x.dia, 1)}T07:00` : `${hf <= x.hi ? sumarDias(x.dia, 1) : x.dia}T${hf}`;
+  const marca = { uid, clase: CLASES_ACTIVIDAD[tipo].clase, desde, hasta, origen: "agenda", marcadoPor: uid };
+  const mal = validarMarca(marca, [uid]);
+  if (mal.length) return { ok: false, motivos: mal };
+  const actividad = { titulo, dia: x.dia, desde, hasta, tipo, hf: hf || "",
+    origen: "claude", modo: MODOS_AGENDA[x.modo] ? x.modo : "sugerida", recordar: !!x.recordar,
+    lugar: String(x.lugar || "").slice(0, 120), imagen: /^https:\/\//.test(String(x.imagen || "")) ? String(x.imagen).slice(0, 400) : "" };
+  return { ok: true, actividad, marca, supuesto };
 }

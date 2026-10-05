@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-11
+// Sello: app-12
 //
 // Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
@@ -35,6 +35,7 @@ import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
 import { pintarCompras } from "./compras.js";
 import { montarGlobo } from "./sugerir.js";
+import { tarjetasPropone, CLASES_PROPONE } from "./propone.js";
 
 const SOLAPAS = ["ahora", "hoy", "agenda", "tareas", "chicos", "plata", "balance"];
 const mostrar = (id) => { for (const s of ["cargando", "entrar", "acceso", "app"]) $(s).hidden = s !== id; };
@@ -653,7 +654,9 @@ function pintarAhora() {
   const v = $("v-ahora"); v.replaceChildren();
   // Lo que espera una decisión tuya, con un toque para ir a resolverlo.
   const avisos = [];
-  const props = (E.propuestas || []).length;
+  // app-12: las de agenda y las preguntas se contestan ACÁ (propone.js); a
+  // Plata van sólo la plata, las tareas y las actividades de los chicos.
+  const props = (E.propuestas || []).filter((p) => !CLASES_PROPONE.includes(p.clase)).length;
   if (props) avisos.push([`${props} cosa(s) que propuso el agente, para aprobar`, "plata"]);
   const conf = bloquesPorConfirmar(E.bloques, E.yo.uid, personas().map((p) => p.id)).length;
   if (conf) avisos.push([`${conf} acuerdo(s) de tiempo: ¿se cumplieron?`, "balance"]);
@@ -664,6 +667,8 @@ function pintarAhora() {
     b.onclick = () => irA(a);
     v.append(b);
   }
+  // app-12: lo que Claude propone para TU agenda, para aceptar o corregir.
+  tarjetasPropone(v);
   // Lo que te pidieron va primero: está esperando una respuesta tuya.
   const pedidos = pedidosPara(E.tareas, E.yo.uid);
   if (pedidos.length) {

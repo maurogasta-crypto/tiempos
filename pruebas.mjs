@@ -18,7 +18,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
          cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
-         UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo } from "./nucleo.js";
+         UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
+         actividadDePropuesta, paraMi, MODOS_AGENDA } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -115,6 +116,50 @@ prueba("las boletas se leen con flash-lite y tokens de sobra (tiempos:A10)", () 
   assert.match(plata, /const MODELO_BOLETA = "gemini-2\.5-flash-lite";/);
   assert.ok(Number((/const TOKENS_BOLETA = (\d+)/.exec(plata) || [])[1]) >= 1500);
   assert.ok(!/model: "gemini-2\.5-flash"/.test(plata), "el modelo que piensa y corta el JSON no vuelve");
+});
+
+titulo("Lo que propone Claude para la agenda (app-12)");
+prueba("una propuesta completa se vuelve la misma actividad que se carga a mano", () => {
+  const r = actividadDePropuesta({ titulo: "Básquet", dia: "2026-10-08", hi: "15:00", hf: "18:00", tipo: "ninos", modo: "recordar", recordar: true, lugar: "Club" }, "u1");
+  assert.equal(r.ok, true);
+  assert.equal(r.marca.clase, "chicos"); assert.equal(r.marca.uid, "u1");
+  assert.equal(r.marca.desde, "2026-10-08T15:00"); assert.equal(r.marca.hasta, "2026-10-08T18:00");
+  assert.equal(r.actividad.origen, "claude"); assert.equal(r.actividad.recordar, true); assert.equal(r.supuesto, false);
+});
+prueba("lo dictado sin hora de fin: se supone una hora y se dice que se supuso", () => {
+  const r = actividadDePropuesta({ titulo: "Dentista", dia: "2026-10-09", hi: "10:30", tipo: "personal" }, "u1");
+  assert.equal(r.ok, true); assert.equal(r.supuesto, true); assert.equal(r.marca.hasta, "2026-10-09T11:30");
+});
+prueba("de noche sin vuelta vale, como a mano", () => {
+  const r = actividadDePropuesta({ titulo: "Cena", dia: "2026-10-10", hi: "21:00", tipo: "personal" }, "u1");
+  assert.equal(r.ok, true); assert.equal(r.supuesto, false); assert.equal(r.marca.hasta, "2026-10-11T07:00");
+});
+prueba("lo que falta se dice, y no se inventa", () => {
+  const r = actividadDePropuesta({ titulo: "", dia: "jueves", hi: "3 de la tarde", tipo: "otra" }, "u1");
+  assert.equal(r.ok, false);
+  for (const x of ["qué es", "trabajo, tarea", "el día", "desde qué hora"]) assert.ok(r.motivos.some((m) => m.includes(x)), x);
+});
+prueba("una imagen que no es https no viaja, y un modo raro cae en «sugerida»", () => {
+  const r = actividadDePropuesta({ titulo: "Feria", dia: "2026-10-11", hi: "10:00", hf: "12:00", tipo: "ninos", imagen: "javascript:alert(1)", modo: "otro" }, "u1");
+  assert.equal(r.actividad.imagen, ""); assert.equal(r.actividad.modo, "sugerida");
+});
+prueba("cada tarjeta es de una persona: para = uid o lista", () => {
+  assert.equal(paraMi({ datos: { para: "u1" } }, "u1"), true);
+  assert.equal(paraMi({ datos: { para: ["u2", "u1"] } }, "u1"), true);
+  assert.equal(paraMi({ datos: { para: "u2" } }, "u1"), false);
+  assert.equal(paraMi({}, "u1"), false);
+});
+prueba("aceptar escribe la agenda del que acepta y nada más (propone.js)", () => {
+  const src = fs.readFileSync("propone.js", "utf8");
+  assert.ok(/F\.doc\(db, "agendas", E\.yo\.uid\)/.test(src));
+  assert.ok(!/F\.doc\(db, "agendas", (?!E\.yo\.uid)/.test(src), "nunca la agenda de otro");
+  assert.ok(Object.keys(MODOS_AGENDA).includes("recordar") && Object.keys(MODOS_AGENDA).includes("invitar"));
+});
+prueba("el dictado: el audio no viaja, la imagen se sube al mandar y antes del documento", () => {
+  const src = fs.readFileSync("sugerir.js", "utf8");
+  assert.ok(/SpeechRecognition/.test(src));
+  assert.ok(src.indexOf("CV.CV2.subirImagen(foto") < src.indexOf("await mandarReporte({ texto, esperaba"), "primero la imagen");
+  assert.ok(!/MediaRecorder|getUserMedia/.test(src), "no se graba audio");
 });
 
 titulo("Lo demás");
@@ -423,7 +468,7 @@ prueba("la regla de reportes exige que el uid sea el de quien escribe", () => {
 
 titulo("La pantalla, el HTML y las reglas");
 const html = fs.readFileSync("index.html", "utf8");
-const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js", "sugerir.js", "compras.js"];
+const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js", "sugerir.js", "compras.js", "propone.js"];
 const app = MODULOS.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 const reglas = fs.readFileSync("firestore.rules", "utf8");
 prueba("cada id que buscan las vistas existe en index.html", () => {

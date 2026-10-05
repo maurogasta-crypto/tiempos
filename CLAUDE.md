@@ -67,6 +67,15 @@ la documentación diga la verdad.
   después de guardar, `avisarClaude` manda la base y el id —nunca el texto— a
   `avisar-claude` del Netlify de Casa Verde, que verifica `miembros/{uid}` y
   dispara la rutina «Consulta en vivo». Si falla, la ronda diaria lo trae igual.
+- **Dictar a la agenda y «Claude propone»** (app-12, 5-oct-2026, pedido de
+  Mauro). El globo abre en 🎙 Agenda: dictado con el reconocimiento de voz del
+  teléfono (el audio no viaja), texto corregible y captura opcional de un
+  flyer. Claude lo interpreta y deja `propuestas` de clase `agenda` (una por
+  persona, `datos.para`) o `consulta` (a quien queda libre). **Aceptar escribe
+  la agenda de quien acepta, con su sesión** — el agente sigue sin escribir
+  ni leer `agendas/`, y por eso no hizo falta abrirla. Si cambia la forma de
+  una actividad de agenda (`guardarActividad` de agenda.js), cambia
+  `actividadDePropuesta` de nucleo.js en la misma tanda.
 - **Las boletas usan los recursos de Casa Verde**, importados de su sitio:
   `CV2.subirImagen` y su función de IA. Se suben al GUARDAR, nunca al elegir.
 - **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente

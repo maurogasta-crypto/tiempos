@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (97 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (105 casos, sin npm, sin red) |
 
 ## Qué hace (app-10)
 
@@ -92,6 +92,27 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
 - Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
   en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
 
+### Lo que se sumó el 5-oct-2026 (nucleo-8, app-12, sugerir-3, propone-1)
+
+- **Dictar a la agenda.** El globo (ahora 🎙) abre en «Agenda»: el botón
+  redondo graba con el reconocimiento de voz del teléfono y late mientras
+  escucha; lo entendido aparece en el cuadro y se corrige con el teclado
+  antes de mandar. Se puede sumar la **captura de un flyer** (cámara o
+  archivo, se sube a Cloudinary al mandar). **El audio no se guarda ni
+  viaja**: viaja el texto. Va a `reportes/` como un pedido con
+  `agenda: true`, y despierta a Claude (consulta en vivo).
+- **Lo que vuelve: «Claude propone» en Ahora.** Claude interpreta lo dicho
+  —con sus imprecisiones—, cruza con lo que ya hay (marcas, turnos, chicos)
+  y deja en `propuestas/` una tarjeta por persona: `agenda` (para tu
+  agenda, editable: qué, día, desde/hasta, lugar, clase, recordar) o
+  `consulta` (a quien queda libre: «¿qué tenés pensado para ese rato?»).
+  **Aceptar escribe TU agenda con TU sesión**, igual que cargarla a mano,
+  y suma la marca; nada entra a la agenda de nadie sin su toque. La
+  respuesta a una consulta vuelve a Claude como un pedido más. Lo de los
+  chicos sigue en Plata (`evento`), como antes.
+- Sin reglas nuevas: `reportes` acepta los campos de más, `propuestas` ya
+  dejaba crear al agente y decidir a la persona, y cada uno escribe su agenda.
+
 ### Lo que se sumó el 3-oct-2026 (nucleo-7, app-11, plata-2)
 
 - **La tarea que corre se ve en su fila**: el ▶ pasa a **■** (tocarlo para,
@@ -162,18 +183,19 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-7` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-8` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-11` |
+| `app.js` | entrar, los relojes, Ahora, Tareas | `app-12` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
-| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-2` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-2` |
+| `propone.js` | lo que Claude propone para tu agenda y lo que te pregunta, en Ahora, para aceptar | `propone-1` |
+| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-3` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-3` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
 | `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
 | `familia.js` | Hoy y Chicos | `familia-2` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-8` |
-| `sw.js` | el cascarón sin señal | `tiempos-13` |
+| `estilos.css` | | `estilos-9` |
+| `sw.js` | el cascarón sin señal | `tiempos-14` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v8 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
