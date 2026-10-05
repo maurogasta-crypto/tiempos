@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v9, 5-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v10, 5-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -22,6 +22,9 @@ rules_version = '2';
 //      por WhatsApp y la APK para sonar) y la lista de DESEOS (`deseos`: lo
 //      que uno quisiera hacer, o que hagan los chicos, hasta que se acuerda
 //      y se agenda; la ven los dos, porque es para coordinar).
+//  v10: un deseo puede repetirse cada semana (`dias`) o ser de una fecha
+//      (`fecha`), y los dos lo pueden editar —días, horas, el flyer—
+//      (deseos-1). Nadie cambia de quién es.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -315,9 +318,16 @@ service cloud.firestore {
         && request.resource.data.titulo is string
         && request.resource.data.titulo.size() > 0
         && request.resource.data.titulo.size() <= 120
+        && (!('dias' in request.resource.data) || (request.resource.data.dias is list && request.resource.data.dias.size() <= 7))
         && request.resource.data.estado in ['deseo', 'coordinando', 'agendado', 'descartado'];
+      // v10 (deseos-1): los dos lo editan —qué, dónde, días, horas, el
+      // flyer—, pero nadie cambia de quién es, y el título sigue acotado.
       allow update: if esPersona()
         && request.resource.data.uid == resource.data.uid
+        && request.resource.data.titulo is string
+        && request.resource.data.titulo.size() > 0
+        && request.resource.data.titulo.size() <= 120
+        && (!('dias' in request.resource.data) || (request.resource.data.dias is list && request.resource.data.dias.size() <= 7))
         && request.resource.data.estado in ['deseo', 'coordinando', 'agendado', 'descartado'];
       allow delete: if esPersona() && resource.data.uid == request.auth.uid;
     }

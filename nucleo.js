@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-11
+// Sello: nucleo-12
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -871,8 +871,11 @@ export function leerPlanIA(texto) {
       acciones.push(x);
     } else if (a.tipo === "deseo") {
       const titulo = corto(a.titulo, 120); if (!titulo) continue;
-      acciones.push({ tipo: "deseo", titulo, detalle: corto(a.detalle, 400), para: PARA_DESEO.includes(a.para) ? a.para : "yo",
-        lugar: corto(a.lugar, 120), cuando: corto(a.cuando, 120) });
+      // nucleo-12: un flyer de algo SEMANAL deja los días; uno de una sola vez,
+      // la fecha. Lo que no se entiende queda vacío (y se edita después).
+      const x = { tipo: "deseo", titulo, detalle: corto(a.detalle, 400), para: PARA_DESEO.includes(a.para) ? a.para : "yo",
+        lugar: corto(a.lugar, 120), cuando: corto(a.cuando, 120), ...frecuenciaDeseo(a) };
+      acciones.push(x);
     } else if (a.tipo === "coordinar") {
       const texto = corto(a.texto, 300); if (!texto) continue;
       acciones.push({ tipo: "coordinar", texto });
@@ -885,6 +888,51 @@ export function leerPlanIA(texto) {
     }
   }
   return { resumen: corto(j.resumen, 200), acciones, dudas: [...new Set(dudas)] };
+}
+
+/* ── Los deseos con frecuencia (nucleo-12, 5-oct-2026) ──────────────────────
+   «Cuando lo que se guarda es un flyer de una actividad semanal, que quede
+   registrado que es algo con frecuencia, y cuando yo quiera saber qué se
+   puede hacer hoy ya tenga esa información, además de las especiales con una
+   fecha exclusiva» (Mauro). Un deseo lleva `dias` (0 = domingo … 6 = sábado,
+   como Date.getDay) si se repite cada semana, o `fecha` si es una vez; las
+   dos cosas no: si vienen las dos, gana la fecha, que es más precisa. */
+const NOMBRES_DIA = { domingo: 0, dom: 0, lunes: 1, lun: 1, martes: 2, mar: 2, miercoles: 3, mie: 3, jueves: 4, jue: 4,
+  viernes: 5, vie: 5, sabado: 6, sab: 6 };
+export function leerDias(x) {
+  const out = new Set();
+  for (const d of Array.isArray(x) ? x : String(x || "").split(/[,\sy]+/)) {
+    if (Number.isInteger(d) && d >= 0 && d <= 6) { out.add(d); continue; }
+    // «sábados» → «sabado»; «lunes» ya termina en s y está tal cual.
+    const t = String(d).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const m = t in NOMBRES_DIA ? NOMBRES_DIA[t] : NOMBRES_DIA[t.replace(/s$/, "")];
+    if (m !== undefined) out.add(m);
+  }
+  return [...out].sort((a, b) => a - b);
+}
+export function frecuenciaDeseo(a) {
+  const hora = (h) => HORA_RE.test(String(h || "")) ? h : "";
+  const fecha = esISO(a && a.fecha) ? a.fecha : "";
+  return { dias: fecha ? [] : leerDias(a && a.dias), fecha, hi: hora(a && a.hi), hf: hora(a && a.hf) };
+}
+/* Lo que se puede hacer ese día: los deseos que caen ese día de la semana o
+   en esa fecha, de los dos, salvo los descartados; por hora. */
+export function posiblesDelDia(deseos, iso) {
+  const w = diaSemana(iso);
+  return (deseos || [])
+    .filter((d) => d && d.estado !== "descartado" && (d.fecha ? d.fecha === iso : Array.isArray(d.dias) && d.dias.includes(w)))
+    .sort((a, b) => String(a.hi || "99").localeCompare(String(b.hi || "99")) || String(a.titulo).localeCompare(String(b.titulo)));
+}
+/* «martes y jueves · 18:00–19:00», «sáb 12/10 · 15:00», o lo que dijo `cuando`. */
+export function textoFrecuencia(d) {
+  const h = d.hi ? d.hi + (d.hf ? "–" + d.hf : "") : "";
+  let q = "";
+  if (d.fecha) q = d.fecha.slice(8) + "/" + d.fecha.slice(5, 7);
+  else if (Array.isArray(d.dias) && d.dias.length) {
+    const ns = d.dias.map((i) => DIAS[i]);
+    q = d.dias.length === 7 ? "todos los días" : "cada " + (ns.length > 1 ? ns.slice(0, -1).join(", ") + " y " + ns[ns.length - 1] : ns[0]);
+  }
+  return [q, h].filter(Boolean).join(" · ") || d.cuando || "";
 }
 
 /* La lista de compras donde va una cosa: la que se llama como dijo la IA

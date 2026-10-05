@@ -19,7 +19,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
-         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra } from "./nucleo.js";
+         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -226,6 +226,30 @@ prueba("un pedido va a la pizarra del OTRO como tarea común; una compra, a fami
   const s = fs.readFileSync("sugerir.js", "utf8");
   assert.match(s, /alcance: "comun", duenio: E\.yo\.uid,[\s\S]{0,120}encargados: \[o\.id\][\s\S]{0,40}pizarra: \{ \[o\.id\]: true \}/);
   assert.match(s, /F\.doc\(db, "familia", "compras"\)/);
+});
+prueba("un flyer semanal deja los días; uno de fecha, la fecha; las dos no", () => {
+  const p = leerPlanIA('{"acciones":[{"tipo":"deseo","titulo":"Básquet","para":"chicos","dias":["martes","jueves"],"hi":"18:00","hf":"19:30"},{"tipo":"deseo","titulo":"Feria","fecha":"2026-10-11","dias":["sábado"]},{"tipo":"deseo","titulo":"Yoga","cuando":"cuando abra"}]}');
+  assert.deepEqual(p.acciones[0].dias, [2, 4]); assert.equal(p.acciones[0].hi, "18:00");
+  assert.equal(p.acciones[1].fecha, "2026-10-11"); assert.deepEqual(p.acciones[1].dias, []);
+  assert.deepEqual(p.acciones[2].dias, []); assert.equal(p.acciones[2].fecha, ""); assert.equal(p.acciones[2].cuando, "cuando abra");
+  assert.deepEqual(leerDias(["Sábados", "domingo", 3, 9, "feriado"]), [0, 3, 6]); assert.deepEqual(leerDias("lunes y miércoles"), [1, 3]);
+  assert.deepEqual(frecuenciaDeseo({ hi: "5pm" }), { dias: [], fecha: "", hi: "", hf: "" });
+});
+prueba("«qué se puede hacer hoy»: lo semanal de ese día y lo de esa fecha, por hora, sin descartados", () => {
+  const ds = [{ titulo: "Básquet", dias: [2, 4], hi: "18:00" }, { titulo: "Feria", fecha: "2026-10-06", hi: "10:00" },
+    { titulo: "Natación", dias: [2], estado: "descartado" }, { titulo: "Teatro", dias: [2], estado: "agendado" }, { titulo: "Yoga", cuando: "algún día" }];
+  assert.deepEqual(posiblesDelDia(ds, "2026-10-06").map((d) => d.titulo), ["Feria", "Básquet", "Teatro"]);   // martes
+  assert.deepEqual(posiblesDelDia(ds, "2026-10-07").map((d) => d.titulo), []);
+  assert.equal(textoFrecuencia(ds[0]), "cada martes y jueves · 18:00"); assert.equal(textoFrecuencia(ds[1]), "06/10 · 10:00");
+  assert.equal(textoFrecuencia(ds[4]), "algún día");
+});
+prueba("deseos-1: está en el SHELL, sube el flyer al guardar, y las reglas v10 dejan editarlo a los dos sin cambiar el dueño", () => {
+  const sw = fs.readFileSync("sw.js", "utf8"), d = fs.readFileSync("deseos.js", "utf8"), r = fs.readFileSync("firestore.rules", "utf8");
+  assert.match(sw, /"deseos\.js"/);
+  assert.match(d, /async function guardar[\s\S]*subirImagen/); assert.ok(!/onchange[^\n]*subirImagen/.test(d));
+  const bloque = r.slice(r.indexOf("match /deseos/"));
+  assert.match(bloque, /allow update: if esPersona\(\)\s*&& request\.resource\.data\.uid == resource\.data\.uid/);
+  assert.match(bloque, /dias\.size\(\) <= 7/); assert.match(r, /v10, 5-oct-2026/);
 });
 prueba("a la IA va MI agenda de dos semanas, con ids, y nada más", () => {
   const a = agendaParaIA({ x: { titulo: "Gimnasio", dia: "2026-10-06", desde: "2026-10-06T18:00", hasta: "2026-10-06T19:00" },

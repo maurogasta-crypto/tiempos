@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-9
+/* estilos.css — Tiempos. Sello: estilos-10
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -212,3 +212,10 @@ fieldset.clases legend { font-size:.85rem; }
 .propone .flyer { display:block; max-width:100%; max-height:220px; border-radius:8px; margin:.3rem 0; object-fit:contain; }
 .tira-clase { display:flex; flex-wrap:wrap; gap:4px 12px; margin:.3rem 0; }
 .sugerir-ed.modo-agenda .nota-ia { display:none; }   /* en Agenda va su propia nota */
+
+/* ── estilos-10: deseos con frecuencia y su edición (deseos-1) ───────────── */
+.mini-flyer { width:44px; height:44px; object-fit:cover; border-radius:6px; flex:0 0 44px; }
+.posibles .fila, .deseo .fila { align-items:center; gap:10px; }
+.dias-semana { display:flex; flex-wrap:wrap; gap:4px 10px; }
+.editar-deseo label:not(.check):not(.boton-archivo) { display:block; margin:.35rem 0; }
+.editar-deseo input:not([type=checkbox]):not([type=radio]), .editar-deseo select, .editar-deseo textarea { width:100%; }

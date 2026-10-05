@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (117 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (120 casos, sin npm, sin red) |
 
 ## Qué hace (app-10)
 
@@ -91,6 +91,22 @@ Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está e
   tienen carga, nadie gasta cupo.
 - Cuenta lo medido (los relojes) y lo acordado **que los dos confirmaron**. Está
   en `balanceTiempo` de `nucleo.js`, con sus casos en el banco.
+
+### Deseos con frecuencia (deseos-1, nucleo-12, reglas v10)
+
+- **Un flyer de algo semanal queda como semanal.** Gemini devuelve los días y
+  las horas (`dias`, `hi`, `hf`); uno de un evento, la `fecha`. Lo que no se
+  entiende queda vacío y se corrige editando.
+- **«⭐ Hoy se puede»**, arriba en Ahora y en Hoy: lo semanal de ese día de la
+  semana y lo especial de esa fecha, por hora, de los dos (menos lo
+  descartado). En Hoy sigue al día que se esté mirando.
+- **La lista «Deseos y actividades que nos gustan»** en Ahora: cada una con
+  su ✏️, que abre el formulario ahí mismo — qué, dónde, para quién, cada
+  semana (con los días) / una fecha / sin fecha, horas, detalle, y **cambiar o
+  sacar el flyer** (se sube al Guardar, nunca al elegirlo). ＋ Agregar a mano,
+  sin dictar. La editan los dos; la borra su dueño.
+- **Reglas v10**: lo mismo que v9, más que los dos puedan editar un deseo sin
+  cambiar de quién es. Hay que publicarlas desde el panel.
 
 ### Lo que se sumó el 5-oct-2026, a la noche (nucleo-11, sugerir-6, propone-3, app-13, reglas v9)
 
@@ -235,20 +251,21 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-11` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-12` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
 | `app.js` | entrar, los relojes, Ahora, Tareas | `app-13` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
-| `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Ahora | `propone-3` |
-| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-6` |
+| `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Ahora | `propone-4` |
+| `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-1` |
+| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-7` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-3` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
 | `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
-| `familia.js` | Hoy y Chicos | `familia-2` |
+| `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-9` |
-| `sw.js` | el cascarón sin señal | `tiempos-16` |
-| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v9 |
+| `estilos.css` | | `estilos-10` |
+| `sw.js` | el cascarón sin señal | `tiempos-17` |
+| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v10 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
 

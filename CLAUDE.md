@@ -92,6 +92,10 @@ la documentación diga la verdad.
   WhatsApp con el candado de «Mis avisos») y los deseos a `deseos/` (los ven
   los dos). Reglas v9. **La alarma que suena a la hora es de la APK**
   (`tiempos:V3`), no de la web.
+- **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
+  (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
+  (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,
+  flyer— y la editan los dos; el flyer se sube al Guardar.
 - **Las boletas usan los recursos de Casa Verde**, importados de su sitio:
   `CV2.subirImagen` y su función de IA. Se suben al GUARDAR, nunca al elegir.
 - **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente

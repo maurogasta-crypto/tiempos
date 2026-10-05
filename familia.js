@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// familia.js — Lo de la casa que ven los dos. Sello: familia-2
+// familia.js — Lo de la casa que ven los dos. Sello: familia-3
 //
 // HOY    lo cotidiano: desayuno, almuerzo, merienda, cena, la basura, los
 //        cuartos, la ropa. Se TILDA, no se cronometra, y cada tilde puede
@@ -20,6 +20,7 @@ import { db, F } from "./firebase-init.js";
 import { esc, cotidianasDe, idNuevo, progresoDia, chicosDelDia, eventosDelDia, grillaDelMes, semanaISO,
          lunesDe, sumarDias, DIAS, MESES, esISO } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, ninoPorId, fallo } from "./estado.js";
+import { htmlPosibles, enganchar as engancharDeseos } from "./deseos.js";
 
 const fmtDia = (iso) => `${DIAS[new Date(iso + "T12:00").getDay()]} ${Number(iso.slice(8))}/${Number(iso.slice(5, 7))}`;
 const COLORES = ["#c89bd8", "#7fb4bf", "#e0a47a", "#8fbf7f", "#d8a657"];
@@ -74,6 +75,9 @@ export function pintarHoy() {
     <div class="dia-notas">${grupo("comidas", "Comidas")}${grupo("casa", "La casa")}
       <h2>Observaciones del día</h2>
       <textarea id="nota-dia" rows="3" maxlength="2000" placeholder="Lo que quieras dejar registrado">${esc(dia.nota)}</textarea></div>`;
+  // deseos-1: lo que se puede hacer ese día (semanal o de fecha), arriba.
+  const posibles = htmlPosibles(iso, iso === E.hoy ? "⭐ Hoy se puede" : "⭐ Ese día se podía");
+  if (posibles) { const c = document.createElement("div"); c.innerHTML = posibles; v.querySelector(".dia-notas").before(c); engancharDeseos(c); }
   for (const b of v.querySelectorAll("[data-d]")) b.onclick = () => {
     E.diaVisto = sumarDias(iso, Number(b.dataset.d)); if (E.diaVisto > E.hoy) E.diaVisto = E.hoy;
     escucharDia(); repintar();

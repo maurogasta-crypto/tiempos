@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// propone.js — Lo que Claude propone para TU agenda, en Ahora. Sello: propone-3
+// propone.js — Lo que Claude propone para TU agenda, en Ahora. Sello: propone-4
 //
 // 5-oct-2026, pedido de Mauro: que lo dictado (o la captura de un flyer)
 // vuelva «en la misma interfaz, para que el usuario dé ok». Claude lo
@@ -26,7 +26,8 @@
 import { db, F } from "./firebase-init.js";
 import { esc, CLASES_ACTIVIDAD, MODOS_AGENDA, actividadDePropuesta, paraMi, marcasQueSePisan, idNuevo } from "./nucleo.js";
 import { E, aviso, repintar, fallo } from "./estado.js";
-import { mandarReporte, abrirDictado } from "./sugerir.js";
+import { mandarReporte } from "./sugerir.js";
+import { htmlPosibles, pintarDeseos, enganchar } from "./deseos.js";
 
 export const CLASES_PROPONE = ["agenda", "consulta"];
 const editando = {};          // id de propuesta → campos corregidos
@@ -152,23 +153,9 @@ export function alertasYDeseos(v) {
     for (const b of c.querySelectorAll("[data-alerta-borrar]"))
       b.onclick = () => F.deleteDoc(F.doc(db, "alertas", b.dataset.alertaBorrar)).catch(fallo);
   }
-  const deseos = (E.deseos || []).filter((d) => d.estado === "deseo" || d.estado === "coordinando");
-  if (deseos.length) {
-    const c = document.createElement("div");
-    c.innerHTML = `<h2>Deseos (${deseos.length})</h2>` + deseos.map((d) => `<div class="tarjeta chica deseo">
-      ${d.imagen ? `<a href="${esc(d.imagen)}" target="_blank" rel="noopener"><img class="flyer" src="${esc(d.imagen)}" alt=""></a>` : ""}
-      <div><b>${esc(d.titulo)}</b> <small class="gris">${esc(d.uid === E.yo.uid ? "tuyo" : "de " + nombreMiembro(d.uid))}${d.para === "chicos" ? " · para los chicos" : d.para === "familia" ? " · familia" : ""}${d.estado === "coordinando" ? " · coordinando" : ""}</small></div>
-      ${d.cuando || d.lugar ? `<small class="gris">${esc([d.cuando, d.lugar].filter(Boolean).join(" · "))}</small>` : ""}
-      ${d.uid === E.yo.uid ? `<div class="botones"><button class="mini" data-deseo-agendar="${esc(d.id)}">Ya lo acordamos: agendar</button><button class="mini" data-deseo-no="${esc(d.id)}">Ya no</button></div>` : ""}
-    </div>`).join("");
-    v.append(c);
-    for (const b of c.querySelectorAll("[data-deseo-no]"))
-      b.onclick = () => F.updateDoc(F.doc(db, "deseos", b.dataset.deseoNo), { estado: "descartado" }).catch(fallo);
-    for (const b of c.querySelectorAll("[data-deseo-agendar]")) b.onclick = () => {
-      const d = (E.deseos || []).find((x) => x.id === b.dataset.deseoAgendar); if (!d) return;
-      // Se agenda dictando CUÁNDO: el globo abre con el deseo ya escrito. Al
-      // agendarse, el deseo pasa a «agendado» (sugerir.js).
-      abrirDictado(`Agendar «${d.titulo}»${d.lugar ? " en " + d.lugar : ""}: `, d.id);
-    };
-  }
+  // Los deseos tienen su módulo desde deseos-1: lo de hoy arriba, la lista
+  // entera para editar abajo.
+  const hoyDeseos = htmlPosibles(E.hoy, "⭐ Hoy se puede");
+  if (hoyDeseos) { const c = document.createElement("div"); c.innerHTML = hoyDeseos; v.append(c); enganchar(c); }
+  pintarDeseos(v);
 }

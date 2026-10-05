@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-6
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-7
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -19,6 +19,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, auth, F, CV } from "./firebase-init.js";
+import { textoFrecuencia } from "./nucleo.js";
 import { esc, leerPlanIA, agendaParaIA, CLASES_ACTIVIDAD, esISO, limpiarDictado, listasDeCompras, listaParaCompra, idNuevo } from "./nucleo.js";
 import { agendarMio } from "./propone.js";
 import { E, $, aviso, repintar, fallo, otro } from "./estado.js";
@@ -90,7 +91,7 @@ Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin 
    {"tipo":"tarea","titulo","detalle"}  — algo para hacer/preparar, va a su pizarra;
    {"tipo":"recordatorio","texto","dia","hora":"HH:MM" (temprano ese día),"sobre": id de su agenda si se refiere a algo que ya tiene}  — un aviso ese día;
    {"tipo":"alarma","texto","dia","hora","sobre"}  — una alarma sonora a una hora (p. ej. un rato antes de algo de la agenda, si tiene que salir antes);
-   {"tipo":"deseo","titulo","detalle","para":"yo"|"chicos"|"familia","lugar","cuando"}  — algo que quisiera hacer pero no está decidido (un flyer, una clase): va a la lista de deseos;
+   {"tipo":"deseo","titulo","detalle","para":"yo"|"chicos"|"familia","lugar","dias":["martes","jueves"] si se repite cada semana,"fecha":"AAAA-MM-DD" si es una sola vez,"hi":"HH:MM","hf":"HH:MM","cuando": en palabras si no hay días ni fecha}  — algo que quisiera hacer pero no está decidido (un flyer, una clase): va a la lista de deseos. Si el flyer dice que es semanal, poné los días; si es un evento con fecha, la fecha;
    {"tipo":"coordinar","texto"}  — una pregunta para ${otroN} si para hacerlo hay que acordar con él o ella;
    {"tipo":"compra","texto","lista"}  — algo para no olvidar comprar; va a la lista de compras de la casa. Listas que ya existen: ${JSON.stringify(listas)} (usá una de ésas si corresponde, o un nombre corto nuevo);
    {"tipo":"pedido","titulo","detalle","dia"}  — algo que le pide a ${otroN} que haga (va a la pizarra de ${otroN}) ],
@@ -116,7 +117,7 @@ function renglonAccion(a, n) {
   if (a.tipo === "tarea") return `<label class="check accion">${ch} 📝 <span>A tu pizarra: <b>${esc(a.titulo)}</b>${a.detalle ? ` <small class="gris">${esc(a.detalle)}</small>` : ""}</span></label>`;
   if (a.tipo === "recordatorio") return `<label class="check accion">${ch} 🔔 <span>Recordatorio ${esc(DIA_CORTO(a.dia))} ${esc(a.hora)}: <b>${esc(a.texto)}</b><small class="gris">${enAgenda(a.sobre)}</small></span></label>`;
   if (a.tipo === "alarma") return `<label class="check accion">${ch} ⏰ <span>Alarma ${esc(DIA_CORTO(a.dia))} ${esc(a.hora)}: <b>${esc(a.texto)}</b><small class="gris">${enAgenda(a.sobre)} · suena en la APK; mientras, por WhatsApp</small></span></label>`;
-  if (a.tipo === "deseo") return `<label class="check accion">${ch} ⭐ <span>A deseos${a.para === "chicos" ? " de los chicos" : a.para === "familia" ? " de la familia" : ""}: <b>${esc(a.titulo)}</b>${a.cuando ? ` <small class="gris">${esc(a.cuando)}</small>` : ""}</span></label>`;
+  if (a.tipo === "deseo") return `<label class="check accion">${ch} ⭐ <span>A deseos${a.para === "chicos" ? " de los chicos" : a.para === "familia" ? " de la familia" : ""}: <b>${esc(a.titulo)}</b>${textoFrecuencia(a) ? ` <small class="gris">${esc(textoFrecuencia(a))}</small>` : ""}</span></label>`;
   if (a.tipo === "compra") return `<label class="check accion">${ch} 🛒 <span>A la lista de compras${a.lista ? " «" + esc(a.lista) + "»" : ""}: <b>${esc(a.texto)}</b></span></label>`;
   if (a.tipo === "pedido") return `<label class="check accion">${ch} 🙋 <span>Pedido para ${esc((otro() || {}).nombre || "el otro")}, a su pizarra: <b>${esc(a.titulo)}</b>${a.dia ? ` <small class="gris">${esc(DIA_CORTO(a.dia))}</small>` : ""}</span></label>`;
   if (a.tipo === "coordinar") return `<label class="check accion">${ch} 💬 <span>Preguntarle a ${esc(((E.miembros || []).find((m) => m.id !== E.yo.uid) || {}).nombre || "el otro")}: <b>${esc(a.texto)}</b></span></label>`;
@@ -166,7 +167,7 @@ async function agendarPrecarga(tp) {
       } else if (a.tipo === "deseo") {
         const coordina = marcadas.some((x) => x.tipo === "coordinar");
         const ref = await F.addDoc(F.collection(db, "deseos"), { uid: E.yo.uid, titulo: a.titulo, detalle: a.detalle || "", para: a.para,
-          lugar: a.lugar || "", cuando: a.cuando || "", imagen, estado: coordina ? "coordinando" : "deseo", creadoEn: F.serverTimestamp() });
+          lugar: a.lugar || "", cuando: a.cuando || "", dias: a.dias || [], fecha: a.fecha || "", hi: a.hi || "", hf: a.hf || "", imagen, estado: coordina ? "coordinando" : "deseo", creadoEn: F.serverTimestamp() });
         hecho.push("⭐ " + a.titulo);
         if (coordina) paraClaude.push(`Deseo deseos/${ref.id}: «${a.titulo}»`);
       } else if (a.tipo === "coordinar") {
