@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-10
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-11
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -112,7 +112,7 @@ Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sob
   });
   if (!r.ok) throw new Error("la IA contestó " + r.status);
   const j = await r.json();
-  return leerPlanIA(((j.content || [])[0] || {}).text);
+  return leerPlanIA(((j.content || [])[0] || {}).text, Date.now());
 }
 
 const DIA_CORTO = (iso) => { try { return new Date(iso + "T12:00").toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }); } catch { return iso; } };

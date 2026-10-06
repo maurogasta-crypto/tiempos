@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-12
+// Sello: nucleo-13
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -841,7 +841,26 @@ export const ACCIONES = {
   pedido:       "un pedido para el otro",
 };
 export const PARA_DESEO = ["yo", "chicos", "familia"];
-export function leerPlanIA(texto) {
+/* nucleo-13, 6-oct-2026 (tiempos:A18): «recordar traer el andamio», dictado
+   a las 14:23, quedó para las 08:00 de ESE día, y una alerta pasada no suena
+   nunca (la Pizarra no programa lo que ya fue). Con `ahoraMs`, un aviso que
+   cae en el pasado se corre y se dice en dudas: el recordatorio a la próxima
+   hora en punto (o mañana 08:00 si ya es tarde), la alarma —que tiene una hora
+   dicha— al día siguiente a esa hora. Sin `ahoraMs` no se toca nada. */
+export function correrSiPaso(x, ahoraMs, dudas) {
+  if (!Number.isFinite(ahoraMs) || !x.dia) return x;
+  const d = new Date(ahoraMs), hoy = isoDe(ahoraMs), manana = isoDe(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 12).getTime());
+  const ahora = `${dos(d.getHours())}:${dos(d.getMinutes())}`;
+  const hora = x.hora || "08:00";
+  if (x.dia > hoy || (x.dia === hoy && hora > ahora)) return x;
+  const antes = `${x.dia} ${hora}`;
+  if (x.tipo === "alarma" && x.hora) { x.dia = hora > ahora ? hoy : manana; }
+  else if (d.getHours() < 22) { x.dia = hoy; x.hora = `${dos(d.getHours() + 1)}:00`; }
+  else { x.dia = manana; x.hora = "08:00"; }
+  dudas.push(`«${x.texto.slice(0, 30)}» quedaba para ${antes}, que ya pasó: lo corrí a ${x.dia} ${x.hora}`);
+  return x;
+}
+export function leerPlanIA(texto, ahoraMs) {
   let j = null;
   const t = String(texto || "").replace(/```(?:json)?/gi, "");
   const i = t.indexOf("{"), k = t.lastIndexOf("}");
@@ -868,7 +887,7 @@ export function leerPlanIA(texto) {
       const x = { tipo: a.tipo, texto, dia: dia(a.dia), hora: hora(a.hora), sobre: corto(a.sobre, 60) };
       if (!x.dia) dudas.push(`el día de «${texto.slice(0, 30)}»`);
       if (a.tipo === "alarma" && !x.hora) dudas.push(`la hora de la alarma «${texto.slice(0, 30)}»`);
-      acciones.push(x);
+      acciones.push(correrSiPaso(x, ahoraMs, dudas));
     } else if (a.tipo === "deseo") {
       const titulo = corto(a.titulo, 120); if (!titulo) continue;
       // nucleo-12: un flyer de algo SEMANAL deja los días; uno de una sola vez,

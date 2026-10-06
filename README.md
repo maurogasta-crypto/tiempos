@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (123 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (124 casos, sin npm, sin red) |
 
 ## Qué hace (app-10)
 
@@ -147,7 +147,11 @@ que «pizarra» es el lugar, nunca el título.
   casilla: una **tarea** en tu pizarra («juntar títulos del auto para Pedro»),
   un **recordatorio** temprano y una **alarma** un rato antes del gimnasio.
   Se destilda lo que no va y se toca **Hacer**. `leerPlanIA` lo lee con
-  desconfianza: una acción que no tiene forma no aparece.
+  desconfianza: una acción que no tiene forma no aparece. Y desde
+  `nucleo-13` (`tiempos:A18`) un recordatorio o una alarma que cae en una hora
+  que ya pasó se corre —el recordatorio a la próxima hora en punto, la alarma
+  al día siguiente a su hora— y la tarjeta lo dice en las dudas: una alerta
+  pasada no suena nunca.
 - **Las acciones posibles** (`ACCIONES` de `nucleo.js`): actividad (a tu
   agenda, y al calendario de los chicos si es de ellos), tarea (personal, con
   `pizarra` marcada para vos), recordatorio y alarma (a `alertas/`), deseo (a
@@ -281,20 +285,20 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-12` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-13` |
 | `estado.js` | lo que comparten las vistas | `estado-1` |
 | `app.js` | entrar, los relojes, Ahora, Tareas | `app-15` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Ahora | `propone-4` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-1` |
-| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-10` |
+| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-11` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-3` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
 | `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-10` |
-| `sw.js` | el cascarón sin señal | `tiempos-20` |
+| `sw.js` | el cascarón sin señal | `tiempos-21` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v10 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

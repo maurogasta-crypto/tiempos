@@ -19,7 +19,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
-         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo } from "./nucleo.js";
+         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -191,6 +191,30 @@ prueba("«recordar ir antes al gimnasio para llevar los títulos a Pedro» → t
   const act = plan.acciones[3];
   assert.equal(act.clase, "", "una actividad sin clase no se inventa la clase");
   assert.ok(plan.dudas.some((d) => d.includes("Gimnasio")));
+});
+prueba("tiempos:A18 — un aviso que cae en el pasado se corre y se dice; sin «ahora» no se toca", () => {
+  const plan = (acc, ahora) => leerPlanIA(JSON.stringify({ acciones: acc }), ahora);
+  const a1423 = new Date(2026, 9, 5, 14, 23).getTime();
+  // el caso real: «recordar traer andamio», dictado a las 14:23, para las 08:00 de ese día
+  const p = plan([{ tipo: "recordatorio", texto: "Traer andamio dos cuerpos", dia: "2026-10-05", hora: "08:00" }], a1423);
+  assert.equal(p.acciones[0].dia, "2026-10-05"); assert.equal(p.acciones[0].hora, "15:00");
+  assert.ok(p.dudas.some((d) => d.includes("ya pasó")));
+  // sin hora también (al guardar sería 08:00)
+  assert.equal(plan([{ tipo: "recordatorio", texto: "x", dia: "2026-10-05" }], a1423).acciones[0].hora, "15:00");
+  // de un día anterior
+  assert.equal(plan([{ tipo: "recordatorio", texto: "x", dia: "2026-10-01", hora: "20:00" }], a1423).acciones[0].dia, "2026-10-05");
+  // tarde a la noche: mañana a las 8
+  const n = plan([{ tipo: "recordatorio", texto: "x", dia: "2026-10-05", hora: "08:00" }], new Date(2026, 9, 5, 22, 40).getTime()).acciones[0];
+  assert.deepEqual([n.dia, n.hora], ["2026-10-06", "08:00"]);
+  // la alarma conserva su hora: hoy si todavía no llegó, si no mañana (fin de mes incluido)
+  assert.equal(plan([{ tipo: "alarma", texto: "Salir", dia: "2026-10-04", hora: "17:30" }], a1423).acciones[0].dia, "2026-10-05");
+  const al = plan([{ tipo: "alarma", texto: "Salir", dia: "2026-10-31", hora: "07:00" }], new Date(2026, 9, 31, 9, 0).getTime()).acciones[0];
+  assert.deepEqual([al.dia, al.hora], ["2026-11-01", "07:00"]);
+  // lo que está por venir no se toca, ni lo que llega sin día, ni nada sin «ahora»
+  const ok = plan([{ tipo: "recordatorio", texto: "x", dia: "2026-10-05", hora: "16:00" }, { tipo: "alarma", texto: "y", dia: "", hora: "09:00" }], a1423);
+  assert.equal(ok.acciones[0].hora, "16:00"); assert.equal(ok.acciones[1].dia, ""); assert.ok(!ok.dudas.some((d) => d.includes("ya pasó")));
+  assert.equal(plan([{ tipo: "recordatorio", texto: "x", dia: "2020-01-01", hora: "08:00" }]).acciones[0].dia, "2020-01-01");
+  assert.equal(typeof correrSiPaso, "function");
 });
 prueba("una foto con «me gustaría que los chicos vayan»: deseo; «coordinar con Flor»: deseo + pregunta", () => {
   const p = leerPlanIA('{"acciones":[{"tipo":"deseo","titulo":"Taller de cerámica","para":"chicos","cuando":"sábados 10 h"},{"tipo":"coordinar","texto":"¿Podés quedarte con los chicos los martes de 19 a 21 para que tome la clase?"}]}');
