@@ -20,7 +20,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
-         enMiPizarra, paraElegirPorCategoria, cuentaDelDia } from "./nucleo.js";
+         enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -346,6 +346,37 @@ prueba("la pizarra se escribe con la MISMA forma que la app del teléfono, y tac
   const h = fs.readFileSync("index.html", "utf8");
   assert.ok(h.indexOf('data-solapa="pizarra"') < h.indexOf('data-solapa="tareas"') && h.indexOf('data-solapa="tareas"') < h.indexOf('data-solapa="hoy"'), "Pizarra primero, Tareas segunda");
   assert.ok(!/data-solapa="ahora"/.test(h));
+});
+
+titulo("nucleo-15: un plan coherente y sin tareas de más (7-oct)");
+prueba("lo que el plan ya hace no va a la pizarra: «Guardar actividades en la agenda» se descarta", () => {
+  for (const t of ["Guardar actividades en la agenda", "Marcar actividades en el calendario", "Asegurarse de que la cita quede en la agenda", "Marcar la pizarra"]) assert.ok(esTareaDelSistema(t), t);
+  for (const t of ["Llevar la pelota", "Comprar pintura", "Agendar turno con el dentista", "Juntar los títulos del auto"]) assert.ok(!esTareaDelSistema(t), t);
+  const p = leerPlanIA(JSON.stringify({ acciones: [{ tipo: "tarea", titulo: "Guardar actividades en la agenda" }, { tipo: "tarea", titulo: "Llevar la denuncia impresa" }] }));
+  assert.deepEqual(p.acciones.map((a) => a.titulo), ["Llevar la denuncia impresa"]);
+});
+prueba("el caso real: dictado a las 19:23, la cita de las 19 pasa a mañana CON sus avisos, y el recordatorio queda antes", () => {
+  const ahora = new Date(2026, 9, 7, 19, 23).getTime();
+  const p = leerPlanIA(JSON.stringify({ acciones: [
+    { tipo: "actividad", titulo: "Odontólogo", dia: "2026-10-07", hi: "19:00", lugar: "Marindia", tipo_clase: "personal" },
+    { tipo: "recordatorio", texto: "Ir al odontólogo", dia: "2026-10-07", hora: "20:00" },
+    { tipo: "alarma", texto: "Salir hacia Marindia", dia: "2026-10-07", hora: "18:25", lugar: "Marindia", desde: "Atlántida", viaje: 25 } ] }), ahora);
+  const [act, rec, al] = p.acciones;
+  assert.equal(act.dia, "2026-10-08"); assert.equal(rec.dia, "2026-10-08"); assert.equal(al.dia, "2026-10-08");
+  assert.equal(rec.hora, "17:00", "el recordatorio va antes de la cita");
+  assert.equal(al.hora, "18:25"); assert.equal(al.viaje, 25); assert.equal(al.desde, "Atlántida");
+  assert.ok(p.dudas.some((d) => d.includes("Odontólogo") && d.includes("2026-10-08")));
+});
+prueba("un viaje que no es un número de minutos razonable no se muestra; sin «ahora» nada cambia de día", () => {
+  const p = leerPlanIA(JSON.stringify({ acciones: [{ tipo: "alarma", texto: "Salir", dia: "2026-10-08", hora: "10:00", viaje: "mucho" },
+    { tipo: "actividad", titulo: "Cita", dia: "2020-01-01", hi: "10:00", tipo_clase: "personal" }] }));
+  assert.equal(p.acciones[0].viaje, undefined); assert.equal(p.acciones[1].dia, "2020-01-01");
+});
+prueba("sugerir-13: el prompt pide la alarma de salir con el viaje, y nunca tareas de agendar", () => {
+  const g = fs.readFileSync("sugerir.js", "utf8");
+  assert.match(g, /"viaje": minutos/); assert.match(g, /menos el viaje menos 10 minutos de margen/);
+  assert.match(g, /NUNCA una tarea para guardar, agendar, marcar/);
+  assert.match(g, /Nada va en el pasado/);
 });
 
 titulo("Lo demás");

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-12
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-13
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -94,9 +94,9 @@ Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin 
 {"resumen": una línea con lo que entendiste,
  "acciones": [ cada una con "tipo" y sus campos:
    {"tipo":"actividad","titulo","dia":"AAAA-MM-DD","hi":"HH:MM","hf":"HH:MM" o "","lugar","tipo_clase":"trabajo"|"tarea"|"personal"|"ninos","quien":"yo"|"otro"|"los-dos"|"familia","chicos":true|false}  — algo nuevo que ocupa tiempo;
-   {"tipo":"tarea","titulo","detalle"}  — algo para hacer/preparar, va a su pizarra;
-   {"tipo":"recordatorio","texto","dia","hora":"HH:MM" (temprano ese día),"sobre": id de su agenda si se refiere a algo que ya tiene}  — un aviso ese día;
-   {"tipo":"alarma","texto","dia","hora","sobre"}  — una alarma sonora a una hora (p. ej. un rato antes de algo de la agenda, si tiene que salir antes);
+   {"tipo":"tarea","titulo","detalle"}  — algo CONCRETO que la persona tiene que hacer o preparar con sus manos (llevar algo, comprar, llamar, juntar papeles); va a su pizarra. NUNCA una tarea para guardar, agendar, marcar, anotar o registrar lo que este mismo plan ya hace: eso lo hace la app sola y no ocupa lugar en la pizarra;
+   {"tipo":"recordatorio","texto","dia","hora":"HH:MM" (temprano ese día, SIEMPRE antes de lo que recuerda),"sobre": id de su agenda si se refiere a algo que ya tiene}  — un aviso ese día;
+   {"tipo":"alarma","texto","dia","hora","sobre","lugar": adónde va,"desde": de dónde sale,"viaje": minutos}  — la alarma de SALIR: si una actividad tiene lugar, la hora es la de la actividad menos el viaje menos 10 minutos de margen. "desde" es el lugar de la actividad anterior de ese mismo día (de la agenda o de este plan) o "casa" si no hay ninguna; "viaje" son los minutos en auto entre "desde" y "lugar", estimados con lo que sabés de las distancias reales (en Uruguay, por ejemplo, entre localidades de la Costa de Oro de Canelones). Si no sabés dónde queda alguno de los dos lugares, decilo en dudas;
    {"tipo":"deseo","titulo","detalle","para":"yo"|"chicos"|"familia","lugar","dias":["martes","jueves"] si se repite cada semana,"fecha":"AAAA-MM-DD" si es una sola vez,"hi":"HH:MM","hf":"HH:MM","cuando": en palabras si no hay días ni fecha}  — algo que quisiera hacer pero no está decidido (un flyer, una clase): va a la lista de deseos. Si el flyer dice que es semanal, poné los días; si es un evento con fecha, la fecha;
    {"tipo":"coordinar","texto"}  — una pregunta para ${otroN} si para hacerlo hay que acordar con él o ella;
    {"tipo":"compra","texto","lista"}  — algo para no olvidar comprar; va a la lista de compras de la casa. Listas que ya existen: ${JSON.stringify(listas)} (usá una de ésas si corresponde, o un nombre corto nuevo);
@@ -104,6 +104,7 @@ Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin 
  "dudas": [lo que no quedó claro]}.
 Elegí con criterio lo que corresponde, puede ser más de una acción: algo decidido con día y hora es una actividad (si es con los chicos, "chicos": true y va también al calendario compartido de los chicos); algo que quisiera pero no está decidido es un deseo; «no olvidar comprar…» es una compra; «pedirle a ${otroN}…» o «que ${otroN} …» es un pedido; «acordarme de…» es un recordatorio (y una alarma si hay una hora en que tiene que salir); preparar algo es una tarea.
 Entre las 00:00 y las 05:00, «mañana» quiere decir HOY por fecha (${hoy}): la persona todavía no se fue a dormir.
+Nada va en el pasado: si una actividad de hoy tiene una hora que ya pasó (son las ${ahoraHM}), casi seguro es de mañana; ponela mañana y decilo en dudas.
 Si el texto trae un «Link (Instagram/Facebook/…)», es de una publicación que no podés abrir: sacá los datos de la captura y del texto, y poné el link en "detalle" de lo que propongas (actividad o deseo) para que se pueda volver a verlo.
 «Anotar/marcar/poner en la pizarra X» es UNA tarea cuyo título es X; la palabra «pizarra» nunca es el título. Si la frase no dice qué anotar, el título es lo que pidió hacer (por ejemplo «Preguntarle a ${otroN} la hora del dentista»).
 Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sobre"); no lo dupliques como actividad. Fechas relativas («mañana», «el jueves») desde hoy. Si un dato no se sabe, dejalo vacío y ponelo en dudas. No inventes.` });
@@ -125,7 +126,7 @@ function renglonAccion(a, n) {
     <small class="gris">${esc((CLASES_ACTIVIDAD[a.clase] || {}).nombre || "sin clase")} · ${esc(a.quien === "otro" ? "lo hace el otro" : a.quien === "yo" ? "vos" : a.quien)}</small></span></label>`;
   if (a.tipo === "tarea") return `<label class="check accion">${ch} 📝 <span>A tu pizarra: <b>${esc(a.titulo)}</b>${a.detalle ? ` <small class="gris">${esc(a.detalle)}</small>` : ""}</span></label>`;
   if (a.tipo === "recordatorio") return `<label class="check accion">${ch} 🔔 <span>Recordatorio ${esc(DIA_CORTO(a.dia))} ${esc(a.hora)}: <b>${esc(a.texto)}</b><small class="gris">${enAgenda(a.sobre)}</small></span></label>`;
-  if (a.tipo === "alarma") return `<label class="check accion">${ch} ⏰ <span>Alarma ${esc(DIA_CORTO(a.dia))} ${esc(a.hora)}: <b>${esc(a.texto)}</b><small class="gris">${enAgenda(a.sobre)} · suena en la APK; mientras, por WhatsApp</small></span></label>`;
+  if (a.tipo === "alarma") return `<label class="check accion">${ch} ⏰ <span>Alarma ${esc(DIA_CORTO(a.dia))} ${esc(a.hora)}: <b>${esc(a.texto)}</b><small class="gris">${enAgenda(a.sobre)}${a.viaje ? ` · 🚗 ≈${esc(String(a.viaje))} min${a.desde ? " desde " + esc(a.desde) : ""}${a.lugar ? " a " + esc(a.lugar) : ""}, + 10 de margen` : ""} · suena en la app</small></span></label>`;
   if (a.tipo === "deseo") return `<label class="check accion">${ch} ⭐ <span>A deseos${a.para === "chicos" ? " de los chicos" : a.para === "familia" ? " de la familia" : ""}: <b>${esc(a.titulo)}</b>${textoFrecuencia(a) ? ` <small class="gris">${esc(textoFrecuencia(a))}</small>` : ""}</span></label>`;
   if (a.tipo === "compra") return `<label class="check accion">${ch} 🛒 <span>A la lista de compras${a.lista ? " «" + esc(a.lista) + "»" : ""}: <b>${esc(a.texto)}</b></span></label>`;
   if (a.tipo === "pedido") return `<label class="check accion">${ch} 🙋 <span>Pedido para ${esc((otro() || {}).nombre || "el otro")}, a su pizarra: <b>${esc(a.titulo)}</b>${a.dia ? ` <small class="gris">${esc(DIA_CORTO(a.dia))}</small>` : ""}</span></label>`;

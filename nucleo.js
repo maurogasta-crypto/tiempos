@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-14
+// Sello: nucleo-15
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -860,6 +860,46 @@ export function correrSiPaso(x, ahoraMs, dudas) {
   dudas.push(`«${x.texto.slice(0, 30)}» quedaba para ${antes}, que ya pasó: lo corrí a ${x.dia} ${x.hora}`);
   return x;
 }
+/* nucleo-15 (7-oct-2026, Mauro): la IA proponía «Guardar actividades en la
+   agenda» y «Marcar actividades en el calendario» como tareas de la pizarra.
+   Eso lo hace la app sola: no es algo que la persona tenga que hacer. */
+export const esTareaDelSistema = (titulo) =>
+  /^\s*(guardar|registrar|marcar|anotar|agendar|poner|cargar|asegurar(se)?( de)?( que)?|verificar que)\b[\s\S]*\b(agenda|calendario|pizarra|recordatorio|alarma)s?\b/i.test(String(titulo || ""));
+
+const masMin = (hhmm, min) => { const [h, m] = hhmm.split(":").map(Number); const t = Math.max(0, Math.min(1439, h * 60 + m + min)); return `${dos(Math.floor(t / 60))}:${dos(t % 60)}`; };
+
+/* nucleo-15: que el plan sea coherente consigo mismo, ANTES de mostrarlo.
+   · Una actividad de hoy cuya hora ya pasó casi siempre es de mañana (se dictó
+     a la noche): se corre a mañana JUNTO con sus avisos de ese día, y se dice.
+     Antes (nucleo-13) se corrían sólo los avisos y la actividad quedaba en el
+     pasado: el odontólogo a las 19 de hoy con la alarma a las 18:45 de mañana.
+   · Un recordatorio es ANTES de lo que recuerda: si cae a la hora de la
+     actividad del mismo día o después, se adelanta dos horas (no antes de las 7).
+   · Lo que igual quede en el pasado, lo corre correrSiPaso. Sin `ahoraMs` no
+     se mueve nada de día. */
+export function ordenarPlan(acciones, ahoraMs, dudas) {
+  const avisos = acciones.filter((a) => a.tipo === "recordatorio" || a.tipo === "alarma");
+  if (Number.isFinite(ahoraMs)) {
+    const d = new Date(ahoraMs), hoy = isoDe(ahoraMs), ahora = `${dos(d.getHours())}:${dos(d.getMinutes())}`;
+    const manana = isoDe(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 12).getTime());
+    for (const x of acciones) {
+      if (x.tipo !== "actividad" || !x.dia || !x.hi) continue;
+      if (!(x.dia < hoy || (x.dia === hoy && x.hi <= ahora))) continue;
+      const antes = x.dia, nuevo = x.dia < hoy && x.hi > ahora ? hoy : manana;
+      x.dia = nuevo;
+      for (const a of avisos) if (a.dia === antes) a.dia = nuevo;
+      dudas.push(`«${x.titulo.slice(0, 30)}» quedaba para ${antes} ${x.hi}, que ya pasó: la pasé a ${nuevo} con sus avisos`);
+    }
+  }
+  for (const a of avisos) {
+    if (a.tipo !== "recordatorio" || !a.dia) continue;
+    const ese = acciones.filter((x) => x.tipo === "actividad" && x.dia === a.dia && x.hi).map((x) => x.hi).sort()[0];
+    if (ese && (a.hora || "08:00") >= ese) a.hora = masMin(ese, -120) < "07:00" ? "07:00" : masMin(ese, -120);
+  }
+  for (const a of avisos) correrSiPaso(a, ahoraMs, dudas);
+  return acciones;
+}
+
 export function leerPlanIA(texto, ahoraMs) {
   let j = null;
   const t = String(texto || "").replace(/```(?:json)?/gi, "");
@@ -871,7 +911,7 @@ export function leerPlanIA(texto, ahoraMs) {
   const dia = (d) => esISO(d) ? d : "";
   const dudas = Array.isArray(j.dudas) ? j.dudas.map((x) => corto(x, 80)).filter(Boolean).slice(0, 6) : [];
   const acciones = [];
-  for (const a of Array.isArray(j.acciones) ? j.acciones.slice(0, 8) : []) {
+  for (const a of Array.isArray(j.acciones) ? j.acciones.slice(0, 12) : []) {
     if (!a || !ACCIONES[a.tipo]) continue;
     if (a.tipo === "actividad") {
       // La clase viene como «tipo_clase» (o «clase»): «tipo» es el de la acción.
@@ -881,13 +921,22 @@ export function leerPlanIA(texto, ahoraMs) {
       acciones.push({ ...x, clase: x.tipo, tipo: "actividad" });
     } else if (a.tipo === "tarea") {
       const titulo = corto(a.titulo, 120); if (!titulo) continue;
+      // nucleo-15: lo que el plan YA hace (agendar, marcar, guardar) no es una
+      // tarea para la persona ni ocupa lugar en su pizarra (Mauro, 7-oct).
+      if (esTareaDelSistema(titulo)) continue;
       acciones.push({ tipo: "tarea", titulo, detalle: corto(a.detalle, 300) });
     } else if (a.tipo === "recordatorio" || a.tipo === "alarma") {
       const texto = corto(a.texto, 200); if (!texto) continue;
       const x = { tipo: a.tipo, texto, dia: dia(a.dia), hora: hora(a.hora), sobre: corto(a.sobre, 60) };
+      // nucleo-15: la alarma de salir trae el viaje que estimó la IA: desde
+      // dónde y cuántos minutos. Se muestra para corregir; no se guarda.
+      if (a.tipo === "alarma") {
+        const v = Math.round(Number(a.viaje));
+        if (Number.isFinite(v) && v > 0 && v <= 600) { x.viaje = v; x.desde = corto(a.desde, 80); x.lugar = corto(a.lugar, 80); }
+      }
       if (!x.dia) dudas.push(`el día de «${texto.slice(0, 30)}»`);
       if (a.tipo === "alarma" && !x.hora) dudas.push(`la hora de la alarma «${texto.slice(0, 30)}»`);
-      acciones.push(correrSiPaso(x, ahoraMs, dudas));
+      acciones.push(x);
     } else if (a.tipo === "deseo") {
       const titulo = corto(a.titulo, 120); if (!titulo) continue;
       // nucleo-12: un flyer de algo SEMANAL deja los días; uno de una sola vez,
@@ -906,6 +955,7 @@ export function leerPlanIA(texto, ahoraMs) {
       acciones.push({ tipo: "pedido", titulo, detalle: corto(a.detalle, 300), dia: dia(a.dia) });
     }
   }
+  ordenarPlan(acciones, ahoraMs, dudas);
   return { resumen: corto(j.resumen, 200), acciones, dudas: [...new Set(dudas)] };
 }
 
