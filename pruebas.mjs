@@ -20,7 +20,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
-         enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema } from "./nucleo.js";
+         enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -377,6 +377,27 @@ prueba("sugerir-13: el prompt pide la alarma de salir con el viaje, y nunca tare
   assert.match(g, /"viaje": minutos/); assert.match(g, /menos el viaje menos 10 minutos de margen/);
   assert.match(g, /NUNCA una tarea para guardar, agendar, marcar/);
   assert.match(g, /Nada va en el pasado/);
+});
+
+titulo("nucleo-16 · agenda-6 · propone-6: «el miércoles» y reprogramar (7-oct)");
+prueba("dictado un miércoles a la noche: «el miércoles» es el de la semana que viene, con sus avisos", () => {
+  const ahora = new Date(2026, 9, 7, 19, 23).getTime();   // miércoles 7-oct
+  const p = leerPlanIA(JSON.stringify({ acciones: [
+    { tipo: "actividad", titulo: "Odontólogo", dia: "2026-10-07", hi: "19:00", lugar: "Marindia", tipo_clase: "personal" },
+    { tipo: "alarma", texto: "Salir hacia Marindia", dia: "2026-10-07", hora: "18:25" } ] }), ahora, "el odontólogo es el miércoles a las 7 de la tarde en Marindia");
+  assert.equal(p.acciones[0].dia, "2026-10-14"); assert.equal(p.acciones[1].dia, "2026-10-14");
+  assert.equal(diasHastaSiPaso("2026-10-07", "MIERCOLES"), 7); assert.equal(diasHastaSiPaso("2026-10-07", "mañana"), 1);
+});
+prueba("una actividad se cambia de día borrando y volviendo a crear su marca (la regla no deja editarla)", () => {
+  const a = fs.readFileSync("agenda.js", "utf8");
+  const f = a.slice(a.indexOf("async function moverActividad"), a.indexOf("const formMover"));
+  assert.ok(f.indexOf("deleteDoc(F.doc(db, \"marcas\", id))") < f.indexOf("setDoc(F.doc(db, \"marcas\", id)"));
+  assert.match(f, /F\.doc\(db, "agendas", E\.yo\.uid\)/);
+});
+prueba("las alertas que vienen se ven todas y se editan (día y hora), con avisada en false", () => {
+  const p = fs.readFileSync("propone.js", "utf8");
+  assert.match(p, /sumarDias\(E\.hoy, 14\)/);
+  assert.match(p, /updateDoc\(F\.doc\(db, "alertas", f\.dataset\.alertaForm\), \{ dia: f\.dia\.value, hora: f\.hora\.value, avisada: false \}/);
 });
 
 titulo("Lo demás");

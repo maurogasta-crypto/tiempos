@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-13
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-14
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -104,7 +104,7 @@ Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin 
  "dudas": [lo que no quedó claro]}.
 Elegí con criterio lo que corresponde, puede ser más de una acción: algo decidido con día y hora es una actividad (si es con los chicos, "chicos": true y va también al calendario compartido de los chicos); algo que quisiera pero no está decidido es un deseo; «no olvidar comprar…» es una compra; «pedirle a ${otroN}…» o «que ${otroN} …» es un pedido; «acordarme de…» es un recordatorio (y una alarma si hay una hora en que tiene que salir); preparar algo es una tarea.
 Entre las 00:00 y las 05:00, «mañana» quiere decir HOY por fecha (${hoy}): la persona todavía no se fue a dormir.
-Nada va en el pasado: si una actividad de hoy tiene una hora que ya pasó (son las ${ahoraHM}), casi seguro es de mañana; ponela mañana y decilo en dudas.
+Nada va en el pasado. «El jueves», «el miércoles»: es el PRÓXIMO día con ese nombre; si hoy es ese día y la hora ya pasó (son las ${ahoraHM}), es el de la semana que viene, nunca hoy ni mañana. Si una actividad de hoy tiene una hora que ya pasó y no se nombró el día, casi seguro es mañana: decilo en dudas.
 Si el texto trae un «Link (Instagram/Facebook/…)», es de una publicación que no podés abrir: sacá los datos de la captura y del texto, y poné el link en "detalle" de lo que propongas (actividad o deseo) para que se pueda volver a verlo.
 «Anotar/marcar/poner en la pizarra X» es UNA tarea cuyo título es X; la palabra «pizarra» nunca es el título. Si la frase no dice qué anotar, el título es lo que pidió hacer (por ejemplo «Preguntarle a ${otroN} la hora del dentista»).
 Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sobre"); no lo dupliques como actividad. Fechas relativas («mañana», «el jueves») desde hoy. Si un dato no se sabe, dejalo vacío y ponelo en dudas. No inventes.` });
@@ -115,7 +115,7 @@ Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sob
   });
   if (!r.ok) throw new Error("la IA contestó " + r.status);
   const j = await r.json();
-  return leerPlanIA(((j.content || [])[0] || {}).text, Date.now());
+  return leerPlanIA(((j.content || [])[0] || {}).text, Date.now(), texto);
 }
 
 const DIA_CORTO = (iso) => { try { return new Date(iso + "T12:00").toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }); } catch { return iso; } };

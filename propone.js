@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// propone.js — Lo que Claude propone para TU agenda, en Pizarra (desde app-16). Sello: propone-5
+// propone.js — Lo que Claude propone para TU agenda, en Pizarra (desde app-16). Sello: propone-6
 //
 // 5-oct-2026, pedido de Mauro: que lo dictado (o la captura de un flyer)
 // vuelva «en la misma interfaz, para que el usuario dé ok». Claude lo
@@ -24,7 +24,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F } from "./firebase-init.js";
-import { esc, CLASES_ACTIVIDAD, MODOS_AGENDA, actividadDePropuesta, paraMi, marcasQueSePisan, idNuevo } from "./nucleo.js";
+import { esc, esISO, sumarDias, CLASES_ACTIVIDAD, MODOS_AGENDA, actividadDePropuesta, paraMi, marcasQueSePisan, idNuevo } from "./nucleo.js";
 import { E, aviso, repintar, fallo } from "./estado.js";
 import { mandarReporte } from "./sugerir.js";
 import { htmlPosibles, pintarDeseos, enganchar } from "./deseos.js";
@@ -140,18 +140,35 @@ async function responder(id, texto) {
    WhatsApp en la ronda). Los deseos los ven los dos: lo que uno quisiera
    hacer, o que hagan los chicos, hasta que se acuerda y se agenda. */
 const nombreMiembro = (uid) => ((E.miembros || []).find((m) => m.id === uid) || {}).nombre || "el otro";
+/* propone-6 (7-oct-2026, Mauro: «reprogramar las alarmas»): se ven TODAS las
+   que vienen (hoy y las dos semanas siguientes), y cada una se cambia de día
+   y hora o se saca. Una alerta es de su dueño: la regla deja editarla sólo a él. */
+let editandoAlerta = null;
 export function alertasYDeseos(v) {
-  const hoy = (E.alertas || []).filter((a) => a.dia === E.hoy).sort((a, b) => String(a.hora).localeCompare(String(b.hora)));
-  const proximas = (E.alertas || []).filter((a) => a.dia > E.hoy).length;
-  if (hoy.length || proximas) {
+  const hasta = sumarDias(E.hoy, 14);
+  const vienen = (E.alertas || []).filter((a) => a.dia >= E.hoy && a.dia <= hasta)
+    .sort((a, b) => String(a.dia).localeCompare(String(b.dia)) || String(a.hora).localeCompare(String(b.hora)));
+  if (vienen.length) {
     const c = document.createElement("div");
-    c.innerHTML = `<h2>Te recordás</h2><div class="tarjeta chica">${hoy.map((a) =>
-      `<div class="fila"><span class="txt">${a.tipo === "alarma" ? "⏰" : "🔔"} hoy ${esc(a.hora || "")} <b>${esc(a.texto)}</b></span>
-       <button class="mini" data-alerta-borrar="${esc(a.id)}">Listo</button></div>`).join("")}
-      ${proximas ? `<small class="gris">${hoy.length ? "y " : ""}${proximas} para los próximos días</small>` : ""}</div>`;
+    c.innerHTML = `<h2>Te recordás</h2><div class="tarjeta chica">${vienen.map((a) => editandoAlerta === a.id
+      ? `<form class="fila evento-form" data-alerta-form="${esc(a.id)}"><span class="txt">${a.tipo === "alarma" ? "⏰" : "🔔"} <b>${esc(a.texto)}</b></span>
+          <input type="date" name="dia" value="${esc(a.dia)}" required> <input type="time" name="hora" value="${esc(a.hora || "08:00")}" required>
+          <button class="mini">Guardar</button> <button type="button" class="mini" data-alerta-no>✕</button></form>`
+      : `<div class="fila"><span class="txt">${a.tipo === "alarma" ? "⏰" : "🔔"} ${a.dia === E.hoy ? "hoy" : esc(fechaLinda(a.dia))} ${esc(a.hora || "")} <b>${esc(a.texto)}</b></span>
+       <button class="mini" data-alerta-editar="${esc(a.id)}" title="Cambiar día u hora">✎</button>
+       <button class="mini" data-alerta-borrar="${esc(a.id)}">${a.dia === E.hoy ? "Listo" : "Sacar"}</button></div>`).join("")}</div>`;
     v.append(c);
     for (const b of c.querySelectorAll("[data-alerta-borrar]"))
       b.onclick = () => F.deleteDoc(F.doc(db, "alertas", b.dataset.alertaBorrar)).catch(fallo);
+    for (const b of c.querySelectorAll("[data-alerta-editar]")) b.onclick = () => { editandoAlerta = b.dataset.alertaEditar; repintar(); };
+    for (const b of c.querySelectorAll("[data-alerta-no]")) b.onclick = () => { editandoAlerta = null; repintar(); };
+    for (const f of c.querySelectorAll("[data-alerta-form]")) f.onsubmit = (ev) => {
+      ev.preventDefault();
+      if (!esISO(f.dia.value) || !f.hora.value) return aviso("Falta el día o la hora.", true);
+      editandoAlerta = null;
+      // avisada vuelve a false: con otra hora, el aviso por WhatsApp vuelve a corresponder.
+      F.updateDoc(F.doc(db, "alertas", f.dataset.alertaForm), { dia: f.dia.value, hora: f.hora.value, avisada: false }).then(repintar).catch(fallo);
+    };
   }
   // Los deseos tienen su módulo desde deseos-1: lo de hoy arriba, la lista
   // entera para editar abajo.

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-15
+// Sello: nucleo-16
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -877,7 +877,16 @@ const masMin = (hhmm, min) => { const [h, m] = hhmm.split(":").map(Number); cons
      actividad del mismo día o después, se adelanta dos horas (no antes de las 7).
    · Lo que igual quede en el pasado, lo corre correrSiPaso. Sin `ahoraMs` no
      se mueve nada de día. */
-export function ordenarPlan(acciones, ahoraMs, dudas) {
+/* nucleo-16 (7-oct-2026): «el odontólogo era para el miércoles», dictado un
+   miércoles a la noche. La IA lo puso hoy y nucleo-15 lo corría a mañana:
+   las dos mal. Si lo dictado nombra el día de la semana de esa actividad, y
+   ese día ya pasó, es el de la SEMANA QUE VIENE (+7); si no lo nombra, mañana. */
+const sinAcento = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+export function diasHastaSiPaso(diaIso, dictado) {
+  const nombre = sinAcento(DIAS[new Date(diaIso + "T12:00").getDay()]);
+  return new RegExp(`\\b${nombre}\\b`).test(sinAcento(dictado)) ? 7 : 1;
+}
+export function ordenarPlan(acciones, ahoraMs, dudas, dictado = "") {
   const avisos = acciones.filter((a) => a.tipo === "recordatorio" || a.tipo === "alarma");
   if (Number.isFinite(ahoraMs)) {
     const d = new Date(ahoraMs), hoy = isoDe(ahoraMs), ahora = `${dos(d.getHours())}:${dos(d.getMinutes())}`;
@@ -885,7 +894,8 @@ export function ordenarPlan(acciones, ahoraMs, dudas) {
     for (const x of acciones) {
       if (x.tipo !== "actividad" || !x.dia || !x.hi) continue;
       if (!(x.dia < hoy || (x.dia === hoy && x.hi <= ahora))) continue;
-      const antes = x.dia, nuevo = x.dia < hoy && x.hi > ahora ? hoy : manana;
+      const antes = x.dia;
+      const nuevo = x.dia < hoy && x.hi > ahora ? hoy : diasHastaSiPaso(x.dia, dictado) === 7 ? sumarDias(x.dia, 7) : manana;
       x.dia = nuevo;
       for (const a of avisos) if (a.dia === antes) a.dia = nuevo;
       dudas.push(`«${x.titulo.slice(0, 30)}» quedaba para ${antes} ${x.hi}, que ya pasó: la pasé a ${nuevo} con sus avisos`);
@@ -900,7 +910,7 @@ export function ordenarPlan(acciones, ahoraMs, dudas) {
   return acciones;
 }
 
-export function leerPlanIA(texto, ahoraMs) {
+export function leerPlanIA(texto, ahoraMs, dictado = "") {
   let j = null;
   const t = String(texto || "").replace(/```(?:json)?/gi, "");
   const i = t.indexOf("{"), k = t.lastIndexOf("}");
@@ -955,7 +965,7 @@ export function leerPlanIA(texto, ahoraMs) {
       acciones.push({ tipo: "pedido", titulo, detalle: corto(a.detalle, 300), dia: dia(a.dia) });
     }
   }
-  ordenarPlan(acciones, ahoraMs, dudas);
+  ordenarPlan(acciones, ahoraMs, dudas, dictado);
   return { resumen: corto(j.resumen, 200), acciones, dudas: [...new Set(dudas)] };
 }
 

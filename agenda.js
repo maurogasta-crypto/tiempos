@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-5
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-6
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -32,6 +32,7 @@ import { bloquesDelDia } from "./balance.js";
 const NOMBRE_FRANJA = { manana: "mañana", tarde: "tarde", noche: "noche" };
 let lunes = null;
 let editando = null;
+let moviendoAct = null;         // agenda-6: la actividad que se está cambiando de día
 // agenda-5 (app-16, tiempos:V7): «en la agenda semanal tiene que haber una
 // opción de visualizar el mes». El mes es para mirar: cada día dice cuántas
 // cosas tiene, y tocarlo abre esa semana, donde se edita.
@@ -76,6 +77,31 @@ async function borrarActividad(id) {
     await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: F.deleteField() } }, { merge: true });
   } catch (e) { fallo(e); }
 }
+/* agenda-6 (7-oct-2026, Mauro: «hay que reprogramar»): una actividad se cambia
+   de día y de hora. La marca del balance no se edita —la regla lo prohíbe: «se
+   borra y se vuelve a marcar»—, así que se borra y se crea de nuevo con el
+   mismo id y las horas nuevas, igual que al guardarla. */
+async function moverActividad(id, f) {
+  const a = (E.actividades || {})[id]; if (!a) return;
+  const dia = f.dia.value, hi = f.hi.value, hf = f.hf.value;
+  if (!esISO(dia) || !hi) return aviso("Falta el día o la hora.", true);
+  if (!hf && hi < HORA_NOCHE) return aviso(`Poné hasta qué hora. Sin hora de vuelta va sólo lo que empieza desde las ${HORA_NOCHE}.`, true);
+  const desde = `${dia}T${hi}`, hasta = !hf ? `${sumarDias(dia, 1)}T07:00` : `${hf <= hi ? sumarDias(dia, 1) : dia}T${hf}`;
+  const marca = { uid: E.yo.uid, clase: CLASES_ACTIVIDAD[a.tipo].clase, desde, hasta, origen: "agenda", marcadoPor: E.yo.uid };
+  try {
+    await F.deleteDoc(F.doc(db, "marcas", id)).catch(() => {});
+    await F.setDoc(F.doc(db, "marcas", id), { ...marca, creadoEn: F.serverTimestamp() });
+    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { ...a, dia, desde, hasta, hf: hf || "" } },
+      actualizadoEn: F.serverTimestamp() }, { merge: true });
+    moviendoAct = null; aviso("Cambiada. Revisá sus recordatorios y alarmas en Pizarra → «Te recordás»."); repintar();
+  } catch (e) { fallo(e); }
+}
+const formMover = (id, a) => `<form class="evento-form mover-act" data-mover-form="${esc(id)}">
+  <label>Día <input type="date" name="dia" value="${esc(a.dia || "")}" required></label>
+  <label>Desde <input type="time" name="hi" value="${esc(String(a.desde || "").slice(11, 16))}" required></label>
+  <label>Hasta <input type="time" name="hf" value="${esc(a.hf === "" ? "" : String(a.hasta || "").slice(11, 16))}"></label>
+  <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-mover-no>Cancelar</button></div></form>`;
+
 const actividadesDelDia = (d) => Object.entries(E.actividades || {}).filter(([, a]) => a && a.dia === d)
   .sort((x, y) => String(x[1].desde).localeCompare(String(y[1].desde)));
 function formActividadHTML() {
@@ -180,7 +206,7 @@ export function pintarAgenda() {
     // ven los dos, y no se arrastran.
     h += bloquesDelDia(d).map((b) => `<div class="evento bloque-dia">⏱ <b>${esc(nombreDe(b.uid))}</b> ${esc(b.titulo || ({ productivo: "trabaja", chicos: "con los chicos", libre: "tiempo personal" })[b.clase] || "")}</div>`).join("");
     h += actividadesDelDia(d).map(([id, a]) => `<div class="evento actividad" style="--c:${COLOR_ACT[a.tipo] || "#888"}">🗓 <b>${esc(String(a.desde).slice(11))}${a.hf === "" ? "" : "–" + esc(String(a.hasta).slice(11))}</b> ${esc(a.titulo)}
-      <small class="gris">· ${esc((CLASES_ACTIVIDAD[a.tipo] || {}).nombre || a.tipo)}</small> <button class="mini nota" data-borrar-act="${esc(id)}" title="Sacar">✕</button></div>`).join("");
+      <small class="gris">· ${esc((CLASES_ACTIVIDAD[a.tipo] || {}).nombre || a.tipo)}</small> <button class="mini nota" data-mover-act="${esc(id)}" title="Cambiar día u hora">✎</button> <button class="mini nota" data-borrar-act="${esc(id)}" title="Sacar">✕</button></div>${moviendoAct === id ? formMover(id, a) : ""}`).join("");
     h += evs.map((e) => `<div class="evento">👦 <b>${esc(e.hora || "")}</b> ${esc(e.titulo)}${(e.ninos || []).length ? ` <small>${e.ninos.map((id) => esc((ninoPorId(id) || {}).nombre || "")).join(", ")}</small>` : ""}${(e.quienes || []).length ? ` <small class="gris">· ${e.quienes.map((u) => esc(nombreDe(u))).join(" y ")}</small>` : ""}</div>`).join("");
     for (const f of FRANJAS) {
       const items = ub[d][f];
@@ -204,6 +230,9 @@ export function pintarAgenda() {
   for (const b of v.querySelectorAll("[data-nueva-act]")) b.onclick = () => { formActividad = true; repintar(); };
   for (const b of v.querySelectorAll("[data-cerrar-act]")) b.onclick = () => { formActividad = false; repintar(); };
   for (const b of v.querySelectorAll("[data-borrar-act]")) b.onclick = () => borrarActividad(b.dataset.borrarAct);
+  for (const b of v.querySelectorAll("[data-mover-act]")) b.onclick = () => { moviendoAct = moviendoAct === b.dataset.moverAct ? null : b.dataset.moverAct; repintar(); };
+  for (const b of v.querySelectorAll("[data-mover-no]")) b.onclick = () => { moviendoAct = null; repintar(); };
+  for (const f of v.querySelectorAll("[data-mover-form]")) f.onsubmit = (ev) => { ev.preventDefault(); moverActividad(f.dataset.moverForm, f); };
   const fa = v.querySelector("#form-actividad");
   if (fa) fa.onsubmit = (ev) => { ev.preventDefault(); guardarActividad(fa); };
   for (const b of v.querySelectorAll("[data-poner]")) b.onclick = () => guardarEnAgenda(b.dataset.poner, {}).catch(fallo);
