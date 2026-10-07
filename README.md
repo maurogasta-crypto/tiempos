@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (135 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (138 casos, sin npm, sin red) |
 
 ## Qué hace (app-16)
 
@@ -181,6 +181,13 @@ que «pizarra» es el lugar, nunca el título.
   para corregir.
   Y desde `nucleo-16`: «el miércoles» dictado un miércoles después de la
   hora es el de la **semana que viene**, no hoy ni mañana (`diasHastaSiPaso`).
+- **Mis lugares** (lugares-1, nucleo-17, 7-oct-2026): al armar un plan la
+  app pide la ubicación APROXIMADA del teléfono —no se guarda— para saber si
+  estás en Uruguay o en Brasil, y elige tu casa de ese país como punto de
+  salida. Los lugares de las actividades se anotan solos en «📍 Mis lugares»
+  (abajo de la Agenda) y ahí se les pone la dirección una vez. Todo vive en
+  `agendas/{uid}`, que ve sólo su dueño; las direcciones van a la IA del plan
+  para estimar el viaje, y ninguna entra al código.
 - **Reprogramar** (agenda-6, propone-6, 7-oct-2026): en la Agenda, ✎ en una
   actividad le cambia día y horas (su marca del balance se borra y se vuelve a
   crear, como manda la regla); en Pizarra → «Te recordás» se ven todas las
@@ -318,21 +325,22 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-16` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-17` |
 | `estado.js` | lo que comparten las vistas | `estado-2` |
-| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-16` |
+| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-17` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-1` |
+| `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje | `lugares-1` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
-| `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-6` |
+| `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-7` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
-| `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-14` |
+| `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-15` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-4` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
-| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-6` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-7` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-11` |
-| `sw.js` | el cascarón sin señal | `tiempos-24` |
+| `sw.js` | el cascarón sin señal | `tiempos-25` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v10 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

@@ -20,7 +20,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
-         enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso } from "./nucleo.js";
+         enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
+         paisDe, lugarNuevo, lugaresParaIA, claveLugar } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -400,6 +401,30 @@ prueba("las alertas que vienen se ven todas y se editan (día y hora), con avisa
   assert.match(p, /updateDoc\(F\.doc\(db, "alertas", f\.dataset\.alertaForm\), \{ dia: f\.dia\.value, hora: f\.hora\.value, avisada: false \}/);
 });
 
+titulo("nucleo-17 · lugares-1: mis lugares y dónde estoy (7-oct)");
+prueba("el país sale de la ubicación aproximada: Uruguay por su recuadro, si no Brasil", () => {
+  assert.equal(paisDe(-34.78, -55.76), "UY");      // Costa de Oro
+  assert.equal(paisDe(-34.9, -56.16), "UY");       // Montevideo
+  assert.equal(paisDe(-27.43, -48.46), "BR");      // Florianópolis
+  assert.equal(paisDe(NaN, 1), "");
+});
+prueba("un lugar se anota una vez, sin dirección, y a la IA van sólo los que la tienen y la casa del país", () => {
+  assert.deepEqual(lugarNuevo({}, "Intendencia de Atlántida"), ["intendencia-de-atlantida", { nombre: "Intendencia de Atlántida", direccion: "" }]);
+  assert.equal(lugarNuevo({ "intendencia-de-atlantida": {} }, "INTENDENCIA de atlantida"), null);
+  assert.equal(lugarNuevo({}, "  "), null);
+  const ia = lugaresParaIA({ a: { nombre: "A", direccion: "calle 1" }, b: { nombre: "B", direccion: "" } }, { UY: "casa uy", BR: "casa br" }, "BR");
+  assert.deepEqual(ia, { lugares: [{ nombre: "A", direccion: "calle 1" }], casa: { pais: "Brasil", direccion: "casa br" } });
+  assert.deepEqual(lugaresParaIA({}, {}, ""), { lugares: [] });
+  assert.equal(claveLugar("Marindía"), "marindia");
+});
+prueba("las direcciones viven en agendas/{uid} (sólo su dueño), y la ubicación no se guarda", () => {
+  const l = fs.readFileSync("lugares.js", "utf8");
+  assert.match(l, /F\.doc\(db, "agendas", E\.yo\.uid\)/);
+  assert.ok(!/F\.(collection|doc)\(db, "(?!agendas)/.test(l), "ninguna otra colección");
+  assert.ok(!/latitude[^\n]*(setDoc|guardar)/.test(l), "la ubicación no se guarda");
+  assert.match(fs.readFileSync("firestore.rules", "utf8"), /match \/agendas\/\{uid\} \{\s*allow read, write: if esPersona\(\) && request\.auth\.uid == uid;/);
+});
+
 titulo("Lo demás");
 prueba("la semana empieza el lunes", () => {
   const { desdeMs } = semanaDe(new Date(2026, 8, 30, 15).getTime());   // miércoles 30-sep
@@ -706,7 +731,7 @@ prueba("la regla de reportes exige que el uid sea el de quien escribe", () => {
 
 titulo("La pantalla, el HTML y las reglas");
 const html = fs.readFileSync("index.html", "utf8");
-const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js", "sugerir.js", "compras.js", "propone.js", "pizarra.js", "deseos.js"];
+const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js", "sugerir.js", "compras.js", "propone.js", "pizarra.js", "deseos.js", "lugares.js"];
 const app = MODULOS.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 const reglas = fs.readFileSync("firestore.rules", "utf8");
 prueba("cada id que buscan las vistas existe en index.html", () => {

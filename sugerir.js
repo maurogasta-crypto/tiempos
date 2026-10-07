@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-14
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-15
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -20,7 +20,8 @@
 
 import { db, auth, F, CV } from "./firebase-init.js";
 import { textoFrecuencia } from "./nucleo.js";
-import { esc, leerPlanIA, agendaParaIA, CLASES_ACTIVIDAD, esISO, limpiarDictado, listasDeCompras, listaParaCompra, idNuevo } from "./nucleo.js";
+import { dondeEstoy } from "./lugares.js";
+import { esc, leerPlanIA, agendaParaIA, lugaresParaIA, CLASES_ACTIVIDAD, esISO, limpiarDictado, listasDeCompras, listaParaCompra, idNuevo } from "./nucleo.js";
 import { agendarMio } from "./propone.js";
 import { E, $, aviso, repintar, fallo, otro } from "./estado.js";
 
@@ -80,6 +81,10 @@ async function interpretar(texto, archivo) {
   // sugerir-5: MI agenda de las próximas dos semanas, para que pueda colgar un
   // recordatorio de «el gimnasio de mañana». Es la mía y la manda mi sesión.
   const agenda = agendaParaIA(E.actividades, hoy);
+  // sugerir-15: de dónde sale. La casa del país donde está ahora (ubicación
+  // aproximada, no se guarda) y sus lugares con dirección (lugares.js).
+  const pais = await dondeEstoy();
+  const lugares = lugaresParaIA(E.lugares, E.casas, pais);
   const listas = listasDeCompras(E.compras).map((l) => l.nombre);
   texto = limpiarDictado(texto);
   const contenido = [];
@@ -90,6 +95,7 @@ async function interpretar(texto, archivo) {
   }
   contenido.push({ type: "text", text: `Hoy es ${dia} ${hoy} y son las ${ahoraHM} (Uruguay/Brasil). ${yoN} vive con ${otroN} y sus hijos, y dictó algo para organizar su tiempo. ${archivo ? "Adjunta la captura de un flyer o anuncio. " : ""}Lo dictado (puede tener errores del dictado del teléfono y expresiones espontáneas): «${texto || "(nada: sólo la captura)"}».
 Su agenda de las próximas dos semanas (JSON): ${JSON.stringify(agenda)}
+Dónde está y sus lugares conocidos (JSON; "casa" es de donde sale si no hay otra actividad antes ese día): ${JSON.stringify(lugares)}. Para el viaje usá esas direcciones; si un lugar no está, estimalo y decilo en dudas.
 Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin texto alrededor:
 {"resumen": una línea con lo que entendiste,
  "acciones": [ cada una con "tipo" y sus campos:

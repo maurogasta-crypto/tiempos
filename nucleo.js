@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-16
+// Sello: nucleo-17
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1088,3 +1088,37 @@ export function cuentaDelDia(d, agenda, actividades, eventos) {
   return { acts, ag, chicos: eventos.length };
 }
 
+
+/* ── Mis lugares (nucleo-17, 7-oct-2026, tiempos:V7) ───────────────────────
+   Mauro: «la app debería tener acceso a mi ubicación: si estoy en Uruguay mi
+   casa es una, si estoy en Florianópolis es otra; y que se guarde una lista de
+   direcciones de los lugares de las actividades». Las direcciones viven en
+   `agendas/{uid}` (sólo su dueño: ni el otro ni el agente las leen) y NUNCA en
+   el código, que es público. Para el viaje se le pasan a la IA del plan. */
+
+/** En qué país está, con la ubicación aproximada: Uruguay por su recuadro; si no, Brasil. */
+export function paisDe(lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return "";
+  return lat >= -35.1 && lat <= -30.08 && lon >= -58.5 && lon <= -53.08 ? "UY" : "BR";
+}
+export const PAISES_CASA = { UY: "Uruguay", BR: "Brasil" };
+
+/** La clave de un lugar: su nombre sin acentos ni mayúsculas, para no anotarlo dos veces. */
+export const claveLugar = (nombre) => String(nombre || "").toLowerCase().normalize("NFD")
+  .replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+
+/** Si el lugar no está en la lista, la entrada nueva (sin dirección todavía); si está, null. */
+export function lugarNuevo(lugares, nombre) {
+  const n = String(nombre || "").trim().slice(0, 80), k = claveLugar(n);
+  if (!k || (lugares || {})[k]) return null;
+  return [k, { nombre: n, direccion: "" }];
+}
+
+/** Lo que va a la IA para estimar el viaje: la casa del país donde está y los lugares con dirección. */
+export function lugaresParaIA(lugares, casas, pais) {
+  const out = { lugares: Object.values(lugares || {}).filter((l) => l && l.nombre && l.direccion)
+    .map((l) => ({ nombre: String(l.nombre).slice(0, 80), direccion: String(l.direccion).slice(0, 160) })).slice(0, 40) };
+  const casa = pais && (casas || {})[pais];
+  if (casa) out.casa = { pais: PAISES_CASA[pais] || pais, direccion: String(casa).slice(0, 160) };
+  return out;
+}

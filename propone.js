@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// propone.js — Lo que Claude propone para TU agenda, en Pizarra (desde app-16). Sello: propone-6
+// propone.js — Lo que Claude propone para TU agenda, en Pizarra (desde app-16). Sello: propone-7
 //
 // 5-oct-2026, pedido de Mauro: que lo dictado (o la captura de un flyer)
 // vuelva «en la misma interfaz, para que el usuario dé ok». Claude lo
@@ -28,6 +28,7 @@ import { esc, esISO, sumarDias, CLASES_ACTIVIDAD, MODOS_AGENDA, actividadDePropu
 import { E, aviso, repintar, fallo } from "./estado.js";
 import { mandarReporte } from "./sugerir.js";
 import { htmlPosibles, pintarDeseos, enganchar } from "./deseos.js";
+import { recordarLugar } from "./lugares.js";
 
 export const CLASES_PROPONE = ["agenda", "consulta"];
 const editando = {};          // id de propuesta → campos corregidos
@@ -112,6 +113,7 @@ export async function agendarMio(datos, extra = {}) {
   await F.setDoc(F.doc(db, "marcas", nuevo), { ...r.marca, creadoEn: F.serverTimestamp() });
   await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [nuevo]: { ...r.actividad, ...extra } },
     actualizadoEn: F.serverTimestamp() }, { merge: true });
+  if (r.actividad.lugar) recordarLugar(r.actividad.lugar);   // propone-7: queda en Mis lugares
   aviso(r.supuesto ? "Agendado. No decía hasta qué hora: puse una hora, corregila en Agenda si hace falta." : "Agendado.");
   return nuevo;
 }

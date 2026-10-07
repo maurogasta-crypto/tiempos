@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-6
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-7
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -28,6 +28,7 @@ import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, event
          CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
+import { pintarLugares, recordarLugar } from "./lugares.js";
 
 const NOMBRE_FRANJA = { manana: "mañana", tarde: "tarde", noche: "noche" };
 let lunes = null;
@@ -50,6 +51,7 @@ async function guardarActividad(f) {
   const tipo = (f.querySelector('[name="tipo"]:checked') || {}).value;
   if (!CLASES_ACTIVIDAD[tipo]) return aviso("Elegí qué es: trabajo, tarea, personal o con los chicos.", true);
   const titulo = f.titulo.value.trim(), dia = f.dia.value, hi = f.hi.value, hf = f.hf.value;
+  const lugar = (f.lugar ? f.lugar.value : "").trim().slice(0, 80);
   if (!titulo || !esISO(dia) || !hi) return aviso("Falta qué, qué día o desde qué hora.", true);
   // «La noche es una actividad luego de las 8, y puede volver a la hora que
   // quiera: no tiene por qué marcar retorno.» Sin «hasta», sólo de noche.
@@ -64,8 +66,9 @@ async function guardarActividad(f) {
   const id = idNuevo("a");
   try {
     await F.setDoc(F.doc(db, "marcas", id), { ...marca, creadoEn: F.serverTimestamp() });
-    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { titulo: titulo.slice(0, 120), dia, desde, hasta, tipo, hf: hf || "" } },
+    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { titulo: titulo.slice(0, 120), dia, desde, hasta, tipo, hf: hf || "", lugar } },
       actualizadoEn: F.serverTimestamp() }, { merge: true });
+    if (lugar) recordarLugar(lugar);
     formActividad = false; aviso("Anotada. Al balance va sólo el horario y la clase, no el título."); repintar();
   } catch (e) { fallo(e); }
 }
@@ -109,6 +112,7 @@ function formActividadHTML() {
     <label>Qué <input name="titulo" maxlength="120" required placeholder="Ej.: salida con amigos, gimnasio, reunión"></label>
     <div class="dos"><label>Día <input type="date" name="dia" required value="${E.hoy}"></label>
       <label>Desde <input type="time" name="hi" required></label><label>Hasta <input type="time" name="hf"></label></div>
+    <label>Dónde <input name="lugar" maxlength="80" placeholder="Opcional: queda en Mis lugares"></label>
     <p class="gris">Desde las 20 no hace falta la hora de vuelta: es una noche.</p>
     <fieldset class="clases"><legend>Es… <small class="gris">(obligatorio)</small></legend>
       ${Object.entries(CLASES_ACTIVIDAD).map(([k, c]) => `<label class="check"><input type="radio" name="tipo" value="${k}" required> ${esc(c.nombre)}</label>`).join("")}</fieldset>
@@ -222,6 +226,7 @@ export function pintarAgenda() {
     : `<p class="gris">Todo lo pendiente ya está en tu agenda.</p>`}
     <p class="gris">Tocá ＋ y queda flotando en hoy; arrastrala del ⠿ al día y la franja que quieras. Tu agenda la ves sólo vos.</p>`;
   v.innerHTML = h;
+  pintarLugares(v);
 
   for (const b of v.querySelectorAll("[data-s]")) b.onclick = () => {
     const n = Number(b.dataset.s); lunes = n ? sumarDias(lunes, n) : lunesDe(E.hoy); repintar();

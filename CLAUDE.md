@@ -148,5 +148,11 @@ la documentación diga la verdad.
   (`hecho`, `hechoPor`) y «Volver a pendiente» (`hecho: false`). **Si cambia
   alguno de esos dos botones, cambia `cuerpoTachar` de la pizarra en la misma
   tanda.** No hizo falta tocar la regla de `tareas`.
+- **Las direcciones de cada uno viven en `agendas/{uid}`** (`casas` por
+  país y `lugares`, lugares-1, 7-oct-2026): sólo su dueño, ni el otro ni el
+  agente. **Ninguna dirección entra al código ni a las pruebas**: el
+  repositorio es público. Van a Gemini (por claude-proxy) sólo para estimar
+  el viaje de la alarma de salir. La ubicación del teléfono es aproximada, se
+  pide al armar un plan y no se guarda.
 - **El reparto (`repartir`) no se muestra hasta que Mauro y Florencia lo
   acuerden.** Está probado; mostrarlo es una decisión de ellos.
