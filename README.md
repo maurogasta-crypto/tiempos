@@ -8,11 +8,30 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (124 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (128 casos, sin npm, sin red) |
 
-## Qué hace (app-10)
+## Qué hace (app-16)
 
-Siete solapas. Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
+**Desde app-16 (7-oct-2026, `tiempos:V7`) las dos primeras solapas son
+Pizarra y Tareas**, y Ahora dejó de ser una solapa. Lo pidió Mauro para que la
+app del teléfono (la Pizarra) sea una sola app con todo Tiempos adentro:
+
+- **Pizarra** (`pizarra.js`): anotar rápido —sin botón de dictado: se escribe
+  o se dicta con el 🎤 del teclado— y «✨ Armar con la IA» arma el plan; lo
+  que espera una decisión; **Mi pizarra**, la misma del widget del teléfono
+  (`pizarra.<uid>`), con «＋ Elegir» que abre una ventana con las tareas por
+  categoría (el ámbito heredado); lo que Claude propone, recordatorios,
+  alarmas y deseos.
+- **Tareas**: arriba lo que era Ahora (el reloj, lo que te pidieron, lo que
+  tomaste, Casa Verde) y abajo la pizarra de la semana, todas y compras.
+- **Agenda** con **Semana / Mes**: el mes cuenta qué hay cada día (dorado lo
+  tuyo, violeta lo de los chicos) y tocar un día abre esa semana.
+- En Pizarra el reloj de arriba sólo aparece si hay algo corriendo.
+
+Lo que sigue describe cada parte; donde dice «Ahora», hoy es arriba de Tareas
+(el reloj y lo tomado) o Pizarra (propuestas, recordatorios y deseos).
+
+Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
 
 - **Ahora**: un solo cronómetro de tarea. Se elige una tarea de la familia o de
   Casa Verde y corre; mientras corre uno no arranca otro en ninguna de las dos
@@ -285,20 +304,21 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-13` |
-| `estado.js` | lo que comparten las vistas | `estado-1` |
-| `app.js` | entrar, los relojes, Ahora, Tareas | `app-15` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-14` |
+| `estado.js` | lo que comparten las vistas | `estado-2` |
+| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-16` |
+| `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-1` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
-| `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Ahora | `propone-4` |
-| `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-1` |
-| `sugerir.js` | el globo 💡: sugerencias y fallas, a `reportes/` | `sugerir-11` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-3` |
+| `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-5` |
+| `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
+| `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-12` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-4` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
-| `agenda.js` | mi semana, arrastrando, y las actividades propias con su clase | `agenda-4` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-5` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-10` |
-| `sw.js` | el cascarón sin señal | `tiempos-21` |
+| `estilos.css` | | `estilos-11` |
+| `sw.js` | el cascarón sin señal | `tiempos-22` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v10 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

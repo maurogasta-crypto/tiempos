@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-11
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-12
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -35,7 +35,7 @@ export const MODOS = {
 MODOS.agenda = { titulo: "Para la agenda", que: "Dictalo o escribilo", quePh: "El jueves de 3 a 6 llevo a los chicos a básquet.",
   esp: "Algo más (opcional)", espPh: "Es para toda la familia / sólo Flor / para recordar.", campo: "urgencia",
   opciones: [["pronto", "Para la agenda"]] };
-export const NOMBRE_SOLAPA = { ahora: "Ahora", hoy: "Hoy", agenda: "Agenda", tareas: "Tareas", chicos: "Chicos", plata: "Plata", balance: "Balance" };
+export const NOMBRE_SOLAPA = { pizarra: "Pizarra", ahora: "Ahora", hoy: "Hoy", agenda: "Agenda", tareas: "Tareas", chicos: "Chicos", plata: "Plata", balance: "Balance" };
 
 let abierta = false, modo = "agenda", enviando = false;   // sugerir-3: lo primero es dictar
 
@@ -48,9 +48,11 @@ let abierta = false, modo = "agenda", enviando = false;   // sugerir-3: lo prime
    no se guarda ni viaja, viaja el TEXTO, y antes de mandarlo uno lo ve. Va a
    reportes/ como un pedido más, con `agenda: true` y la imagen subida a
    Cloudinary al MANDAR (nunca al elegir), igual que las boletas. Lo interpreta
-   Claude y devuelve una tarjeta en Ahora: nada entra a la agenda sin aceptar. */
-const Reconocer = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
-let dictando = null;          // el reconocedor activo, o null
+   Claude y devuelve una tarjeta en Pizarra: nada entra a la agenda sin aceptar. */
+/* sugerir-12 (7-oct-2026, app-16): sin botón de dictado propio. Mauro: «sacar
+   el dictado y dejar para introducir texto a partir del dictado del propio
+   teclado» — el reconocedor del navegador fallaba y el del teclado no. Se
+   escribe (o se dicta con el micrófono del teclado) y se corrige ahí mismo. */
 let foto = null;              // el archivo elegido, todavía sin subir
 let fotoSubida = "";          // sugerir-10: la URL si ya la subió la app del teléfono
 let precarga = null;          // sugerir-4: lo que entendió Gemini, para corregir y agendar
@@ -214,25 +216,6 @@ async function agendarPrecarga(tp) {
   } catch (e) { enviando = false; fallo(e); }
 }
 
-function empezarDictado(area, boton) {
-  if (!Reconocer) return aviso("Este navegador no dicta. Usá el micrófono del teclado o escribilo.", true);
-  if (dictando) { dictando.stop(); return; }
-  const r = new Reconocer();
-  r.lang = "es-UY"; r.continuous = true; r.interimResults = true;
-  const base = area.value ? area.value.replace(/\s*$/, " ") : "";
-  // Se rearma con TODOS los resultados cada vez (no se acumula): en Android
-  // cada resultado puede traer de nuevo lo anterior, y acumulando salía
-  // «el el jueves el jueves llevo…». limpiarDictado saca lo repetido.
-  r.onresult = (ev) => {
-    let todo = "";
-    for (let i = 0; i < ev.results.length; i++) todo += " " + ev.results[i][0].transcript;
-    area.value = (base + limpiarDictado(todo)).trimStart();
-  };
-  r.onend = () => { dictando = null; boton.classList.remove("grabando"); boton.textContent = "🎙"; area.focus(); };
-  r.onerror = (e) => { if (e.error === "not-allowed") aviso("El teléfono no dejó usar el micrófono: dale permiso al navegador.", true); };
-  dictando = r; boton.classList.add("grabando"); boton.textContent = "■";
-  r.start();
-}
 let mios = [];
 let escuchando = false;
 
@@ -251,8 +234,8 @@ function escucharMios() {
 export function montarGlobo() {
   if ($("globo")) return;
   const b = Object.assign(document.createElement("button"), { id: "globo", className: "globo", title: "Sugerir algo o avisar una falla" });
-  b.innerHTML = "🎙";
-  b.title = "Dictar algo para la agenda, sugerir algo o avisar una falla";
+  b.innerHTML = "✏️";
+  b.title = "Anotar algo para la agenda, sugerir algo o avisar una falla";
   b.onclick = () => { abierta = true; escucharMios(); pintarHoja(); };
   document.body.append(b);
 }
@@ -266,11 +249,10 @@ function pintarHoja() {
   const marcado = (h.querySelector(".tira button.on") || {}).dataset;
   h.innerHTML = `<div class="hoja-caja sugerir-ed${modo === "agenda" ? " modo-agenda" : ""}">
     <div class="hoja-cab"><b>${esc(m.titulo)}</b><button class="mas" data-cerrar aria-label="Cerrar">✕</button></div>
-    <nav class="solapas chicas"><button data-modo="agenda" aria-selected="${modo === "agenda"}">🎙 Agenda</button><button data-modo="pedido" aria-selected="${modo === "pedido"}">Sugerencia</button><button data-modo="falla" aria-selected="${modo === "falla"}">Algo anda mal</button></nav>
+    <nav class="solapas chicas"><button data-modo="agenda" aria-selected="${modo === "agenda"}">✏️ Anotar</button><button data-modo="pedido" aria-selected="${modo === "pedido"}">Sugerencia</button><button data-modo="falla" aria-selected="${modo === "falla"}">Algo anda mal</button></nav>
     ${modo === "agenda" && precarga ? tarjetaPrecarga(precarga) : ""}
     <form ${modo === "agenda" && precarga ? "hidden" : ""}>
-      ${modo === "agenda" ? `<div class="dictado"><button type="button" class="microfono${dictando ? " grabando" : ""}" data-dictar aria-label="Dictar">${dictando ? "■" : "🎙"}</button>
-        <small class="gris">${Reconocer ? "Tocá, hablá, y corregí abajo lo que entendió el teléfono." : "Este navegador no dicta: usá el micrófono del teclado."}</small></div>` : ""}
+      ${modo === "agenda" ? `<p class="gris">Escribí, o dictá con el 🎤 del teclado, y corregí ahí mismo.</p>` : ""}
       <label>${esc(m.que)} <textarea name="texto" rows="${modo === "agenda" ? 4 : 3}" maxlength="2000" ${modo === "agenda" ? "" : "required"} placeholder="${esc(m.quePh)}">${esc(antes.t)}</textarea></label>
       ${modo === "agenda" ? `<div class="boleta">${CV && CV.CV2 ? `
         <label class="mini boton-archivo">📷 Sacar foto<input type="file" accept="image/*" capture="environment" data-flyer hidden></label>
@@ -278,7 +260,7 @@ function pintarHoja() {
         ${foto ? `<small>${esc(foto.name)} · se sube al mandar</small>` : ""}</div>` : ""}
       <label>${esc(m.esp)} <input name="esperaba" maxlength="600" placeholder="${esc(m.espPh)}" value="${esc(antes.e)}"></label>
       <div class="tira">${m.opciones.map(([v, t], i) => `<button type="button" data-v="${v}" class="mini${(marcado && m.opciones.some((o) => o[0] === marcado.v) ? marcado.v === v : i === 0) ? " on" : ""}">${esc(t)}</button>`).join("")}</div>
-      ${modo === "agenda" ? `<p class="gris">Lo interpreta <b>una IA</b> (Claude) y te deja una propuesta en <b>Ahora</b> para aceptar o corregir: <b>nada entra a tu agenda ni a la de nadie sin que esa persona lo acepte</b>. Suele tardar unos minutos; si no, la ronda de la mañana. Va con tu nombre.</p>` : ""}
+      ${modo === "agenda" ? `<p class="gris">Lo interpreta <b>una IA</b> (Claude) y te deja una propuesta en <b>Pizarra</b> para aceptar o corregir: <b>nada entra a tu agenda ni a la de nadie sin que esa persona lo acepte</b>. Suele tardar unos minutos; si no, la ronda de la mañana. Va con tu nombre.</p>` : ""}
       <p class="gris nota-ia">Lo lee <b>una IA</b> (el agente de Claude) en la ronda de cada mañana, y lo pasa al panel de Mauro como pendiente. <b>Puede tardar hasta un día.</b> Si hace falta algo más, te va a preguntar en la app o en el chat. Va con tu nombre y la solapa en la que estás (${esc(NOMBRE_SOLAPA[E.solapa] || E.solapa)}).</p>
       ${modo === "agenda" ? `<div class="botones"><button type="button" class="boton" data-precargar ${precargando ? "disabled" : ""}>${precargando ? "Leyendo…" : "✨ Precargar"}</button>
         <button class="mini" ${enviando ? "disabled" : ""}>${enviando ? "Mandando…" : "Mandar a Claude sin precargar"}</button></div>`
@@ -288,15 +270,12 @@ function pintarHoja() {
   </div>`;
   h.onclick = (ev) => { if (ev.target === h) { abierta = false; pintarHoja(); } };
   h.querySelector("[data-cerrar]").onclick = () => { abierta = false; pintarHoja(); };
-  for (const b of h.querySelectorAll("[data-modo]")) b.onclick = () => { if (dictando) dictando.stop(); modo = b.dataset.modo; pintarHoja(); };
-  const mic = h.querySelector("[data-dictar]");
-  if (mic) mic.onclick = () => empezarDictado(h.querySelector("[name=texto]"), mic);
+  for (const b of h.querySelectorAll("[data-modo]")) b.onclick = () => { modo = b.dataset.modo; pintarHoja(); };
   for (const i of h.querySelectorAll("[data-flyer]")) i.onchange = () => { foto = i.files && i.files[0] || null; fotoSubida = ""; pintarHoja(); };
   const pre = h.querySelector("[data-precargar]");
   if (pre) pre.onclick = async () => {
     const texto = h.querySelector("[name=texto]").value.trim();
-    if (!texto && !foto) return aviso("Dictá algo o elegí una captura.", true);
-    if (dictando) dictando.stop();
+    if (!texto && !foto) return aviso("Escribí algo o elegí una captura.", true);
     textoDictado = texto;
     precargando = true; pintarHoja();
     try { precarga = await interpretar(texto, foto); }
@@ -315,9 +294,8 @@ function pintarHoja() {
   const f = h.querySelector("form");
   f.onsubmit = async (ev) => {
     ev.preventDefault();
-    if (dictando) dictando.stop();
     let texto = f.texto.value.trim();
-    if (!texto && !(modo === "agenda" && foto)) return aviso(modo === "agenda" ? "Dictá algo o elegí una captura." : "Escribí algo.", true);
+    if (!texto && !(modo === "agenda" && foto)) return aviso(modo === "agenda" ? "Escribí algo o elegí una captura." : "Escribí algo.", true);
     if (!texto) texto = "Agendar lo de la captura.";
     if (!E.yo || !E.yo.uid) return aviso("No hay sesión: volvé a entrar.", true);
     enviando = true; pintarHoja();
@@ -330,7 +308,7 @@ function pintarHoja() {
         agenda: modo === "agenda", imagen, [m.campo]: (h.querySelector(".tira button.on") || {}).dataset.v || m.opciones[0][0] });
       foto = null;
       enviando = false; abierta = false; pintarHoja();
-      aviso(modo === "agenda" ? "Mandado. La propuesta te aparece en Ahora." : "Mandado. Lo toma la ronda de mañana.");
+      aviso(modo === "agenda" ? "Mandado. La propuesta te aparece en Pizarra." : "Mandado. Lo toma la ronda de mañana.");
     } catch (e) { enviando = false; pintarHoja(); fallo(e); }
   };
 }

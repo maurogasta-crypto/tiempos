@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-4
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-5
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -24,7 +24,7 @@
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, eventosDelDia,
-         DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado,
+         grillaDelMes, MESES, cuentaDelDia, DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado,
          CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
@@ -32,6 +32,11 @@ import { bloquesDelDia } from "./balance.js";
 const NOMBRE_FRANJA = { manana: "mañana", tarde: "tarde", noche: "noche" };
 let lunes = null;
 let editando = null;
+// agenda-5 (app-16, tiempos:V7): «en la agenda semanal tiene que haber una
+// opción de visualizar el mes». El mes es para mirar: cada día dice cuántas
+// cosas tiene, y tocarlo abre esa semana, donde se edita.
+let vistaAg = "semana";         // "semana" | "mes"
+let mesAg = null;               // [año, mes0]
 let formActividad = false;
 
 /* ── Las actividades propias de la agenda (agenda-3, 30-sep-2026) ────────────
@@ -128,8 +133,30 @@ function candidatas() {
   return [...fam, ...cv];
 }
 
+function pintarMesAgenda(v) {
+  if (!mesAg) { const d = new Date(E.hoy + "T12:00"); mesAg = [d.getFullYear(), d.getMonth()]; }
+  const [a, m] = mesAg;
+  const agenda = agendaUnida();
+  let h = `<nav class="solapas chicas"><button data-va="semana" aria-selected="false">Semana</button><button data-va="mes" aria-selected="true">Mes</button></nav>
+    <div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${MESES[m]} ${a}</b><button class="mini" data-mes="1">›</button></div>
+    <div class="mes"><div class="mes-cab">${["L", "M", "M", "J", "V", "S", "D"].map((d) => `<span>${d}</span>`).join("")}</div>
+    ${grillaDelMes(a, m).map((s) => `<div class="mes-fila">${s.map((iso) => {
+      const fuera = Number(iso.slice(5, 7)) - 1 !== m;
+      const c = cuentaDelDia(iso, agenda, E.actividades, eventosDelDia(iso, E.eventos));
+      return `<button class="celda${fuera ? " fuera" : ""}${iso === E.hoy ? " es-hoy" : ""}" data-dia-ag="${iso}">
+        <span class="n">${Number(iso.slice(8))}</span><span class="ms">${marcasChicos(chicosDelDia(iso, E.familia.patron, E.turnos))}</span>
+        ${c.acts + c.ag ? `<span class="ev mio">${"•".repeat(Math.min(c.acts + c.ag, 4))}</span>` : ""}${c.chicos ? `<span class="ev">${"•".repeat(Math.min(c.chicos, 3))}</span>` : ""}</button>`;
+    }).join("")}</div>`).join("")}</div>
+    <p class="gris">Los puntos son lo que tenés ese día; los violeta, actividades de los chicos. Tocá un día para abrir esa semana.</p>`;
+  v.innerHTML = h;
+  for (const b of v.querySelectorAll("[data-va]")) b.onclick = () => { vistaAg = b.dataset.va; repintar(); };
+  for (const b of v.querySelectorAll("[data-mes]")) b.onclick = () => { const d = new Date(a, m + Number(b.dataset.mes), 1); mesAg = [d.getFullYear(), d.getMonth()]; repintar(); };
+  for (const b of v.querySelectorAll("[data-dia-ag]")) b.onclick = () => { lunes = lunesDe(b.dataset.diaAg); vistaAg = "semana"; repintar(); };
+}
+
 export function pintarAgenda() {
   const v = $("v-agenda");
+  if (vistaAg === "mes") return pintarMesAgenda(v);
   if (!lunes) lunes = lunesDe(E.hoy);
   const dias = semanaISO(lunes);
   const todas = candidatas();
@@ -137,7 +164,8 @@ export function pintarAgenda() {
   const { dias: ub, atrasadas } = ubicarEnSemana(todas, agenda, E.hoy, lunes);
   const fmt = (iso) => `${Number(iso.slice(8))}/${Number(iso.slice(5, 7))}`;
 
-  let h = `<div class="nav-semana"><button class="mini" data-s="-7">‹</button>
+  let h = `<nav class="solapas chicas"><button data-va="semana" aria-selected="true">Semana</button><button data-va="mes" aria-selected="false">Mes</button></nav>
+    <div class="nav-semana"><button class="mini" data-s="-7">‹</button>
     <b>${fmt(dias[0])} — ${fmt(dias[6])}</b><button class="mini" data-s="7">›</button>
     <button class="mini" data-s="0">hoy</button></div>`;
   h += formActividad ? formActividadHTML() : `<button class="mini" data-nueva-act>＋ Actividad (trabajo, tarea, personal o con los chicos)</button>`;
@@ -172,6 +200,7 @@ export function pintarAgenda() {
   for (const b of v.querySelectorAll("[data-s]")) b.onclick = () => {
     const n = Number(b.dataset.s); lunes = n ? sumarDias(lunes, n) : lunesDe(E.hoy); repintar();
   };
+  for (const b of v.querySelectorAll("[data-va]")) b.onclick = () => { vistaAg = b.dataset.va; if (vistaAg === "mes") { const d = new Date(lunes + "T12:00"); mesAg = [d.getFullYear(), d.getMonth()]; } repintar(); };
   for (const b of v.querySelectorAll("[data-nueva-act]")) b.onclick = () => { formActividad = true; repintar(); };
   for (const b of v.querySelectorAll("[data-cerrar-act]")) b.onclick = () => { formActividad = false; repintar(); };
   for (const b of v.querySelectorAll("[data-borrar-act]")) b.onclick = () => borrarActividad(b.dataset.borrarAct);

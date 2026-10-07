@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex">
 <title>Tiempos</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilos.css?v=10">
+<link rel="stylesheet" href="estilos.css?v=11">
 </head>
 <body>
 <header id="barra"><span class="marca">Tiempos</span><span id="quien" class="gris"></span></header>
@@ -39,10 +39,10 @@
 
   <section id="app" hidden>
     <nav class="solapas" role="tablist">
-      <button data-solapa="ahora" role="tab" aria-selected="true">Ahora</button>
+      <button data-solapa="pizarra" role="tab" aria-selected="true">Pizarra</button>
+      <button data-solapa="tareas" role="tab" aria-selected="false">Tareas</button>
       <button data-solapa="hoy" role="tab" aria-selected="false">Hoy</button>
       <button data-solapa="agenda" role="tab" aria-selected="false">Agenda</button>
-      <button data-solapa="tareas" role="tab" aria-selected="false">Tareas</button>
       <button data-solapa="chicos" role="tab" aria-selected="false">Chicos</button>
       <button data-solapa="plata" role="tab" aria-selected="false">Plata</button>
       <button data-solapa="balance" role="tab" aria-selected="false">Balance</button>
@@ -55,7 +55,8 @@
       <button class="boton sec">Entrar a Casa Verde</button>
     </form>
 
-    <div id="v-ahora"></div>
+    <div id="v-pizarra"></div>
+    <div id="v-ahora" hidden></div>
     <div id="v-hoy" hidden></div>
     <div id="v-agenda" hidden></div>
 
@@ -92,10 +93,10 @@
          de Tiempos es la misma y el número cargado dos veces sería un dato en
          dos lugares. Ver protocolos/PROTOCOLO-AVISOS.md de datos. -->
     <p class="pie"><a class="link" href="https://casaverdecanas.com.br/interno/avisos.html" target="_blank" rel="noopener">Avisos de Claude por WhatsApp</a></p>
-    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-15</span></p>
+    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-16</span></p>
   </section>
 </main>
-<script type="module" src="app.js?v=15"></script>
+<script type="module" src="app.js?v=16"></script>
 <script>
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

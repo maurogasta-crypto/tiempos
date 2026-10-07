@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// deseos.js — Lo que nos gustaría hacer, y lo que se puede hacer hoy. Sello: deseos-1
+// deseos.js — Lo que nos gustaría hacer, y lo que se puede hacer hoy. Sello: deseos-2
 //
 // Pedido de Mauro, 5-oct-2026: «Cuando lo que se guarda es un flyer de una
 // actividad de frecuencia semanal, que quede registrado que es algo con
@@ -139,9 +139,9 @@ export function enganchar(c) {
   todos("[data-deseo-editar]", (b) => b.onclick = () => {
     const d = (E.deseos || []).find((x) => x.id === b.dataset.deseoEditar); if (!d) return;
     empezar(d); verTodos = true;
-    // Se edita en la lista de Ahora: desde Hoy, se va ahí (como «→» de los avisos).
-    const ir = document.querySelector('[data-solapa="ahora"]');
-    if (E.solapa !== "ahora" && ir) ir.click(); else repintar();
+    // Se edita en la lista de Pizarra (app-16): desde Hoy, se va ahí.
+    const ir = document.querySelector('[data-solapa="pizarra"]');
+    if (E.solapa !== "pizarra" && ir) ir.click(); else repintar();
     setTimeout(() => { const f = document.querySelector("[data-form-deseo]"); if (f) f.scrollIntoView({ block: "center" }); }, 50);
   });
   todos("[data-nuevo-deseo]", (b) => b.onclick = () => { empezar(null); repintar(); });

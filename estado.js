@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-1
+// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-2
 //
 // Un solo objeto con lo que se sabe (`E`), el aviso de arriba y el gancho para
 // volver a dibujar. Las vistas (`app.js`, `agenda.js`, `familia.js`) leen de
@@ -16,7 +16,7 @@ export const E = {
   // Casa Verde
   cv: null, cvNombre: "", cvActs: [], enCursoCV: null, cvAgenda: {}, cvNombres: {},
   // Pantalla
-  solapa: "ahora", abierta: null, reloj: null,
+  solapa: "pizarra", abierta: null, reloj: null,
   hoy: isoDe(), diaVisto: isoDe(), vistaTareas: "pizarra",
 };
 

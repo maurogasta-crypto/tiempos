@@ -19,7 +19,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
-         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo } from "./nucleo.js";
+         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
+         enMiPizarra, paraElegirPorCategoria, cuentaDelDia } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -157,7 +158,8 @@ prueba("aceptar escribe la agenda del que acepta y nada más (propone.js)", () =
 });
 prueba("el dictado: el audio no viaja, la imagen se sube al mandar y antes del documento", () => {
   const src = fs.readFileSync("sugerir.js", "utf8");
-  assert.ok(/SpeechRecognition/.test(src));
+  // sugerir-12: sin reconocedor propio; se dicta con el micrófono del teclado.
+  assert.ok(!/SpeechRecognition/.test(src), "el dictado es el del teclado");
   assert.ok(src.indexOf("CV.CV2.subirImagen(foto") < src.indexOf("await mandarReporte({ texto, esperaba"), "primero la imagen");
   assert.ok(!/MediaRecorder|getUserMedia/.test(src), "no se graba audio");
 });
@@ -314,6 +316,36 @@ prueba("hacer lo marcado: la tarea va a MI pizarra y las alertas a mi nombre", (
   const src = fs.readFileSync("sugerir.js", "utf8");
   assert.ok(/pizarra: \{ \[E\.yo\.uid\]: true \}/.test(src));
   assert.ok(/F\.collection\(db, "alertas"\), \{ uid: E\.yo\.uid/.test(src));
+});
+
+titulo("app-16: la solapa Pizarra y el mes de la agenda (tiempos:V7)");
+prueba("mi pizarra es la del teléfono: pizarra.<uid> === true, lo pendiente primero", () => {
+  const ts = [{ id: "a", titulo: "Zeta", pizarra: { yo: true } }, { id: "b", titulo: "Alfa", pizarra: { yo: true }, hecho: true },
+    { id: "c", titulo: "Beta", pizarra: { otro: true } }, { id: "d", titulo: "Gama", pizarra: { yo: "sí" } }, { id: "e", titulo: "Delta" }];
+  assert.deepEqual(enMiPizarra(ts, "yo").map((t) => t.id), ["a", "b"]);
+  assert.deepEqual(enMiPizarra(null, "yo"), []);
+});
+prueba("para elegir: por ámbito heredado, sin lo hecho ni lo personal ajeno, con la ruta", () => {
+  const ts = [{ id: "p", titulo: "Casa", tipo: "casa", alcance: "comun" }, { id: "h", titulo: "Pintar", parentId: "p", alcance: "comun" },
+    { id: "x", titulo: "Hecha", tipo: "casa", alcance: "comun", hecho: true },
+    { id: "m", titulo: "Mía", tipo: "personal", alcance: "personal", duenio: "yo" }, { id: "o", titulo: "De otro", tipo: "personal", alcance: "personal", duenio: "otro" }];
+  const g = paraElegirPorCategoria(ts, "yo");
+  assert.deepEqual(g.casa.map((t) => t.ruta), ["Casa", "Casa › Pintar"]);
+  assert.deepEqual(g.personal.map((t) => t.id), ["m"]);
+  assert.ok(!Object.values(g).flat().some((t) => t.id === "x" || t.id === "o"));
+});
+prueba("el mes de la agenda cuenta actividades, lo agendado con día y lo de los chicos", () => {
+  const c = cuentaDelDia("2026-10-08", { "f:1": { dia: "2026-10-08" }, "f:2": { dia: null }, "cv:3": { dia: "2026-10-08" } },
+    { a: { dia: "2026-10-08" }, b: { dia: "2026-10-09" } }, [{ titulo: "Básquet" }]);
+  assert.deepEqual(c, { acts: 1, ag: 2, chicos: 1 });
+});
+prueba("la pizarra se escribe con la MISMA forma que la app del teléfono, y tachar es «✔ Hecha»", () => {
+  const p = fs.readFileSync("pizarra.js", "utf8");
+  assert.match(p, /\["pizarra\." \+ E\.yo\.uid\]: si \? true : F\.deleteField\(\)/);
+  assert.match(p, /hecho: true, hechoPor: E\.yo\.uid/);
+  const h = fs.readFileSync("index.html", "utf8");
+  assert.ok(h.indexOf('data-solapa="pizarra"') < h.indexOf('data-solapa="tareas"') && h.indexOf('data-solapa="tareas"') < h.indexOf('data-solapa="hoy"'), "Pizarra primero, Tareas segunda");
+  assert.ok(!/data-solapa="ahora"/.test(h));
 });
 
 titulo("Lo demás");
@@ -622,7 +654,7 @@ prueba("la regla de reportes exige que el uid sea el de quien escribe", () => {
 
 titulo("La pantalla, el HTML y las reglas");
 const html = fs.readFileSync("index.html", "utf8");
-const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js", "sugerir.js", "compras.js", "propone.js"];
+const MODULOS = ["app.js", "agenda.js", "familia.js", "estado.js", "plata.js", "balance.js", "sugerir.js", "compras.js", "propone.js", "pizarra.js", "deseos.js"];
 const app = MODULOS.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 const reglas = fs.readFileSync("firestore.rules", "utf8");
 prueba("cada id que buscan las vistas existe en index.html", () => {

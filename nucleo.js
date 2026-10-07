@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-13
+// Sello: nucleo-14
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -995,3 +995,36 @@ export function agendaParaIA(actividades, hoy, dias = 14) {
     .map(([id, a]) => ({ id, titulo: String(a.titulo || "").slice(0, 80), dia: a.dia,
       desde: String(a.desde || "").slice(11, 16), hasta: String(a.hasta || "").slice(11, 16), lugar: a.lugar || "" }));
 }
+
+/* ── La pizarra del teléfono y el mes de la agenda (nucleo-14, app-16) ──────
+   tiempos:V7, 7-oct-2026. Lo usan pizarra.js y agenda.js; vive acá para que
+   el banco lo pruebe sin pantalla. */
+/** Lo que está en MI pizarra (la del widget), pendiente primero. */
+export const enMiPizarra = (tareas, uid) => (tareas || [])
+  .filter((t) => t && t.pizarra && t.pizarra[uid] === true)
+  .sort((a, b) => Number(!!a.hecho) - Number(!!b.hecho) || String(a.titulo).localeCompare(String(b.titulo)));
+
+/** Lo que se puede poner: lo que veo, sin hacer, agrupado por ámbito (el tipo heredado). */
+export function paraElegirPorCategoria(tareas, uid) {
+  const { porId } = arbol(tareas || []);
+  const grupos = {};
+  for (const t of tareas || []) {
+    if (!t || t.hecho) continue;
+    if (t.alcance === "personal" && t.duenio !== uid) continue;
+    const k = tipoHeredado(t, porId);
+    (grupos[k] = grupos[k] || []).push({ ...t, ruta: rutaDe(t, porId) });
+  }
+  for (const k of Object.keys(grupos)) grupos[k].sort((a, b) => a.ruta.localeCompare(b.ruta));
+  return grupos;
+}
+export const rutaDe = (t, porId) => { const r = []; let x = t, n = 0; while (x && n++ < 8) { r.unshift(x.titulo || ""); x = x.parentId ? porId[x.parentId] : null; } return r.join(" › "); };
+
+
+/** Cuántas cosas tiene un día de MI agenda: actividades, lo agendado con día
+ *  y las actividades de los chicos. Para el mes, que sólo cuenta. */
+export function cuentaDelDia(d, agenda, actividades, eventos) {
+  const acts = Object.values(actividades || {}).filter((a) => a && a.dia === d).length;
+  const ag = Object.values(agenda || {}).filter((m) => m && m.dia === d).length;
+  return { acts, ag, chicos: eventos.length };
+}
+

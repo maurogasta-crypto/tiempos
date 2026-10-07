@@ -137,6 +137,10 @@ la documentación diga la verdad.
   compras en `familia/compras`, las dos como MAPAS para que dos teléfonos no se
   pisen. Por eso no hizo falta una regla nueva. **Los chicos no se agregan
   desde la app**: lo pidió Mauro.
+- **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
+  Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
+  (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco
+  lo comprueba. Lo de abajo cuenta cómo era antes.
 - **Las tareas tienen un campo `pizarra` que esta app no escribe** (2-oct-2026):
   un mapa uid → true que pone la app de Android **Pizarra**
   (`maurogasta-crypto/pizarra`) para saber qué tareas muestra cada uno en su

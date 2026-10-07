@@ -1,8 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-15
+// Sello: app-16
 //
-// Siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
+// app-16 (7-oct-2026, tiempos:V7): la primera solapa es PIZARRA (pizarra.js):
+// anotar rápido, lo que espera una decisión, la pizarra del teléfono con una
+// ventana para elegir por categoría, lo que Claude propone, recordatorios,
+// alarmas y deseos. La segunda es TAREAS: el reloj y lo que tomaste (lo que
+// era AHORA) arriba, y las listas abajo. AHORA ya no es una solapa.
+//
+// Antes eran siete solapas (app-4 suma PLATA y cambia HORAS por BALANCE):
 //   AHORA   el cronómetro único, los chicos en paralelo, lo que te pidieron, y
 //           qué arrancar (familia y Casa Verde, con sus detalles y registros)
 //   HOY     lo cotidiano: se tilda, no se cronometra (familia.js)
@@ -26,7 +32,7 @@
 import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
 import { TIPOS, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
          alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
-         separarEnCurso, chicosDelDia, eventosDelDia, bloquesPorConfirmar, automaticosPendientes,
+         separarEnCurso, chicosDelDia, eventosDelDia,
          COLORES_TAREA, colorHeredado, estaCorriendo } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
 import { pintarAgenda, alternarEnAgenda, estaEnAgenda } from "./agenda.js";
@@ -35,9 +41,9 @@ import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
 import { pintarCompras } from "./compras.js";
 import { montarGlobo, abrirDictado } from "./sugerir.js";
-import { tarjetasPropone, CLASES_PROPONE, alertasYDeseos } from "./propone.js";
+import { pintarPizarra } from "./pizarra.js";
 
-const SOLAPAS = ["ahora", "hoy", "agenda", "tareas", "chicos", "plata", "balance"];
+const SOLAPAS = ["pizarra", "tareas", "hoy", "agenda", "chicos", "plata", "balance"];
 const mostrar = (id) => { for (const s of ["cargando", "entrar", "acceso", "app"]) $(s).hidden = s !== id; };
 
 /* ── Arranque ─────────────────────────────────────────────────────────────── */
@@ -365,12 +371,15 @@ function pintar() {
     return;
   }
   for (const s of SOLAPAS) $("v-" + s).hidden = s !== E.solapa;
+  $("v-ahora").hidden = E.solapa !== "tareas";   // app-16: el reloj y lo tomado van arriba de Tareas
+  // En Pizarra el reloj sólo se ve si hay algo corriendo: la pantalla es para anotar.
+  $("crono").hidden = E.solapa === "pizarra" && !(E.enCursoCV || E.enCursoFam);
   pintarCrono();
   pintarCuidado();
-  if (E.solapa === "ahora") pintarAhora();
+  if (E.solapa === "pizarra") pintarPizarra(irA);
   if (E.solapa === "hoy") pintarHoy();
   if (E.solapa === "agenda") pintarAgenda();
-  if (E.solapa === "tareas") pintarTareas();
+  if (E.solapa === "tareas") { pintarAhora(); pintarTareas(); }
   if (E.solapa === "chicos") pintarChicos();
   if (E.solapa === "plata") pintarPlata();
   if (E.solapa === "balance") pintarBalance();
@@ -670,25 +679,8 @@ const irA = (solapa) => { const b = document.querySelector(`[data-solapa="${sola
 
 function pintarAhora() {
   const v = $("v-ahora"); v.replaceChildren();
-  // Lo que espera una decisión tuya, con un toque para ir a resolverlo.
-  const avisos = [];
-  // app-12: las de agenda y las preguntas se contestan ACÁ (propone.js); a
-  // Plata van sólo la plata, las tareas y las actividades de los chicos.
-  const props = (E.propuestas || []).filter((p) => !CLASES_PROPONE.includes(p.clase)).length;
-  if (props) avisos.push([`${props} cosa(s) que propuso el agente, para aprobar`, "plata"]);
-  const conf = bloquesPorConfirmar(E.bloques, E.yo.uid, personas().map((p) => p.id)).length;
-  if (conf) avisos.push([`${conf} acuerdo(s) de tiempo: ¿se cumplieron?`, "balance"]);
-  const autos = automaticosPendientes(E.recurrentes, E.movs, E.hoy).length;
-  if (autos) avisos.push([`${autos} pago(s) automático(s) de este mes para confirmar`, "plata"]);
-  for (const [t, a] of avisos) {
-    const b = Object.assign(document.createElement("button"), { className: "aviso-ir", textContent: t + " →" });
-    b.onclick = () => irA(a);
-    v.append(b);
-  }
-  // app-12: lo que Claude propone para TU agenda, para aceptar o corregir.
-  tarjetasPropone(v);
-  // app-13: lo que te recordás hoy y la lista de deseos.
-  alertasYDeseos(v);
+  // app-16: lo que espera una decisión, lo que Claude propone, recordatorios
+  // y deseos se mudaron a la solapa Pizarra (pizarra.js).
   // Lo que te pidieron va primero: está esperando una respuesta tuya.
   const pedidos = pedidosPara(E.tareas, E.yo.uid);
   if (pedidos.length) {

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// propone.js — Lo que Claude propone para TU agenda, en Ahora. Sello: propone-4
+// propone.js — Lo que Claude propone para TU agenda, en Pizarra (desde app-16). Sello: propone-5
 //
 // 5-oct-2026, pedido de Mauro: que lo dictado (o la captura de un flyer)
 // vuelva «en la misma interfaz, para que el usuario dé ok». Claude lo
@@ -74,7 +74,7 @@ function tarjetaConsulta(p) {
   </form>`;
 }
 
-/* Lo que se agrega a Ahora. Nada si no hay propuestas para vos. */
+/* Lo que se agrega a Pizarra (antes, Ahora). Nada si no hay propuestas para vos. */
 export function tarjetasPropone(v) {
   const ps = mias();
   if (!ps.length) return;
