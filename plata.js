@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-5
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-6
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -100,7 +100,8 @@ export function pintarPlata() {
 /* ── Una propuesta del agente, editable antes de aprobar ──────────────────── */
 function propuestaHTML(p) {
   const d = { ...(p.datos || {}), ...(editandoProp[p.id] || {}) };
-  const cab = `<p class="gris">${esc(p.fuente === "whatsapp" ? "De un WhatsApp" : "Del chat")}${p.resumen ? ": «" + esc(p.resumen) + "»" : ""}</p>`;
+  // plata-6: `cuentas` = un ingreso que propone herramientas/ingresos.mjs desde Casa Verde y remate.
+  const cab = `<p class="gris">${esc(p.fuente === "whatsapp" ? "De un WhatsApp" : p.fuente === "cuentas" ? "De las cuentas de los negocios" : "Del chat")}${p.resumen ? ": «" + esc(p.resumen) + "»" : ""}</p>`;
   if (p.clase === "gasto") {
     const tipo = (CATEGORIAS[d.categoria] || {}).tipo || d.tipo || "salio";
     return `<form class="tarjeta ficha prop" data-prop="${esc(p.id)}">${cab}${campos(d, tipo)}

@@ -204,7 +204,11 @@ que «pizarra» es el lugar, nunca el título.
   gastó en lo personal; el cierre lo confirman los dos. Entran como ingreso
   los honorarios y el neto de los negocios; los gastos del negocio se anotan
   en el año pero no restan, porque ese neto ya los descontó. Toda la noche
-  afuera cuenta un día entero.
+  afuera cuenta un día entero. **Los ingresos de los negocios llegan solos
+  como propuestas** («De las cuentas de los negocios», arriba de Día a día):
+  la ronda corre `herramientas/ingresos.mjs` de `datos` para el mes cerrado —
+  honorarios pagados de los dos, el neto de Casa Verde y lo cobrado en remate
+  (bruto)— y una persona aprueba o corrige.
 - **Claude organiza mi agenda** (app-18, agenda-9, lugares-2, reglas v11,
   8-oct-2026): abajo de la Agenda, el interruptor «🤝 Claude organiza mi
   agenda». Encendido, Claude puede leer TU agenda y tus lugares, mover y
@@ -360,14 +364,14 @@ Florencia la acuerden.
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-7` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
 | `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-15` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y las cuatro solapas | `plata-5` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y las cuatro solapas | `plata-6` |
 | `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-1` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-9` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-13` |
-| `sw.js` | el cascarón sin señal | `tiempos-28` |
+| `sw.js` | el cascarón sin señal | `tiempos-29` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v11 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
