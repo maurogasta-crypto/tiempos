@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-4
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-5
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -20,12 +20,16 @@
 // Un gasto que aparece en un chat o en un WhatsApp llega como `propuesta`:
 // arriba de todo, con lo que la IA ya entendió, editable. «Aprobar» escribe el
 // movimiento de verdad; el agente nunca lo escribe solo.
+//
+// plata-5 (app-19, tiempos:V9, 8-oct-2026): cuatro solapas. «Día a día» es lo
+// de siempre; «Fijos», «Año» y «Reparto» viven en finanzas.js.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, validarMovimiento, disponible, automaticosPendientes,
          leerSugerencia, esISO, MESES, TIPOS } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
+import { pintarFijos, pintarAnio, pintarReparto } from "./finanzas.js";
 
 let mesVisto = null;              // "2026-09"
 let form = null;                  // null | { id?, tipo, datos, archivo?, leyendo? }
@@ -36,9 +40,21 @@ const nombreMes = (m) => `${MESES[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`;
 const sumarMes = (m, n) => { const d = new Date(Number(m.slice(0, 4)), Number(m.slice(5)) - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
 const categoriasDe = (tipo) => Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === tipo);
 
+let sub = "dia";                  // plata-5: dia | fijos | anio | reparto
+const SUBS = { dia: "Día a día", fijos: "Fijos", anio: "Año", reparto: "Reparto" };
+
 export function pintarPlata() {
   const v = $("v-plata");
   if (!mesVisto) mesVisto = E.hoy.slice(0, 7);
+  const nav = `<nav class="solapas chicas">${Object.entries(SUBS).map(([k, n]) => `<button data-sub="${k}" aria-selected="${sub === k}">${n}</button>`).join("")}</nav>`;
+  if (sub !== "dia") {
+    v.innerHTML = nav + (sub === "anio" ? "" : `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`);
+    if (sub === "fijos") pintarFijos(v, mesVisto);
+    else if (sub === "anio") pintarAnio(v);
+    else pintarReparto(v, mesVisto);
+    engancharSub(v);
+    return;
+  }
   const movs = E.movs || [];
   const delMes = movs.filter((m) => String(m.fecha || "").slice(0, 7) === mesVisto)
     .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
@@ -47,7 +63,7 @@ export function pintarPlata() {
   const props = (E.propuestas || []).filter((p) => p.estado === "pendiente" && p.clase !== "agenda" && p.clase !== "consulta");   // plata-3: ésas van en Pizarra (app-16)
   const autos = automaticosPendientes(E.recurrentes, movs, E.hoy);
 
-  let h = "";
+  let h = nav;
   // Disponible: el saldo de siempre, por moneda.
   h += `<div class="tarjeta disp"><h3>Disponible</h3>${Object.keys(total).length
     ? Object.entries(total).map(([mon, d]) => `<div class="barra-fila"><span>${mon}</span><b class="num">${fmt(d.saldo)}</b><small class="gris">entró ${fmt(d.entro)} · salió ${fmt(d.salio)}</small></div>`).join("")
@@ -185,9 +201,14 @@ async function guardarMovimiento(f) {
   repintar();
 }
 
+function engancharSub(v) {
+  for (const b of v.querySelectorAll("[data-sub]")) b.onclick = () => { sub = b.dataset.sub; repintar(); };
+  for (const b of v.querySelectorAll("[data-mes]")) b.onclick = () => { mesVisto = sumarMes(mesVisto, Number(b.dataset.mes)); repintar(); };
+}
+
 function enganchar(v, autos) {
   const todos = (sel, fn) => { for (const el of v.querySelectorAll(sel)) fn(el); };
-  todos("[data-mes]", (b) => b.onclick = () => { mesVisto = sumarMes(mesVisto, Number(b.dataset.mes)); repintar(); });
+  engancharSub(v);
   todos("[data-nuevo]", (b) => b.onclick = () => {
     form = { tipo: b.dataset.nuevo, datos: { categoria: b.dataset.nuevo === "entro" ? "ingreso" : "" } }; repintar();
   });

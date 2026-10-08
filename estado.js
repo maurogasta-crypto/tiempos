@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-2
+// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-3
 //
 // Un solo objeto con lo que se sabe (`E`), el aviso de arriba y el gancho para
 // volver a dibujar. Las vistas (`app.js`, `agenda.js`, `familia.js`) leen de
@@ -12,7 +12,7 @@ import { isoDe } from "./nucleo.js";
 export const E = {
   yo: null, miembro: null, miembros: [],
   tareas: [], sesionesVivas: [], enCursoFam: null, cuidado: null,
-  familia: { ninos: [], patron: {} }, turnos: {}, eventos: [], agenda: {}, actividades: {}, marcas: [], compras: {},
+  familia: { ninos: [], patron: {} }, turnos: {}, eventos: [], agenda: {}, actividades: {}, marcas: [], compras: {}, conceptos: {}, repartos: {},
   // Casa Verde
   cv: null, cvNombre: "", cvActs: [], enCursoCV: null, cvAgenda: {}, cvNombres: {},
   // Pantalla

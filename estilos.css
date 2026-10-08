@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-12
+/* estilos.css — Tiempos. Sello: estilos-13
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -236,3 +236,24 @@ fieldset.clases legend { font-size:.85rem; }
 .boton-fila { display:block; width:100%; text-align:left; background:none; border:0; border-bottom:1px solid var(--linea); color:inherit; padding:.6rem .2rem; font:inherit; }
 #hoja-agenda details { margin:.3rem 0; }
 #hoja-agenda summary { cursor:pointer; padding:.4rem 0; font-weight:600; }
+
+/* estilos-13 (app-19, tiempos:V9): la planilla de gastos fijos. Tres meses a
+   la vista, para que entre en un teléfono sin barra horizontal. */
+.planilla { margin:.5rem 0; }
+.pl-fila { display:grid; grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr)); gap:.3rem; align-items:center; padding:.3rem 0; border-bottom:1px solid var(--linea); }
+.pl-cab { font-size:.8rem; color:var(--gris); text-align:center; }
+.pl-cab span:first-child { text-align:left; }
+.pl-cab .hoy { color:inherit; font-weight:600; }
+.pl-grupo { font-size:.8rem; font-weight:600; margin-top:.6rem; color:var(--gris); }
+.pl-nombre { display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }
+.pl-nombre small { font-size:.75rem; }
+.pl-celda { font-size:.8rem; padding:.45rem .2rem; border-radius:.4rem; text-align:center; min-height:44px; }
+button.pl-celda { border:1px solid var(--linea); background:transparent; color:inherit; }
+.pl-celda.pagada { border-color:var(--ok); color:var(--ok); }
+.pl-celda.atrasada { border-color:var(--mal); color:var(--mal); }
+.pl-celda.toca { border-color:var(--acento); color:var(--acento); }
+.pl-celda.futura { opacity:.6; }
+.pl-celda.nada { opacity:.4; }
+.fila.apagada { opacity:.55; }
+.rep .barra-fila { grid-template-columns:1fr auto; }
+.rep .barra-fila small { grid-column:1 / -1; margin-top:-4px; }

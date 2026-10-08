@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-18
+// Sello: nucleo-19
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -447,6 +447,12 @@ export function balanceTiempo({ uids = [], intervalos = [], totalNinos = 0, desd
 export const MONEDAS = ["BRL", "UYU", "USD"];
 export const CATEGORIAS = {
   ingreso:       { nombre: "Ingreso",                 tipo: "entro", reparto: "entro" },
+  // nucleo-19 (tiempos:V9, 8-oct): de dónde entra la plata de la familia.
+  // Mauro: «mis honorarios + los de Flor + el dinero neto registrado luego
+  // de pagar todos los gastos». El neto de un negocio llega YA descontados
+  // sus gastos: por eso «Gastos del negocio» no resta en el reparto.
+  honorarios:    { nombre: "Honorarios",              tipo: "entro", reparto: "entro" },
+  negocio:       { nombre: "Neto de un negocio (Casa Verde, remate)", tipo: "entro", reparto: "entro" },
   comida:        { nombre: "Comida y supermercado",   tipo: "salio", reparto: "mantenimiento" },
   casa:          { nombre: "Casa y servicios",        tipo: "salio", reparto: "mantenimiento" },
   transporte:    { nombre: "Transporte",              tipo: "salio", reparto: "mantenimiento" },
@@ -455,6 +461,9 @@ export const CATEGORIAS = {
   actividades:   { nombre: "Actividades de los chicos", tipo: "salio", reparto: "chicos" },
   personal:      { nombre: "Personal",                tipo: "salio", reparto: "personal" },
   otros:         { nombre: "Otros",                   tipo: "salio", reparto: "mantenimiento" },
+  vehiculos:     { nombre: "Vehículos (patente, seguro, arreglos)", tipo: "salio", reparto: "mantenimiento" },
+  impuestos:     { nombre: "Impuestos y tasas",       tipo: "salio", reparto: "mantenimiento" },
+  negocio_gasto: { nombre: "Gastos del negocio",      tipo: "salio", reparto: "negocio" },
 };
 
 export function validarMovimiento(m) {
@@ -474,7 +483,7 @@ export function disponible(movs, { desde = "", hasta = "9999" } = {}) {
     if (!m || !MONEDAS.includes(m.moneda) || !(Number(m.monto) > 0) || !esISO(m.fecha)) continue;
     if (m.fecha < desde || m.fecha > hasta) continue;
     const c = CATEGORIAS[m.categoria]; if (!c) continue;
-    const o = (out[m.moneda] = out[m.moneda] || { entro: 0, salio: 0, saldo: 0, mantenimiento: 0, chicos: 0, personal: 0 });
+    const o = (out[m.moneda] = out[m.moneda] || { entro: 0, salio: 0, saldo: 0, mantenimiento: 0, chicos: 0, personal: 0, negocio: 0 });
     const v = Number(m.monto);
     if (c.tipo === "entro") { o.entro += v; o.saldo += v; }
     else { o.salio += v; o.saldo -= v; o[c.reparto] += v; }
@@ -647,6 +656,10 @@ export const CLASES_MARCA = ["productivo", "chicos", "libre", "neutro"];
    menos le queda esa diferencia a favor. */
 export const UNIDADES_SALIDA = {
   dia:   { nombre: "Día entero",                 vale: 1 },
+  // nucleo-19 (8-oct): «si la salida es de toda la noche se cuenta el día».
+  // No reemplaza a la noche de ½ (salir a la noche y volver): es quedarse
+  // afuera hasta el otro día.
+  toda:  { nombre: "Toda la noche (no vuelve a dormir)", vale: 1 },
   noche: { nombre: "Noche (desde las 20)",       vale: 0.5 },
   rato:  { nombre: "Un rato de mañana o de tarde", vale: 0.25 },
 };
@@ -666,6 +679,7 @@ export function unidadDe(m) {
 export function marcaDeSalida({ uid, unidad, fecha, franja = "tarde", marcadoPor, nota = "" }) {
   const man = sumarDias(fecha, 1);
   const [desde, hasta] = unidad === "dia" ? [`${fecha}T07:00`, `${man}T07:00`]
+    : unidad === "toda" ? [`${fecha}T${HORA_NOCHE}`, `${man}T12:00`]
     : unidad === "noche" ? [`${fecha}T${HORA_NOCHE}`, `${man}T07:00`]
     : franja === "manana" ? [`${fecha}T07:00`, `${fecha}T13:00`] : [`${fecha}T13:00`, `${fecha}T${HORA_NOCHE}`];
   return { uid, clase: uid === "*" ? "neutro" : "libre", unidad, desde, hasta, origen: "salida", marcadoPor, nota: String(nota).slice(0, 120) };
@@ -1143,4 +1157,137 @@ export function parecidas(titulo, candidatas) {
     const p = comunes / Math.min(a.size, b.size);
     return p >= 0.6 ? { ...c, p } : null;
   }).filter(Boolean).sort((x, y) => y.p - x.p).slice(0, 4);
+}
+
+/* ── Las finanzas de la familia (nucleo-19, 8-oct-2026, tiempos:V9) ──────────
+   Mauro: «un control de gastos, para identificar el dinero que se ocupa en el
+   mantenimiento y en gastos personales… cruzando los tiempos de cada uno se
+   divide el sobrante… si uno produce y el otro se ocupa de los niños ese día,
+   el dinero es mitad y mitad del neto. Si uno sale y el otro no, la salida a
+   favor… si a fin de mes no se regulan las salidas, se resuelve en la división
+   de dinero». Y: «hay que establecer un estimativo de gastos anuales para
+   saber el prorrateo de la temporada y lo que sería dinero libre».
+
+   EL AÑO (presupuesto): cada gasto que se repite —la luz, la patente, la
+   cuota de la escuela— es un CONCEPTO con su monto por vez y cada cuántos
+   meses vence. Vive en `familia/presupuesto` (un mapa, para que dos teléfonos
+   no se pisen). Lo que cuesta el año, dividido 12, es la RESERVA del mes: lo
+   que hay que apartar todos los meses aunque ese mes no venza nada. Así un
+   negocio de temporada no parece rico en enero y pobre en junio.
+
+   EL REPARTO del mes, por moneda (nunca se suman monedas):
+     libre    = lo que entró − la reserva del mes
+     a cada uno, la mitad (producir y estar con los chicos pesan igual)
+     el valor de un día = libre ÷ los días del mes
+     las salidas no equiparadas: quien salió de más le pasa al otro
+       (días de diferencia × valor del día), nunca más que su mitad
+     y lo que cada uno gastó en lo PERSONAL ya lo retiró: se descuenta de su parte. */
+export const CADAS = { 1: "todos los meses", 2: "cada dos meses", 3: "cada tres meses", 6: "cada seis meses", 12: "una vez al año" };
+export const PAISES = { UY: "Uruguay", BR: "Brasil" };
+const mesNum = (mes) => Number(String(mes).slice(0, 4)) * 12 + Number(String(mes).slice(5, 7)) - 1;
+export const esMes = (x) => typeof x === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(x);
+export const sumarMeses = (mes, n) => { const t = mesNum(mes) + n; return `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, "0")}`; };
+export const diasDelMes = (mes) => new Date(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0).getDate();
+
+/* Un concepto bien formado, o por qué no. El monto 0 vale: «todavía sin estimar». */
+export function validarConcepto(c) {
+  const e = [];
+  if (!c || !String(c.nombre || "").trim()) e.push("falta el nombre");
+  if (!c || !(Number(c.monto) >= 0) || c.monto === "" || c.monto === null) e.push("el monto va en números (0 si todavía no sabés)");
+  if (!c || !MONEDAS.includes(c.moneda)) e.push("falta la moneda");
+  if (!c || !CATEGORIAS[c.categoria] || CATEGORIAS[c.categoria].tipo !== "salio") e.push("falta de qué es el gasto");
+  if (!c || !CADAS[c.cada]) e.push("falta cada cuánto vence");
+  if (!c || !(Number(c.mes) >= 1 && Number(c.mes) <= 12)) e.push("falta en qué mes vence");
+  if (c && c.total != null && c.total !== "" && !(Number(c.total) > 0)) e.push("el total de una deuda va en números");
+  return e;
+}
+
+/* ¿Vence este concepto en ese mes? `mes` (1-12) es un mes en que vence;
+   desde ahí, cada `cada` meses. `desde`/`hasta` (AAAA-MM) lo acotan. */
+export function vence(c, mes) {
+  if (!c || c.activo === false || !CADAS[c.cada] || !esMes(mes)) return false;
+  if (esMes(c.desde) && mes < c.desde) return false;
+  if (esMes(c.hasta) && mes > c.hasta) return false;
+  const m = Number(mes.slice(5, 7));
+  return (((m - Number(c.mes)) % c.cada) + c.cada) % c.cada === 0;
+}
+
+/* Lo que cuesta un concepto en un año. */
+export const anualDe = (c) => (c && c.activo !== false && CADAS[c.cada] ? Number(c.monto || 0) * 12 / c.cada : 0);
+
+/* El presupuesto del año, por moneda: total, lo que cuenta para el libre
+   (todo menos los gastos del negocio, que ya vienen descontados de su neto),
+   por categoría, y cuántos conceptos faltan estimar. */
+export function presupuestoAnual(conceptos) {
+  const out = {};
+  for (const [, c] of Object.entries(conceptos || {})) {
+    if (!c || c.activo === false || !MONEDAS.includes(c.moneda) || !CATEGORIAS[c.categoria]) continue;
+    const o = (out[c.moneda] = out[c.moneda] || { total: 0, enLibre: 0, porCategoria: {}, sinEstimar: 0 });
+    const a = anualDe(c);
+    o.total += a;
+    if (CATEGORIAS[c.categoria].reparto !== "negocio") o.enLibre += a;
+    o.porCategoria[c.categoria] = (o.porCategoria[c.categoria] || 0) + a;
+    if (!(Number(c.monto) > 0)) o.sinEstimar++;
+  }
+  for (const o of Object.values(out)) { o.total = redondo(o.total); o.enLibre = redondo(o.enLibre); o.reservaMes = redondo(o.enLibre / 12); }
+  return out;
+}
+const redondo = (n) => Math.round(n * 100) / 100;
+
+/* La grilla de la planilla: cada concepto, qué pasa en cada mes. */
+export function fijosDeMeses(conceptos, movs, meses) {
+  return Object.entries(conceptos || {}).filter(([, c]) => c && c.activo !== false)
+    .sort((a, b) => String(a[1].pais || "").localeCompare(String(b[1].pais || "")) || String(a[1].nombre).localeCompare(String(b[1].nombre)))
+    .map(([id, c]) => {
+      const pagos = (movs || []).filter((m) => m && m.fijo === id && Number(m.monto) > 0);
+      const celdas = meses.map((mes) => {
+        const pagado = redondo(pagos.filter((m) => String(m.fecha || "").slice(0, 7) === mes).reduce((t, m) => t + Number(m.monto), 0));
+        return { mes, toca: vence(c, mes), pagado };
+      });
+      const deuda = Number(c.total) > 0 ? { total: Number(c.total), queda: redondo(Math.max(0, Number(c.total) - pagos.reduce((t, m) => t + Number(m.monto), 0))) } : null;
+      return { id, ...c, celdas, deuda };
+    });
+}
+
+/* El reparto de UN mes. `salidas` es lo que devuelve `saldoSalidas` para ese
+   mes; `uids`, los dos. Devuelve, por moneda, todos los pasos de la cuenta:
+   la pantalla los muestra, porque un número sin su cuenta no se discute. */
+export function repartoDelMes({ movs = [], conceptos = {}, mes, uids = [], salidas = null } = {}) {
+  const desde = mes + "-01", hasta = mes + "-31";
+  const real = disponible(movs, { desde, hasta });
+  const pres = presupuestoAnual(conceptos);
+  const dias = diasDelMes(mes);
+  const personal = {};
+  for (const m of movs || []) {
+    if (!m || String(m.fecha || "").slice(0, 7) !== mes || (CATEGORIAS[m.categoria] || {}).reparto !== "personal" || !(Number(m.monto) > 0)) continue;
+    const k = m.moneda + "|" + m.uid;
+    personal[k] = (personal[k] || 0) + Number(m.monto);
+  }
+  const out = {};
+  for (const mon of new Set([...Object.keys(real), ...Object.keys(pres)])) {
+    const r = real[mon] || { entro: 0, mantenimiento: 0, chicos: 0, personal: 0 };
+    const p = pres[mon];
+    const sinPresupuesto = !p || !(p.reservaMes > 0);
+    // Sin presupuesto, la reserva es lo que de verdad se gastó en la casa y
+    // los chicos ese mes: es lo único que se sabe.
+    const reserva = sinPresupuesto ? redondo(r.mantenimiento + r.chicos) : p.reservaMes;
+    const libre = redondo(r.entro - reserva);
+    const valorDia = libre > 0 ? redondo(libre / dias) : 0;
+    const mitad = libre / (uids.length || 1);
+    const partes = Object.fromEntries(uids.map((u) => [u, mitad]));
+    let compensa = 0, deQuien = null, aQuien = null;
+    if (libre > 0 && salidas && salidas.aFavor && salidas.diferencia > 0 && uids.length === 2) {
+      aQuien = salidas.aFavor; deQuien = uids.find((u) => u !== aQuien);
+      compensa = redondo(Math.min(salidas.diferencia * valorDia, mitad));
+      partes[aQuien] += compensa; partes[deQuien] -= compensa;
+    }
+    const porPersona = {};
+    for (const u of uids) {
+      const gastoPersonal = redondo(personal[mon + "|" + u] || 0);
+      porPersona[u] = { parte: redondo(partes[u]), gastoPersonal, queda: redondo(partes[u] - gastoPersonal) };
+    }
+    out[mon] = { entro: redondo(r.entro), reserva, sinPresupuesto, gastoReal: redondo(r.mantenimiento + r.chicos),
+                 libre, dias, valorDia, compensa, deQuien, aQuien, diferenciaDias: salidas ? salidas.diferencia || 0 : 0, porPersona };
+  }
+  return out;
 }

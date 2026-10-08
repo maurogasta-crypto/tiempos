@@ -194,6 +194,17 @@ que «pizarra» es el lugar, nunca el título.
   (abajo de la Agenda) y ahí se les pone la dirección una vez. Todo vive en
   `agendas/{uid}`, que ve sólo su dueño; las direcciones van a la IA del plan
   para estimar el viaje, y ninguna entra al código.
+- **Las finanzas de la familia** (app-19, 8-oct-2026, `tiempos:V9`): Plata
+  tiene cuatro solapas. **Fijos** es la planilla —cada gasto que se repite, con
+  los meses al lado; tocar una casilla registra el pago—. **Año** son esos
+  gastos con su monto y cada cuánto vencen: lo que cuesta el año ÷ 12 es lo
+  que hay que apartar cada mes. **Reparto** muestra el libre del mes (lo que
+  entró menos esa reserva), la mitad de cada uno, lo que se compensa por las
+  salidas no equiparadas (días × libre ÷ días del mes) y lo que cada uno ya
+  gastó en lo personal; el cierre lo confirman los dos. Entran como ingreso
+  los honorarios y el neto de los negocios; los gastos del negocio se anotan
+  en el año pero no restan, porque ese neto ya los descontó. Toda la noche
+  afuera cuenta un día entero.
 - **Claude organiza mi agenda** (app-18, agenda-9, lugares-2, reglas v11,
   8-oct-2026): abajo de la Agenda, el interruptor «🤝 Claude organiza mi
   agenda». Encendido, Claude puede leer TU agenda y tus lugares, mover y
@@ -340,22 +351,23 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-18` |
-| `estado.js` | lo que comparten las vistas | `estado-2` |
-| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-18` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-19` |
+| `estado.js` | lo que comparten las vistas | `estado-3` |
+| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-19` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-1` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje, y el interruptor «Claude organiza mi agenda» | `lugares-2` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-7` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
 | `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-15` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-4` |
-| `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y las cuatro solapas | `plata-5` |
+| `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-1` |
+| `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-9` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-12` |
-| `sw.js` | el cascarón sin señal | `tiempos-27` |
+| `estilos.css` | | `estilos-13` |
+| `sw.js` | el cascarón sin señal | `tiempos-28` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v11 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

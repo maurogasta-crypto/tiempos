@@ -169,4 +169,21 @@ la documentación diga la verdad.
   el viaje de la alarma de salir. La ubicación del teléfono es aproximada, se
   pide al armar un plan y no se guarda.
 - **El reparto (`repartir`) no se muestra hasta que Mauro y Florencia lo
-  acuerden.** Está probado; mostrarlo es una decisión de ellos.
+  acuerden.** Está probado; mostrarlo es una decisión de ellos. **Desde app-19
+  lo que se muestra es otro reparto, el que Mauro definió el 8-oct**
+  (`repartoDelMes`): ver el punto siguiente. `repartir` (por carga) sigue
+  escrito y sin pantalla.
+- **Las finanzas de la familia** (app-19, nucleo-19, finanzas-1, 8-oct-2026,
+  `tiempos:V9`). Plata tiene cuatro solapas: Día a día, **Fijos** (la planilla:
+  cada gasto que se repite, mes por mes; pagar una casilla es un movimiento con
+  `fijo: <id>`), **Año** (los conceptos con su monto y cada cuánto vencen, en
+  `familia/presupuesto`) y **Reparto**. Las palabras de Mauro que mandan: libre
+  = lo que entró (honorarios de los dos + el neto de los negocios) − lo que
+  cuesta el año ÷ 12; mitad y mitad, porque producir y estar con los chicos
+  pesan igual; las salidas no equiparadas se pagan a días × (libre ÷ días del
+  mes), nunca más que la mitad de quien paga; lo personal de cada uno ya lo
+  retiró. **Los gastos del negocio no restan**: el neto de un negocio llega ya
+  descontado. Toda la noche afuera vale 1 día (`toda`); la noche que vuelve,
+  ½. El cierre lo confirma cada uno con una huella de los números
+  (`familia/repartos`); si después cambia algo, pide confirmar de nuevo. Todo
+  en `familia/` como mapas: no hizo falta regla nueva.

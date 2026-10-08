@@ -21,7 +21,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
-         paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas } from "./nucleo.js";
+         paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas,
+         CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -984,6 +985,121 @@ prueba("en la agenda no se guarda una actividad sin clase", () => {
   const ag = fs.readFileSync("agenda.js", "utf8");
   assert.ok(/if \(!CLASES_ACTIVIDAD\[tipo\]\) return aviso/.test(ag));
   assert.ok(/type="radio" name="tipo"[^>]*required/.test(ag));
+});
+
+titulo("nucleo-19 · app-19: las finanzas de la familia (tiempos:V9, 8-oct)");
+const LUZ = { nombre: "Luz", categoria: "casa", monto: 3000, moneda: "UYU", cada: 1, mes: 1, pais: "UY" };
+const PATENTE = { nombre: "Patente", categoria: "vehiculos", monto: 6000, moneda: "UYU", cada: 3, mes: 1, pais: "UY" };
+const SEGURO = { nombre: "Seguro", categoria: "vehiculos", monto: 24000, moneda: "UYU", cada: 12, mes: 3 };
+const LOCAL = { nombre: "Alquiler del local", categoria: "negocio_gasto", monto: 1000, moneda: "UYU", cada: 1, mes: 1 };
+prueba("un concepto: nombre, de qué gasto, monto (0 = sin estimar), moneda, cada cuánto y desde qué mes", () => {
+  assert.deepEqual(validarConcepto(LUZ), []);
+  assert.deepEqual(validarConcepto({ ...LUZ, monto: 0 }), []);
+  assert.ok(validarConcepto({ ...LUZ, monto: "" }).length);
+  assert.ok(validarConcepto({ ...LUZ, categoria: "honorarios" }).length, "un ingreso no es un gasto del año");
+  assert.ok(validarConcepto({ ...LUZ, cada: 5 }).length);
+  assert.ok(validarConcepto({ ...LUZ, mes: 13 }).length);
+  assert.ok(validarConcepto({ ...LUZ, moneda: "EUR" }).length);
+  assert.ok(validarConcepto({ ...LUZ, total: -1 }).length);
+});
+prueba("vence: todos los meses, cada tres desde enero, una vez al año en marzo; y respeta desde/hasta y pausado", () => {
+  assert.ok(vence(LUZ, "2026-10"));
+  assert.deepEqual(["2026-01", "2026-02", "2026-04", "2026-10", "2026-11"].map((m) => vence(PATENTE, m)), [true, false, true, true, false]);
+  assert.deepEqual(["2026-03", "2027-03", "2026-04"].map((m) => vence(SEGURO, m)), [true, true, false]);
+  assert.ok(!vence({ ...LUZ, hasta: "2026-09" }, "2026-10"));
+  assert.ok(!vence({ ...LUZ, desde: "2026-11" }, "2026-10"));
+  assert.ok(!vence({ ...LUZ, activo: false }, "2026-10"));
+});
+prueba("el año: cada concepto cuesta monto × 12 / cada, y la reserva del mes es el año ÷ 12 SIN el negocio", () => {
+  assert.equal(anualDe(LUZ), 36000); assert.equal(anualDe(PATENTE), 24000); assert.equal(anualDe(SEGURO), 24000);
+  const p = presupuestoAnual({ a: LUZ, b: PATENTE, c: SEGURO, d: LOCAL, e: { ...LUZ, monto: 0 }, f: { ...LUZ, moneda: "BRL", monto: 100 } });
+  assert.equal(p.UYU.total, 96000);
+  assert.equal(p.UYU.enLibre, 84000, "los gastos del negocio ya salen de su neto");
+  assert.equal(p.UYU.reservaMes, 7000);
+  assert.equal(p.UYU.sinEstimar, 1);
+  assert.equal(p.BRL.total, 1200, "cada moneda es un sistema aparte");
+});
+prueba("la planilla: qué se pagó cada mes, qué toca, y cuánto queda de una deuda", () => {
+  const ESC = { nombre: "Deuda escuela", categoria: "chicos", monto: 5000, moneda: "UYU", cada: 1, mes: 1, total: 20000 };
+  const movs = [{ fijo: "luz", monto: 2900, fecha: "2026-10-05" }, { fijo: "esc", monto: 5000, fecha: "2026-09-10" }, { fijo: "esc", monto: 5000, fecha: "2026-10-10" }];
+  const f = fijosDeMeses({ luz: LUZ, esc: ESC, pat: PATENTE }, movs, ["2026-09", "2026-10", "2026-11"]);
+  const luz = f.find((x) => x.id === "luz"), esc_ = f.find((x) => x.id === "esc"), pat = f.find((x) => x.id === "pat");
+  assert.deepEqual(luz.celdas.map((c) => [c.toca, c.pagado]), [[true, 0], [true, 2900], [true, 0]]);
+  assert.deepEqual(pat.celdas.map((c) => c.toca), [false, true, false]);
+  assert.deepEqual(esc_.deuda, { total: 20000, queda: 10000 });
+});
+prueba("sumarMeses y diasDelMes cruzan el año y saben de febrero", () => {
+  assert.equal(sumarMeses("2026-12", 1), "2027-01"); assert.equal(sumarMeses("2026-01", -1), "2025-12");
+  assert.equal(diasDelMes("2026-02"), 28); assert.equal(diasDelMes("2028-02"), 29); assert.equal(diasDelMes("2026-10"), 31);
+});
+const MOVS_OCT = [
+  { categoria: "honorarios", monto: 50000, moneda: "UYU", fecha: "2026-10-05", uid: "m" },
+  { categoria: "honorarios", monto: 30000, moneda: "UYU", fecha: "2026-10-06", uid: "f" },
+  { categoria: "negocio", monto: 13000, moneda: "UYU", fecha: "2026-10-30", uid: "m" },
+  { categoria: "casa", monto: 2900, moneda: "UYU", fecha: "2026-10-05", uid: "m" },
+  { categoria: "personal", monto: 4000, moneda: "UYU", fecha: "2026-10-12", uid: "f" },
+  { categoria: "honorarios", monto: 99999, moneda: "UYU", fecha: "2026-09-30", uid: "m" },     // otro mes
+];
+prueba("el reparto: libre = entró − la reserva del año; mitad y mitad si las salidas están parejas", () => {
+  const r = repartoDelMes({ movs: MOVS_OCT, conceptos: { a: LUZ, b: PATENTE, c: SEGURO, d: LOCAL }, mes: "2026-10", uids: ["m", "f"], salidas: { aFavor: null, diferencia: 0 } }).UYU;
+  assert.equal(r.entro, 93000); assert.equal(r.reserva, 7000); assert.equal(r.libre, 86000);
+  assert.equal(r.porPersona.m.parte, 43000); assert.equal(r.porPersona.f.parte, 43000);
+  assert.equal(r.gastoReal, 2900, "lo gastado de verdad se muestra al lado, como control");
+});
+prueba("lo personal ya lo retiró: se descuenta de SU parte y no de la del otro", () => {
+  const r = repartoDelMes({ movs: MOVS_OCT, conceptos: { a: LUZ }, mes: "2026-10", uids: ["m", "f"] }).UYU;
+  assert.equal(r.porPersona.f.gastoPersonal, 4000); assert.equal(r.porPersona.f.queda, r.porPersona.f.parte - 4000);
+  assert.equal(r.porPersona.m.gastoPersonal, 0);
+});
+prueba("salidas no equiparadas: quien salió de más le pasa al otro días × (libre ÷ días del mes)", () => {
+  const r = repartoDelMes({ movs: MOVS_OCT, conceptos: { a: LUZ, b: PATENTE, c: SEGURO, d: LOCAL }, mes: "2026-10", uids: ["m", "f"], salidas: { aFavor: "f", diferencia: 1.5 } }).UYU;
+  assert.equal(r.valorDia, Math.round(86000 / 31 * 100) / 100);
+  assert.equal(r.compensa, Math.round(1.5 * r.valorDia * 100) / 100);
+  assert.equal(r.aQuien, "f"); assert.equal(r.deQuien, "m");
+  assert.equal(Math.round((r.porPersona.f.parte - r.porPersona.m.parte) * 100) / 100, Math.round(2 * r.compensa * 100) / 100);
+  assert.equal(Math.round((r.porPersona.f.parte + r.porPersona.m.parte) * 100) / 100, 86000, "no se inventa ni se pierde plata");
+});
+prueba("la compensación nunca pasa la mitad de quien paga, y sin libre no hay nada que compensar", () => {
+  const r = repartoDelMes({ movs: MOVS_OCT, conceptos: {}, mes: "2026-10", uids: ["m", "f"], salidas: { aFavor: "f", diferencia: 40 } }).UYU;
+  assert.equal(r.porPersona.m.parte, 0);
+  const s = repartoDelMes({ movs: [{ categoria: "casa", monto: 500, moneda: "UYU", fecha: "2026-10-01", uid: "m" }], conceptos: {}, mes: "2026-10", uids: ["m", "f"], salidas: { aFavor: "f", diferencia: 2 } }).UYU;
+  assert.ok(s.libre < 0); assert.equal(s.compensa, 0); assert.equal(s.valorDia, 0);
+});
+prueba("sin gastos del año cargados, la reserva es lo gastado en la casa y los chicos, y se dice", () => {
+  const r = repartoDelMes({ movs: MOVS_OCT, conceptos: {}, mes: "2026-10", uids: ["m", "f"] }).UYU;
+  assert.equal(r.sinPresupuesto, true); assert.equal(r.reserva, 2900);
+});
+prueba("las monedas no se mezclan en el reparto", () => {
+  const r = repartoDelMes({ movs: [...MOVS_OCT, { categoria: "ingreso", monto: 100, moneda: "BRL", fecha: "2026-10-02", uid: "m" }], conceptos: { a: LUZ }, mes: "2026-10", uids: ["m", "f"] });
+  assert.equal(r.BRL.entro, 100); assert.equal(r.UYU.entro, 93000);
+});
+prueba("toda la noche afuera vale un día; la noche que vuelve sigue valiendo ½", () => {
+  assert.equal(UNIDADES_SALIDA.toda.vale, 1); assert.equal(UNIDADES_SALIDA.noche.vale, 0.5);
+  const t = marcaDeSalida({ uid: "m", unidad: "toda", fecha: "2026-10-10", marcadoPor: "m" });
+  assert.equal(t.desde, "2026-10-10T20:00"); assert.equal(t.hasta, "2026-10-11T12:00"); assert.deepEqual(validarMarca(t, ["m"]), []);
+  const r = saldoSalidas([{ ...t, id: "x" }], ["m", "f"]);
+  assert.equal(r.por.m.dias, 1);
+});
+prueba("las categorías nuevas: honorarios y neto del negocio entran; vehículos e impuestos son mantenimiento; el negocio no resta", () => {
+  assert.equal(CATEGORIAS.honorarios.tipo, "entro"); assert.equal(CATEGORIAS.negocio.tipo, "entro");
+  assert.equal(CATEGORIAS.vehiculos.reparto, "mantenimiento"); assert.equal(CATEGORIAS.impuestos.reparto, "mantenimiento");
+  assert.equal(CATEGORIAS.negocio_gasto.reparto, "negocio");
+  const d = disponible([{ categoria: "negocio_gasto", monto: 10, moneda: "UYU", fecha: "2026-10-01" }]);
+  assert.equal(d.UYU.negocio, 10); assert.equal(d.UYU.mantenimiento, 0);
+});
+prueba("la pantalla: el presupuesto y los repartos van en familia/ (mapas), el pago de un fijo es un movimiento con `fijo`", () => {
+  const fz = fs.readFileSync("finanzas.js", "utf8"), app = fs.readFileSync("app.js", "utf8"), sw = fs.readFileSync("sw.js", "utf8");
+  assert.match(fz, /F\.doc\(db, "familia", "presupuesto"\),\s*\{ conceptos: \{ \[id\]: datos \}/);
+  assert.match(fz, /F\.doc\(db, "familia", "repartos"\)/);
+  assert.match(fz, /fijo: id, automatico: null, comprobanteUrl: null,\s*origen: "fijo"/);
+  assert.ok(!/F\.(collection|doc)\(db, "(?!familia|movimientos)/.test(fz), "finanzas.js no escribe en otra colección");
+  assert.match(app, /F\.doc\(db, "familia", "presupuesto"\)/); assert.match(sw, /"finanzas\.js"/);
+});
+prueba("las reglas de movimientos ya aceptan el pago de un fijo (monto > 0, moneda, categoría, fecha)", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  const mv = /match \/movimientos\/\{id\} \{([\s\S]*?)\n    \}/.exec(r)[1];
+  assert.ok(!/hasOnly/.test(mv), "un campo nuevo (`fijo`) no lo rechaza la regla");
+  assert.match(r, /match \/familia\/\{doc\} \{\s*allow read, create, update: if esPersona\(\) \|\| esAgente\(\);/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

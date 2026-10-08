@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-18
+// Sello: app-19
 //
 // app-16 (7-oct-2026, tiempos:V7): la primera solapa es PIZARRA (pizarra.js):
 // anotar rápido, lo que espera una decisión, la pizarra del teléfono con una
@@ -182,6 +182,13 @@ function escucharFamilia() {
   F.onSnapshot(F.doc(db, "familia", "compras"), (d) => {
     E.compras = d.exists() ? d.data() : {}; pintar();
   }, mal("la lista de compras"));
+  // app-19 (tiempos:V9): los gastos del año y los repartos de cada mes.
+  F.onSnapshot(F.doc(db, "familia", "presupuesto"), (d) => {
+    E.conceptos = (d.exists() && d.data().conceptos) || {}; pintar();
+  }, mal("los gastos del año"));
+  F.onSnapshot(F.doc(db, "familia", "repartos"), (d) => {
+    E.repartos = d.exists() ? d.data() : {}; pintar();
+  }, mal("los repartos"));
   F.onSnapshot(F.collection(db, "turnos"), (s) => {
     E.turnos = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); pintar();
   }, mal("los turnos"));

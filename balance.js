@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// balance.js — El balance del tiempo, los acuerdos y la auditoría. Sello: balance-3
+// balance.js — El balance del tiempo, los acuerdos y la auditoría. Sello: balance-4
 //
 // BALANCE    cuánta carga tuvo cada uno y cuánto tiempo liberado gastó, con la
 //            regla del 29-sep (`balanceTiempo` en nucleo.js). Lo que cuenta es
@@ -45,7 +45,7 @@ export function pintarBalance() {
   if (mias.length) h += `<h2>¿Se cumplió? (${mias.length})</h2>` + mias.map((b) => bloqueHTML(b, true)).join("");
   h += `<div id="bal-cuerpo"><p class="gris">Sumando…</p></div>`;
   h += `<h2>Salidas</h2>${saldoHTML()}
-    <p class="gris">Se cuentan en días: una noche (desde las 20, sin marcar la vuelta) es ½, un día entero 1, un rato de mañana o de tarde ¼. Cualquiera marca la suya o la del otro. Salir juntos es neutro, y si los dos marcan la misma salida cuenta una vez. Sólo acumula si ese día estaban los chicos.</p>`;
+    <p class="gris">Se cuentan en días: una noche (desde las 20, sin marcar la vuelta) es ½, toda la noche afuera (no vuelve a dormir) o un día entero 1, un rato de mañana o de tarde ¼. Lo que no se equipara en el mes se compensa en plata (Plata → Reparto). Cualquiera marca la suya o la del otro. Salir juntos es neutro, y si los dos marcan la misma salida cuenta una vez. Sólo acumula si ese día estaban los chicos.</p>`;
   h += formSalida ? formSalidaHTML() : `<button class="mini" data-nueva-salida>＋ Salida</button>`;
   const salidas = (E.marcas || []).filter((m) => m.origen !== "agenda" || m.uid === E.yo.uid)
     .sort((a, b) => String(b.desde).localeCompare(String(a.desde))).slice(0, 15);
@@ -145,12 +145,20 @@ function rango() {
   return { desde: d, hasta: `${m === 12 ? a + 1 : a}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01` };
 }
 const fmtDias = (x) => { const n = Math.round(x * 4) / 4; return (n === 1 ? "1 día" : String(n).replace(".", ",") + " días"); };
-function saldoHTML() {
-  // Si nunca se cargó con quién están los chicos, no se descuenta nada por
-  // «no estaban»: sin el dato, se supone que estaban.
+// Si nunca se cargó con quién están los chicos, no se descuenta nada por
+// «no estaban»: sin el dato, se supone que estaban.
+function conChicosFn() {
   const hayDato = Object.keys(E.familia.patron || {}).length || Object.keys(E.turnos || {}).length;
-  const conChicos = hayDato ? (d) => Object.keys(chicosDelDia(d, E.familia.patron, E.turnos)).length > 0 : null;
-  const r = saldoSalidas(E.marcas, uids(), { ...rango(), conChicos });
+  return hayDato ? (d) => Object.keys(chicosDelDia(d, E.familia.patron, E.turnos)).length > 0 : null;
+}
+/** balance-4 (tiempos:V9): las salidas de un mes (AAAA-MM), para el reparto de la plata. */
+export function salidasDelMes(mes) {
+  const [a, m] = mes.split("-").map(Number);
+  const hasta = `${m === 12 ? a + 1 : a}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01`;
+  return saldoSalidas(E.marcas, uids(), { desde: mes + "-01", hasta, conChicos: conChicosFn() });
+}
+function saldoHTML() {
+  const r = saldoSalidas(E.marcas, uids(), { ...rango(), conChicos: conChicosFn() });
   const filas = personas().map((p) => {
     const x = r.por[p.id] || { dias: 0, salidas: [] };
     return `<div class="barra-fila"><span>${esc(p.nombre)}</span><b class="num">${fmtDias(x.dias)}</b>
