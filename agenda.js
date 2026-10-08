@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-7
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-8
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -24,7 +24,7 @@
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, eventosDelDia,
-         grillaDelMes, MESES, cuentaDelDia, DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado,
+         grillaDelMes, MESES, cuentaDelDia, parecidas, DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado,
          CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
@@ -156,11 +156,75 @@ export function alternarEnAgenda(clave) {
 function candidatas() {
   const { porId } = arbol(E.tareas);
   const fam = E.tareas.filter((t) => !t.hecho).map((t) => ({
-    clave: "f:" + t.id, titulo: t.titulo, origen: "familia", color: colorHeredado(t, porId) || TIPOS[tipoHeredado(t, porId)].color,
+    clave: "f:" + t.id, titulo: t.titulo, origen: "familia", cat: tipoHeredado(t, porId), color: colorHeredado(t, porId) || TIPOS[tipoHeredado(t, porId)].color,
     mia: (t.encargados || []).includes(E.yo.uid) || t.alcance === "personal", meta: !!t.meta }));
-  const cv = (E.cvActs || []).map((a) => ({ clave: "cv:" + a.id, titulo: a.titulo || "(sin título)",
+  const cv = (E.cvActs || []).map((a) => ({ clave: "cv:" + a.id, titulo: a.titulo || "(sin título)", cat: "casaverde",
     origen: "casaverde", color: TIPOS.produccion.color, mia: (a.competencias || []).includes(E.cv && E.cv.uid) }));
   return [...fam, ...cv];
+}
+
+/* ── El ＋ de cada día (agenda-8, 8-oct-2026, tiempos:V7) ──────────────────
+   Mauro: «un pequeño + en cada día que me abra una lista desplegable con todas
+   las opciones agrupadas por categoría, o agregar una nueva; escribir la
+   actividad tiene que ser la primera opción; al agregar, revisar que no exista
+   ya: si existe, me pregunta si es la misma o si agrega una nueva». Una nueva
+   es una tarea (de su categoría; «Personal» la ve sólo uno) puesta en ese día. */
+let hoja = null;                // { dia, texto, cat, dudas: null | [parecidas] }
+const NOMBRE_CAT = (k) => k === "casaverde" ? "Casa Verde" : (TIPOS[k] || {}).nombre || k;
+function pintarHoja() {
+  let h = $("hoja-agenda");
+  if (!hoja) { if (h) h.remove(); return; }
+  if (!h) { h = Object.assign(document.createElement("div"), { id: "hoja-agenda", className: "hoja" }); document.body.append(h); }
+  const enAgenda = agendaUnida();
+  const todas = candidatas().filter((x) => !(x.clave in enAgenda) || !enAgenda[x.clave].dia);
+  const grupos = {};
+  for (const x of todas) (grupos[x.cat] = grupos[x.cat] || []).push(x);
+  const cats = [...Object.keys(TIPOS), "casaverde"].filter((k) => grupos[k]);
+  const fecha = `${DIAS[new Date(hoja.dia + "T12:00").getDay()]} ${Number(hoja.dia.slice(8))}/${Number(hoja.dia.slice(5, 7))}`;
+  h.innerHTML = `<div class="hoja-caja"><div class="hoja-cab"><b>Agregar al ${esc(fecha)}</b><button class="mas" data-h-cerrar aria-label="Cerrar">✕</button></div>
+    <form class="ficha" data-h-nueva>
+      <label>Escribí la actividad <input name="texto" maxlength="120" value="${esc(hoja.texto)}" placeholder="Ej.: llevar el auto al taller" autofocus></label>
+      <div class="tira">${Object.entries(TIPOS).map(([k, t]) => `<button type="button" class="mini${hoja.cat === k ? " on" : ""}" data-h-cat="${k}">${esc(t.nombre)}</button>`).join("")}</div>
+      ${hoja.dudas ? `<div class="tarjeta chica"><b>¿Es alguna de éstas?</b>${hoja.dudas.map((x) => `<div class="fila"><span class="txt">${esc(x.titulo)} <small class="gris">${esc(NOMBRE_CAT(x.cat))}</small></span><button type="button" class="mini" data-h-poner="${esc(x.clave)}">Sí, ésta</button></div>`).join("")}
+        <button type="button" class="boton sec" data-h-forzar>No, agregar una nueva</button></div>`
+        : `<div class="botones"><button class="boton">Agregar</button></div>`}
+    </form>
+    <h3>O elegí de lo que ya tenés</h3>
+    ${cats.length ? cats.map((k) => `<details${grupos[k].length <= 6 ? " open" : ""}><summary>${esc(NOMBRE_CAT(k))} <small class="gris">${grupos[k].length}</small></summary>
+      ${grupos[k].map((x) => `<button type="button" class="fila-elegir boton-fila" data-h-poner="${esc(x.clave)}">${esc(x.titulo)}${x.mia ? " <small class=\"gris\">· tuya</small>" : ""}</button>`).join("")}</details>`).join("")
+      : `<p class="gris">No hay nada pendiente sin día.</p>`}
+  </div>`;
+  const f = h.querySelector("[data-h-nueva]");
+  const leer = () => { hoja.texto = f.texto.value; };
+  f.texto.oninput = leer;   // si la base repinta mientras escribe, no se pierde lo escrito
+  h.onclick = (ev) => { if (ev.target === h) { hoja = null; pintarHoja(); } };
+  h.querySelector("[data-h-cerrar]").onclick = () => { hoja = null; pintarHoja(); };
+  for (const b of h.querySelectorAll("[data-h-cat]")) b.onclick = () => { leer(); hoja.cat = b.dataset.hCat; pintarHoja(); };
+  for (const b of h.querySelectorAll("[data-h-poner]")) b.onclick = () => {
+    const dia = hoja.dia; hoja = null; pintarHoja();
+    guardarEnAgenda(b.dataset.hPoner, { dia }).then(() => aviso("Agendada.")).catch(fallo);
+  };
+  const forzar = h.querySelector("[data-h-forzar]");
+  if (forzar) forzar.onclick = () => { leer(); crearYPoner(); };
+  f.onsubmit = (ev) => {
+    ev.preventDefault(); leer();
+    if (!hoja.texto.trim()) return aviso("Escribí la actividad.", true);
+    const p = parecidas(hoja.texto, candidatas());
+    if (p.length) { hoja.dudas = p; pintarHoja(); return; }
+    crearYPoner();
+  };
+}
+async function crearYPoner() {
+  const { texto, cat, dia } = hoja;
+  const personal = cat === "personal";
+  try {
+    const r = await F.addDoc(F.collection(db, "tareas"), {
+      titulo: texto.trim().slice(0, 120), parentId: null, tipo: cat, alcance: personal ? "personal" : "comun",
+      duenio: E.yo.uid, hecho: false, encargados: [E.yo.uid], meta: null, detalle: "", creadoEn: F.serverTimestamp() });
+    hoja = null; pintarHoja();
+    await guardarEnAgenda("f:" + r.id, { dia });
+    aviso("Agregada y agendada.");
+  } catch (e) { fallo(e); }
 }
 
 function pintarMesAgenda(v) {
@@ -205,6 +269,7 @@ export function pintarAgenda() {
     const chicos = chicosDelDia(d, E.familia.patron, E.turnos);
     const evs = eventosDelDia(d, E.eventos);
     h += `<div class="dia${d === E.hoy ? " es-hoy" : ""}"><h3><span class="num">${Number(d.slice(8))}</span> ${DIAS[new Date(d + "T12:00").getDay()]}${d === E.hoy ? " · hoy" : ""}
+      <button class="mini agregar-dia" data-agregar-dia="${d}" title="Agregar a este día">＋</button>
       <span class="marcas">${marcasChicos(chicos)}</span></h3>`;
     // Los acuerdos de tiempo que tocan el día («Mauro trabaja afuera»): los
     // ven los dos, y no se arrastran.
@@ -219,12 +284,10 @@ export function pintarAgenda() {
     }
     h += `</div>`;
   }
-  // Para agendar: primero lo que tomé yo y las metas; después el resto.
-  const fuera = todas.filter((x) => !(x.clave in agenda)).sort((a, b) => Number(b.mia) - Number(a.mia) || Number(b.meta) - Number(a.meta));
-  h += `<h2>Para agendar</h2>${fuera.length ? fuera.slice(0, 60).map((x) => `<div class="fila"><button class="mini" data-poner="${esc(x.clave)}">＋</button>
-      <span class="txt">${esc(x.titulo)} <small class="gris">${x.origen === "casaverde" ? "Casa Verde" : "familia"}${x.mia ? " · tuya" : ""}${x.meta ? " · ★ meta" : ""}</small></span></div>`).join("")
-    : `<p class="gris">Todo lo pendiente ya está en tu agenda.</p>`}
-    <p class="gris">Tocá ＋ y queda flotando en hoy; arrastrala del ⠿ al día y la franja que quieras. Tu agenda la ves sólo vos.</p>`;
+  // agenda-8 (8-oct-2026, Mauro): lo de «Para agendar» ya no es una lista fija:
+  // el ＋ de cada día abre una hoja con «escribí la actividad» primero y todo
+  // lo que hay, agrupado por categoría (hojaAgregar).
+  h += `<p class="gris">Tocá ＋ al lado de un día para agregarle algo: escribís una actividad nueva o elegís de lo que ya tenés. Arrastrala del ⠿ para moverla. Tu agenda la ves sólo vos.</p>`;
   v.innerHTML = h;
   pintarLugares(v);
 
@@ -240,7 +303,8 @@ export function pintarAgenda() {
   for (const f of v.querySelectorAll("[data-mover-form]")) f.onsubmit = (ev) => { ev.preventDefault(); moverActividad(f.dataset.moverForm, f); };
   const fa = v.querySelector("#form-actividad");
   if (fa) fa.onsubmit = (ev) => { ev.preventDefault(); guardarActividad(fa); };
-  for (const b of v.querySelectorAll("[data-poner]")) b.onclick = () => guardarEnAgenda(b.dataset.poner, {}).catch(fallo);
+  for (const b of v.querySelectorAll("[data-agregar-dia]")) b.onclick = () => { hoja = { dia: b.dataset.agregarDia, texto: "", cat: "personal", dudas: null }; pintarHoja(); };
+  if (hoja) pintarHoja();
   for (const b of v.querySelectorAll("[data-editar]")) b.onclick = () => { editando = editando === b.dataset.editar ? null : b.dataset.editar; repintar(); };
   for (const b of v.querySelectorAll("[data-ed-ok]")) b.onclick = () => {
     const c = b.dataset.edOk, caja = b.closest(".pas-ed");

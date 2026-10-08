@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-17
+// Sello: nucleo-18
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1121,4 +1121,26 @@ export function lugaresParaIA(lugares, casas, pais) {
   const casa = pais && (casas || {})[pais];
   if (casa) out.casa = { pais: PAISES_CASA[pais] || pais, direccion: String(casa).slice(0, 160) };
   return out;
+}
+
+/* ── ¿Ya existe? (nucleo-18, 8-oct-2026, tiempos:V7) ───────────────────────
+   Mauro: «cuando le doy a agregar, revisar que esa tarea no existe ya en mi
+   lista; si existe, me pregunta si es la misma o si agrega una nueva». Se
+   compara por palabras con sentido (sin acentos, sin «el», «de», «para»…):
+   las que comparten la mayoría de las palabras de la más corta se ofrecen. */
+const VACIAS = new Set(["el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del", "a", "al", "en", "y", "o", "para", "por", "con", "que", "se", "mi", "mis", "su", "sus", "lo"]);
+export const palabrasDe = (t) => sinAcentoN(t).split(/[^a-z0-9ñ]+/).filter((w) => w.length > 1 && !VACIAS.has(w))
+  .map((w) => w.length > 4 ? w.replace(/(es|s)$/, "") : w);
+function sinAcentoN(t) { return String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+/** Las candidatas parecidas a `titulo`, la más parecida primero (hasta 4). */
+export function parecidas(titulo, candidatas) {
+  const a = new Set(palabrasDe(titulo));
+  if (!a.size) return [];
+  return (candidatas || []).map((c) => {
+    const b = new Set(palabrasDe(c.titulo));
+    if (!b.size) return null;
+    let comunes = 0; for (const w of a) if (b.has(w)) comunes++;
+    const p = comunes / Math.min(a.size, b.size);
+    return p >= 0.6 ? { ...c, p } : null;
+  }).filter(Boolean).sort((x, y) => y.p - x.p).slice(0, 4);
 }

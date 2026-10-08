@@ -8,7 +8,7 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | App | https://maurogasta-crypto.github.io/tiempos/ |
 | Base | Firebase `tiempos-71d42` (la de la familia) · y `casaverde-20` por el código de Casa Verde |
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
-| Banco | `node pruebas.mjs` (138 casos, sin npm, sin red) |
+| Banco | `node pruebas.mjs` (140 casos, sin npm, sin red) |
 
 ## Qué hace (app-16)
 
@@ -181,6 +181,12 @@ que «pizarra» es el lugar, nunca el título.
   para corregir.
   Y desde `nucleo-16`: «el miércoles» dictado un miércoles después de la
   hora es el de la **semana que viene**, no hoy ni mañana (`diasHastaSiPaso`).
+- **El ＋ de cada día** (agenda-8, 8-oct-2026): al lado de cada día de la
+  Agenda abre una hoja: primero «Escribí la actividad» con su categoría, y
+  abajo todo lo que ya tenés sin día, agrupado por categoría. Al agregar una
+  nueva, la app busca si ya existe una parecida (`parecidas`, por palabras) y
+  pregunta «¿Es alguna de éstas?» o «No, agregar una nueva». La lista fija
+  «Para agendar» ya no está.
 - **Mis lugares** (lugares-1, nucleo-17, 7-oct-2026): al armar un plan la
   app pide la ubicación APROXIMADA del teléfono —no se guarda— para saber si
   estás en Uruguay o en Brasil, y elige tu casa de ese país como punto de
@@ -325,7 +331,7 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-17` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-18` |
 | `estado.js` | lo que comparten las vistas | `estado-2` |
 | `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-17` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-1` |
@@ -336,11 +342,11 @@ Florencia la acuerden.
 | `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-15` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-4` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
-| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-7` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-8` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-11` |
-| `sw.js` | el cascarón sin señal | `tiempos-25` |
+| `estilos.css` | | `estilos-12` |
+| `sw.js` | el cascarón sin señal | `tiempos-26` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v10 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-11
+/* estilos.css — Tiempos. Sello: estilos-12
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -231,3 +231,8 @@ fieldset.clases legend { font-size:.85rem; }
 .fila-piz input { width:1.3rem; height:1.3rem; }
 .fila-elegir { padding:.45rem 0; border-bottom:1px solid var(--linea); }
 #v-pizarra textarea { width:100%; font-size:1.05rem; }
+/* agenda-8: el ＋ de cada día y su hoja. */
+.agregar-dia { margin-left:.4rem; padding:.1rem .55rem; }
+.boton-fila { display:block; width:100%; text-align:left; background:none; border:0; border-bottom:1px solid var(--linea); color:inherit; padding:.6rem .2rem; font:inherit; }
+#hoja-agenda details { margin:.3rem 0; }
+#hoja-agenda summary { cursor:pointer; padding:.4rem 0; font-weight:600; }

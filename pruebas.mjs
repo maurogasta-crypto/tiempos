@@ -21,7 +21,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
-         paisDe, lugarNuevo, lugaresParaIA, claveLugar } from "./nucleo.js";
+         paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -423,6 +423,26 @@ prueba("las direcciones viven en agendas/{uid} (sólo su dueño), y la ubicació
   assert.ok(!/F\.(collection|doc)\(db, "(?!agendas)/.test(l), "ninguna otra colección");
   assert.ok(!/latitude[^\n]*(setDoc|guardar)/.test(l), "la ubicación no se guarda");
   assert.match(fs.readFileSync("firestore.rules", "utf8"), /match \/agendas\/\{uid\} \{\s*allow read, write: if esPersona\(\) && request\.auth\.uid == uid;/);
+});
+
+titulo("nucleo-18 · agenda-8: el ＋ de cada día y «¿ya existe?» (8-oct)");
+prueba("«¿ya existe?»: por palabras con sentido, sin acentos ni plurales; lo distinto no aparece", () => {
+  const c = [{ titulo: "Dentista Flor" }, { titulo: "Odontólogo" }, { titulo: "Baja del auto" }, { titulo: "Tornillos 5x50" }];
+  assert.deepEqual(parecidas("odontologo", c).map((x) => x.titulo), ["Odontólogo"]);
+  assert.deepEqual(parecidas("dar de baja el auto", c).map((x) => x.titulo), ["Baja del auto"]);
+  assert.deepEqual(parecidas("comprar tornillo 5x50", c).map((x) => x.titulo), ["Tornillos 5x50"]);
+  assert.deepEqual(parecidas("pintar la casa", c), []);
+  assert.deepEqual(parecidas("de la", c), []);
+});
+prueba("el ＋ de un día: escribir primero, preguntar si ya existe, y agendar en ESE día", () => {
+  const a = fs.readFileSync("agenda.js", "utf8");
+  const h = a.slice(a.indexOf("function pintarHoja"), a.indexOf("function pintarMesAgenda"));
+  assert.ok(h.indexOf("Escribí la actividad") < h.indexOf("O elegí de lo que ya tenés"), "escribir va primero");
+  assert.match(h, /parecidas\(hoja\.texto, candidatas\(\)\)/);
+  assert.match(h, /No, agregar una nueva/);
+  assert.match(h, /guardarEnAgenda\("f:" \+ r\.id, \{ dia \}\)/);
+  assert.match(a, /data-agregar-dia="\$\{d\}"/);
+  assert.ok(!/<h2>Para agendar<\/h2>/.test(a), "ya no hay lista fija");
 });
 
 titulo("Lo demás");
