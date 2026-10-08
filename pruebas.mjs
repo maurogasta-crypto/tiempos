@@ -276,7 +276,7 @@ prueba("deseos-1: está en el SHELL, sube el flyer al guardar, y las reglas v10 
   assert.match(d, /async function guardar[\s\S]*subirImagen/); assert.ok(!/onchange[^\n]*subirImagen/.test(d));
   const bloque = r.slice(r.indexOf("match /deseos/"));
   assert.match(bloque, /allow update: if esPersona\(\)\s*&& request\.resource\.data\.uid == resource\.data\.uid/);
-  assert.match(bloque, /dias\.size\(\) <= 7/); assert.match(r, /v10, 5-oct-2026/);
+  assert.match(bloque, /dias\.size\(\) <= 7/); assert.match(r, /v10: un deseo puede repetirse/);
 });
 prueba("app-14: ?dictar= abre el dictado precargado, se borra de la dirección y no queda en la caché", () => {
   const a = fs.readFileSync("app.js", "utf8"), w = fs.readFileSync("sw.js", "utf8"), g = fs.readFileSync("sugerir.js", "utf8");
@@ -305,11 +305,13 @@ prueba("a la IA va MI agenda de dos semanas, con ids, y nada más", () => {
     z: { titulo: "Lejos", dia: "2026-12-01", desde: "2026-12-01T10:00", hasta: "2026-12-01T11:00" } }, "2026-10-05");
   assert.deepEqual(a, [{ id: "x", titulo: "Gimnasio", dia: "2026-10-06", desde: "18:00", hasta: "19:00", lugar: "" }]);
 });
-prueba("las reglas v9: alertas de su dueño (el agente lee), deseos de los dos", () => {
+prueba("las reglas v9: alertas de su dueño (el agente lee; escribe sólo con permiso, v11), deseos de los dos", () => {
   const r = fs.readFileSync("firestore.rules", "utf8");
   const al = /match \/alertas\/\{id\} \{([\s\S]*?)\n    \}/.exec(r)[1];
   assert.ok(/allow read: if esAgente\(\) \|\| \(esPersona\(\) && resource\.data\.uid == request\.auth\.uid\)/.test(al));
-  assert.ok(!/esAgente\(\)[^;]*\n?[^;]*allow create/.test(al) && !/allow (create|update|delete): if esAgente/.test(al), "el agente no escribe alertas");
+  // v11: el agente escribe alertas SÓLO con el permiso de su dueño.
+  for (const m of al.matchAll(/allow (create|update|delete): if esAgente\(\)([^;]*);/g))
+    assert.match(m[2], /agenteEn\(/, "una escritura del agente sin el permiso del dueño: " + m[1]);
   const de = /match \/deseos\/\{id\} \{([\s\S]*?)\n    \}/.exec(r)[1];
   assert.ok(/allow read: if esPersona\(\) \|\| esAgente\(\)/.test(de));
 });
@@ -423,6 +425,44 @@ prueba("las direcciones viven en agendas/{uid} (sólo su dueño), y la ubicació
   assert.ok(!/F\.(collection|doc)\(db, "(?!agendas)/.test(l), "ninguna otra colección");
   assert.ok(!/latitude[^\n]*(setDoc|guardar)/.test(l), "la ubicación no se guarda");
   assert.match(fs.readFileSync("firestore.rules", "utf8"), /match \/agendas\/\{uid\} \{\s*allow read, write: if esPersona\(\) && request\.auth\.uid == uid;/);
+});
+
+titulo("v11 · app-18: Claude organiza la agenda de quien lo enciende (8-oct)");
+prueba("el permiso es de cada uno, está en SU agenda y lo apaga cuando quiere", () => {
+  const l = fs.readFileSync("lugares.js", "utf8");
+  assert.match(l, /guardar\(\{ agente: i\.checked \}\)/);
+  assert.match(fs.readFileSync("app.js", "utf8"), /E\.agenteAgenda = d\.exists\(\) && d\.data\(\)\.agente === true/);
+  assert.match(fs.readFileSync("agenda.js", "utf8"), /pintarAgente\(v\)/);
+});
+{ const reglas = fs.readFileSync("firestore.rules", "utf8");
+prueba("reglas v11: el agente lee y edita una agenda SÓLO si su dueño lo encendió, y no toca el permiso ni los lugares", () => {
+  const ag = /match \/agendas\/\{uid\} \{([\s\S]*?)\n    \}/.exec(reglas)[1];
+  assert.match(ag, /allow get: if esAgente\(\) && resource\.data\.get\('agente', false\) == true;/);
+  assert.ok(!/allow (read|list)[^;]*esAgente/.test(ag.split("match /copias")[0]), "el agente no lista agendas");
+  const up = /allow update: if esAgente\(\)([^;]*);/.exec(ag)[1];
+  assert.match(up, /request\.resource\.data\.get\('agente', false\) == true/);
+  assert.match(up, /affectedKeys\(\)\.hasOnly\(\['actividades', 'items', 'actualizadoEn'\]\)/);
+  assert.ok(!/allow (create|delete)[^;]*esAgente/.test(ag.split("match /copias")[0]), "el agente no crea ni borra agendas");
+});
+prueba("reglas v11: la copia de «antes» de lo privado va a agendas/{uid}/copias, que lee su dueño, y nadie la edita", () => {
+  const co = /match \/copias\/\{id\} \{([\s\S]*?)\n      \}/.exec(reglas)[1];
+  assert.match(co, /allow read: if \(esPersona\(\) && request\.auth\.uid == uid\) \|\| \(esAgente\(\) && agenteEn\(uid\)\);/);
+  assert.match(co, /allow create: if esAgente\(\) && agenteEn\(uid\);/);
+  assert.ok(!/allow (update|delete|write)/.test(co));
+});
+prueba("reglas v11: Claude mueve marcas de la agenda firmando como él, nunca una salida ni una de otro", () => {
+  const ma = /match \/marcas\/\{id\} \{([\s\S]*?)\n    \}/.exec(reglas)[1];
+  const cr = /allow create: if esAgente\(\)([^;]*);/.exec(ma)[1];
+  for (const x of [/marcadoPor == request\.auth\.uid/, /origen == 'agenda'/, /agenteEn\(request\.resource\.data\.uid\)/, /hasOnly/])
+    assert.match(cr, x);
+  assert.ok(!/neutro/.test(cr), "«salimos juntos» no la pone Claude");
+  assert.match(ma, /allow delete: if esAgente\(\) && resource\.data\.origen == 'agenda' && agenteEn\(resource\.data\.uid\);/);
+});
+}
+prueba("lo que movió Claude dice ✨ y por qué; si la persona lo vuelve a mover, el ✨ se va", () => {
+  const ag = fs.readFileSync("agenda.js", "utf8");
+  assert.match(ag, /a\.claude && a\.claude\.porque/);
+  assert.match(ag, /claude: F\.deleteField\(\)/);
 });
 
 titulo("nucleo-18 · agenda-8: el ＋ de cada día y «¿ya existe?» (8-oct)");

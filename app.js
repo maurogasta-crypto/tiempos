@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-17
+// Sello: app-18
 //
 // app-16 (7-oct-2026, tiempos:V7): la primera solapa es PIZARRA (pizarra.js):
 // anotar rápido, lo que espera una decisión, la pizarra del teléfono con una
@@ -193,6 +193,7 @@ function escucharFamilia() {
     E.actividades = (d.exists() && d.data().actividades) || {};     // app-9: las propias, con su clase
     E.lugares = (d.exists() && d.data().lugares) || {};             // app-17: mis lugares (lugares.js)
     E.casas = (d.exists() && d.data().casas) || {};
+    E.agenteAgenda = d.exists() && d.data().agente === true;         // app-18: «Claude organiza mi agenda»
     pintar();
   }, mal("tu agenda"));
   // app-13: mis alertas (recordatorios y alarmas) y la lista de deseos de los dos.

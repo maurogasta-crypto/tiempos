@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// lugares.js — Mis lugares y dónde estoy. Sello: lugares-1
+// lugares.js — Mis lugares y dónde estoy. Sello: lugares-2
 //
 // 7-oct-2026, tiempos:V7 (Mauro): la alarma de salir cuenta el viaje; para eso
 // hace falta saber de dónde se sale. La casa depende del país en el que está
@@ -8,7 +8,15 @@
 // anotan solos en una lista y se les pone la dirección una vez.
 //
 // TODO vive en `agendas/{uid}` —`casas` y `lugares`—, que sólo lee su dueño:
-// ni el otro ni el agente. Ninguna dirección entra al código, que es público.
+// ni el otro, ni el agente salvo que el dueño lo encienda (abajo). Ninguna
+// dirección entra al código, que es público.
+//
+// lugares-2 (8-oct-2026, Mauro: «quiero que la IA pueda organizar mi agenda
+// editando los contenidos… que pueda ayudarme activamente»): el interruptor
+// «Claude organiza mi agenda» escribe `agente: true` en MI agenda. Con eso
+// (reglas v11) el agente la lee, mueve y agrega actividades y sus alarmas,
+// con una copia de cada cambio en `agendas/{uid}/copias` que sólo veo yo.
+// Es de cada uno: encenderlo no abre la agenda del otro.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F } from "./firebase-init.js";
@@ -34,6 +42,21 @@ export function dondeEstoy(espera = 4000) {
       () => { clearTimeout(t); ok(E.pais || ""); },
       { enableHighAccuracy: false, maximumAge: 3600e3, timeout: espera });
   });
+}
+
+/** El interruptor de «Claude organiza mi agenda» (lugares-2). */
+export function pintarAgente(v) {
+  const c = document.createElement("div");
+  c.className = "tarjeta ficha";
+  c.innerHTML = `<label class="check"><input type="checkbox" data-agente ${E.agenteAgenda ? "checked" : ""}> 🤝 Claude organiza mi agenda</label>
+    <p class="gris">${E.agenteAgenda
+      ? "Encendido: Claude puede leer tu agenda y tus lugares, mover y agregar actividades y poner alarmas con el viaje. Cada cambio dice ✨ y deja una copia de cómo estaba, que sólo ves vos. No toca la agenda de nadie más."
+      : "Apagado: Claude no lee ni toca tu agenda. Encendelo si querés que te ayude a ordenarla (mover, agregar, alarmas con el viaje). Lo apagás cuando quieras."}</p>`;
+  v.append(c);
+  const i = c.querySelector("[data-agente]");
+  i.onchange = () => guardar({ agente: i.checked })
+    .then(() => aviso(i.checked ? "Listo: Claude puede organizar tu agenda." : "Apagado: Claude ya no la ve."))
+    .catch((e) => { i.checked = !i.checked; fallo(e); });
 }
 
 let abiertos = false;

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-8
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-9
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -28,7 +28,7 @@ import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, event
          CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
-import { pintarLugares, recordarLugar } from "./lugares.js";
+import { pintarLugares, pintarAgente, recordarLugar } from "./lugares.js";
 
 const NOMBRE_FRANJA = { manana: "mañana", tarde: "tarde", noche: "noche" };
 let lunes = null;
@@ -94,7 +94,7 @@ async function moverActividad(id, f) {
   try {
     await F.deleteDoc(F.doc(db, "marcas", id)).catch(() => {});
     await F.setDoc(F.doc(db, "marcas", id), { ...marca, creadoEn: F.serverTimestamp() });
-    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { ...a, dia, desde, hasta, hf: hf || "" } },
+    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { ...a, dia, desde, hasta, hf: hf || "", claude: F.deleteField() } },
       actualizadoEn: F.serverTimestamp() }, { merge: true });
     moviendoAct = null; aviso("Cambiada. Revisá sus recordatorios y alarmas en Pizarra → «Te recordás»."); repintar();
   } catch (e) { fallo(e); }
@@ -275,7 +275,7 @@ export function pintarAgenda() {
     // ven los dos, y no se arrastran.
     h += bloquesDelDia(d).map((b) => `<div class="evento bloque-dia">⏱ <b>${esc(nombreDe(b.uid))}</b> ${esc(b.titulo || ({ productivo: "trabaja", chicos: "con los chicos", libre: "tiempo personal" })[b.clase] || "")}</div>`).join("");
     h += actividadesDelDia(d).map(([id, a]) => `<div class="evento actividad" style="--c:${COLOR_ACT[a.tipo] || "#888"}">🗓 <b>${esc(String(a.desde).slice(11))}${a.hf === "" ? "" : "–" + esc(String(a.hasta).slice(11))}</b> ${esc(a.titulo)}
-      <small class="gris">· ${esc((CLASES_ACTIVIDAD[a.tipo] || {}).nombre || a.tipo)}</small> <button class="mini nota" data-mover-act="${esc(id)}" title="Cambiar día u hora">✎</button> <button class="mini nota" data-borrar-act="${esc(id)}" title="Sacar">✕</button></div>${moviendoAct === id ? formMover(id, a) : ""}`).join("");
+      <small class="gris">· ${esc((CLASES_ACTIVIDAD[a.tipo] || {}).nombre || a.tipo)}</small>${a.claude && a.claude.porque ? ` <small class="gris" title="${esc(a.claude.en || "")}">✨ ${esc(String(a.claude.porque).slice(0, 120))}</small>` : ""} <button class="mini nota" data-mover-act="${esc(id)}" title="Cambiar día u hora">✎</button> <button class="mini nota" data-borrar-act="${esc(id)}" title="Sacar">✕</button></div>${moviendoAct === id ? formMover(id, a) : ""}`).join("");
     h += evs.map((e) => `<div class="evento">👦 <b>${esc(e.hora || "")}</b> ${esc(e.titulo)}${(e.ninos || []).length ? ` <small>${e.ninos.map((id) => esc((ninoPorId(id) || {}).nombre || "")).join(", ")}</small>` : ""}${(e.quienes || []).length ? ` <small class="gris">· ${e.quienes.map((u) => esc(nombreDe(u))).join(" y ")}</small>` : ""}</div>`).join("");
     for (const f of FRANJAS) {
       const items = ub[d][f];
@@ -287,8 +287,9 @@ export function pintarAgenda() {
   // agenda-8 (8-oct-2026, Mauro): lo de «Para agendar» ya no es una lista fija:
   // el ＋ de cada día abre una hoja con «escribí la actividad» primero y todo
   // lo que hay, agrupado por categoría (hojaAgregar).
-  h += `<p class="gris">Tocá ＋ al lado de un día para agregarle algo: escribís una actividad nueva o elegís de lo que ya tenés. Arrastrala del ⠿ para moverla. Tu agenda la ves sólo vos.</p>`;
+  h += `<p class="gris">Tocá ＋ al lado de un día para agregarle algo: escribís una actividad nueva o elegís de lo que ya tenés. Arrastrala del ⠿ para moverla. Tu agenda la ves sólo vos (y Claude, si lo encendés abajo).</p>`;
   v.innerHTML = h;
+  pintarAgente(v);
   pintarLugares(v);
 
   for (const b of v.querySelectorAll("[data-s]")) b.onclick = () => {

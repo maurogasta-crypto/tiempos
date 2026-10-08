@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v10, 5-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v11, 8-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -25,6 +25,14 @@ rules_version = '2';
 //  v10: un deseo puede repetirse cada semana (`dias`) o ser de una fecha
 //      (`fecha`), y los dos lo pueden editar —días, horas, el flyer—
 //      (deseos-1). Nadie cambia de quién es.
+//  v11: Claude ORGANIZA la agenda de quien lo pide (8-oct-2026, Mauro: «que
+//      la IA pueda organizar mi agenda editando los contenidos»). Cada uno lo
+//      enciende para SU agenda (`agendas/{uid}.agente == true`) y lo apaga
+//      cuando quiere; apagado, todo queda como en la v10. Encendido, el
+//      agente lee esa agenda, cambia sus actividades y sus marcas, y crea,
+//      corre o saca sus alertas. La copia de «antes» de lo privado NO va a
+//      `_historial` (que leen los dos): va a `agendas/{uid}/copias`, que lee
+//      sólo su dueño.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -62,6 +70,11 @@ service cloud.firestore {
       return logueado()
         && exists(/databases/$(database)/documents/miembros/$(request.auth.uid))
         && miembro().rol == 'persona';
+    }
+    // v11: ¿el dueño de esta agenda le dejó a Claude organizarla?
+    function agenteEn(uid) {
+      return exists(/databases/$(database)/documents/agendas/$(uid))
+        && get(/databases/$(database)/documents/agendas/$(uid)).data.get('agente', false) == true;
     }
     function tipoValido(t) {
       return t in ['produccion', 'mantenimiento', 'ninos', 'casa', 'personal'];
@@ -161,6 +174,19 @@ service cloud.firestore {
     // algo al jueves no le cambia nada al otro.
     match /agendas/{uid} {
       allow read, write: if esPersona() && request.auth.uid == uid;
+      // v11: sólo si su dueño lo encendió. El agente no toca el permiso, ni
+      // la casa ni los lugares: sólo las actividades y lo que flota.
+      allow get: if esAgente() && resource.data.get('agente', false) == true;
+      allow update: if esAgente() && resource.data.get('agente', false) == true
+        && request.resource.data.get('agente', false) == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['actividades', 'items', 'actualizadoEn']);
+      // La copia de «antes» de cada cambio de Claude en lo privado: la lee
+      // su dueño (y el agente, para deshacer); la crea el agente y nadie la
+      // edita ni la borra.
+      match /copias/{id} {
+        allow read: if (esPersona() && request.auth.uid == uid) || (esAgente() && agenteEn(uid));
+        allow create: if esAgente() && agenteEn(uid);
+      }
     }
 
     // ── v3 · Lo de la casa que ven los dos ─────────────────────────────
@@ -208,6 +234,16 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid', 'clase', 'unidad', 'desde', 'hasta', 'origen', 'marcadoPor', 'nota', 'creadoEn']);
       allow delete: if esPersona()
         && (resource.data.marcadoPor == request.auth.uid || resource.data.uid == request.auth.uid);
+      // v11: Claude mueve la marca de una actividad que mueve, en la agenda
+      // de quien se lo permitió. Firma como él (`marcadoPor`), no como otro.
+      allow create: if esAgente()
+        && request.resource.data.marcadoPor == request.auth.uid
+        && request.resource.data.origen == 'agenda'
+        && agenteEn(request.resource.data.uid)
+        && request.resource.data.clase in ['productivo', 'chicos', 'libre']
+        && request.resource.data.desde is string && request.resource.data.hasta is string
+        && request.resource.data.keys().hasOnly(['uid', 'clase', 'unidad', 'desde', 'hasta', 'origen', 'marcadoPor', 'nota', 'creadoEn']);
+      allow delete: if esAgente() && resource.data.origen == 'agenda' && agenteEn(resource.data.uid);
     }
 
     // ── v4 · Los acuerdos de tiempo ─────────────────────────────────────
@@ -291,7 +327,8 @@ service cloud.firestore {
 
     // ── v9 · Alertas: recordatorios y alarmas de cada uno ──────────────
     // De su dueño, que las crea al aceptar lo que dictó. El agente las LEE
-    // (para mandar el recordatorio por WhatsApp) y no las escribe.
+    // (para mandar el recordatorio por WhatsApp) y desde la v11 las escribe
+    // sólo si su dueño encendió «Claude organiza mi agenda».
     match /alertas/{id} {
       allow read: if esAgente() || (esPersona() && resource.data.uid == request.auth.uid);
       allow create: if esPersona()
@@ -305,6 +342,18 @@ service cloud.firestore {
       allow update: if esPersona() && resource.data.uid == request.auth.uid
         && request.resource.data.uid == resource.data.uid;
       allow delete: if esPersona() && resource.data.uid == request.auth.uid;
+      // v11: con el permiso de su dueño, Claude crea, corre y saca sus
+      // alertas (la alarma de salir, con el viaje). Nunca de otro.
+      allow create: if esAgente() && agenteEn(request.resource.data.uid)
+        && request.resource.data.tipo in ['recordatorio', 'alarma']
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() > 0
+        && request.resource.data.texto.size() <= 200
+        && request.resource.data.dia is string
+        && request.resource.data.hora is string;
+      allow update: if esAgente() && agenteEn(resource.data.uid)
+        && request.resource.data.uid == resource.data.uid;
+      allow delete: if esAgente() && agenteEn(resource.data.uid);
     }
 
     // ── v9 · La lista de deseos ────────────────────────────────────────

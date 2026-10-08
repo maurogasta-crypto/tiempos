@@ -105,9 +105,22 @@ la documentación diga la verdad.
   sólo de nuestra cuenta de Cloudinary y no vuelve a subir.
 - **Las boletas usan los recursos de Casa Verde**, importados de su sitio:
   `CV2.subirImagen` y su función de IA. Se suben al GUARDAR, nunca al elegir.
-- **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; el agente
-  tampoco la lee y está en `selladas` de `firestore.mjs`). Lo cotidiano, los
+- **La agenda es de cada uno** (`agendas/{uid}`, sólo su dueño; `agendas`
+  sigue en `selladas` de `firestore.mjs`: listarla nunca). Lo cotidiano, los
   turnos, las actividades de los chicos y `familia/config` son de los dos.
+- **Claude organiza la agenda de quien lo enciende** (reglas v11, app-18,
+  8-oct-2026, Mauro: «que la IA pueda organizar mi agenda editando los
+  contenidos»). El interruptor «🤝 Claude organiza mi agenda» (abajo de la
+  Agenda, `pintarAgente` de lugares.js) escribe `agente: true` en SU
+  `agendas/{uid}`; con eso la regla deja al agente leer esa agenda, cambiar
+  `actividades` e `items` (nunca `casas`, `lugares` ni el permiso), mover sus
+  marcas firmando como él y escribir sus alertas. **Es de cada uno**: lo que
+  enciende Mauro no abre la de Florencia. La copia de cada cambio NO va a
+  `_historial` (lo leen los dos): va a `agendas/{uid}/copias`, que lee sólo
+  su dueño. Lo que toca Claude lleva `claude: {en, porque}` y se ve con ✨;
+  si la persona la vuelve a mover, el ✨ se va. La herramienta es
+  `herramientas/agenda.mjs` de `datos`, con la misma forma de actividad y
+  marca que `agenda.js`: **si cambia una, cambia la otra en la misma tanda.**
 - **El SDK es la misma versión que el de Casa Verde.** El banco las compara.
 - **Un tipo de tiempo vive en tres lugares** —`TIPOS` de `nucleo.js`, las
   opciones de `index.html` y `tipoValido()` de las reglas— y el banco exige que
@@ -150,7 +163,8 @@ la documentación diga la verdad.
   tanda.** No hizo falta tocar la regla de `tareas`.
 - **Las direcciones de cada uno viven en `agendas/{uid}`** (`casas` por
   país y `lugares`, lugares-1, 7-oct-2026): sólo su dueño, ni el otro ni el
-  agente. **Ninguna dirección entra al código ni a las pruebas**: el
+  agente (salvo que el dueño encienda «Claude organiza mi agenda», v11).
+  **Ninguna dirección entra al código ni a las pruebas**: el
   repositorio es público. Van a Gemini (por claude-proxy) sólo para estimar
   el viaje de la alarma de salir. La ubicación del teléfono es aproximada, se
   pide al armar un plan y no se guarda.

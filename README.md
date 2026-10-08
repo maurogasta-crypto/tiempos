@@ -194,6 +194,15 @@ que «pizarra» es el lugar, nunca el título.
   (abajo de la Agenda) y ahí se les pone la dirección una vez. Todo vive en
   `agendas/{uid}`, que ve sólo su dueño; las direcciones van a la IA del plan
   para estimar el viaje, y ninguna entra al código.
+- **Claude organiza mi agenda** (app-18, agenda-9, lugares-2, reglas v11,
+  8-oct-2026): abajo de la Agenda, el interruptor «🤝 Claude organiza mi
+  agenda». Encendido, Claude puede leer TU agenda y tus lugares, mover y
+  agregar actividades, y poner o correr tus alarmas con el viaje; lo que toca
+  dice ✨ y por qué. Cada cambio deja una copia de cómo estaba en
+  `agendas/{uid}/copias`, que ves sólo vos, y se deshace pidiéndoselo. Apagado,
+  todo queda como antes. Es de cada uno: no abre la agenda del otro. **Hasta
+  que Mauro publique las reglas v11, el interruptor se guarda pero Claude no
+  puede entrar.**
 - **Reprogramar** (agenda-6, propone-6, 7-oct-2026): en la Agenda, ✎ en una
   actividad le cambia día y horas (su marca del balance se borra y se vuelve a
   crear, como manda la regla); en Pizarra → «Te recordás» se ven todas las
@@ -333,21 +342,21 @@ Florencia la acuerden.
 |---|---|---|
 | `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-18` |
 | `estado.js` | lo que comparten las vistas | `estado-2` |
-| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-17` |
+| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-18` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-1` |
-| `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje | `lugares-1` |
+| `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje, y el interruptor «Claude organiza mi agenda» | `lugares-2` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-7` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
 | `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-15` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente | `plata-4` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-3` |
-| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-8` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-9` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
 | `estilos.css` | | `estilos-12` |
-| `sw.js` | el cascarón sin señal | `tiempos-26` |
-| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v10 |
+| `sw.js` | el cascarón sin señal | `tiempos-27` |
+| `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v11 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
 
