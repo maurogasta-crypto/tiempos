@@ -16,7 +16,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
-         cotidianasDe, listasDeCompras, colorHeredado, COLORES_TAREA, idNuevo,
+         cotidianasDe, listasDeCompras, recorridoDeCompra, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
@@ -889,6 +889,27 @@ prueba("no se pueden agregar chicos desde la app, y el reloj ofrece ambos y todo
   const fam = fs.readFileSync("familia.js", "utf8");
   assert.ok(!/data-form-nino/.test(fam));
   assert.ok(/Todos juntos/.test(app) && /Ambos/.test(app) && /juntos/.test(app));
+});
+prueba("modo súper: pasillos en su orden, lo tildado NO se mueve, sin pasillo al final", () => {
+  const [l] = listasDeCompras({ listas: { m: { nombre: "Macro", orden: 1,
+    secciones: { s2: { nombre: "Almacén", orden: 2 }, s1: { nombre: "Lácteos", orden: 1 }, vacia: { nombre: "Bebidas", orden: 3 }, rota: { orden: 4 } },
+    items: { a: { texto: "Leche", seccion: "s1", orden: 1, hecho: true }, b: { texto: "Huevo", seccion: "s1", orden: 2 },
+      c: { texto: "Yerba", seccion: "s2", orden: 1, nota: "la de siempre" }, d: { texto: "Pilas", orden: 9 }, e: { texto: "Té", seccion: "borrada", orden: 3 } } } } });
+  assert.deepEqual(l.secciones.map((x) => x.nombre), ["Lácteos", "Almacén", "Bebidas"]);
+  const r = recorridoDeCompra(l);
+  assert.deepEqual(r.map((g) => g.nombre), ["Lácteos", "Almacén", "Otras cosas"]);
+  assert.deepEqual(r[0].items.map((i) => i.texto), ["Leche", "Huevo"]);
+  assert.equal(r[1].items[0].nota, "la de siempre");
+  assert.deepEqual(r[2].items.map((i) => i.texto), ["Té", "Pilas"]);
+  assert.equal(l.faltan, 4);
+  const [sin] = listasDeCompras({ listas: { x: { nombre: "Ferretería", items: { a: { texto: "cinta" } } } } });
+  assert.deepEqual(sin.secciones, []);
+  assert.deepEqual(recorridoDeCompra(sin).map((g) => g.items.length), [1]);
+});
+prueba("el modo súper destilda sin borrar y pide la pantalla encendida sin depender de ella", () => {
+  const c = fs.readFileSync("compras.js", "utf8");
+  assert.ok(/\[i\.id, \{ hecho: false \}\]/.test(c));
+  assert.ok(/wakeLock/.test(c) && /catch \{ despierta = null; \}/.test(c));
 });
 prueba("la lista de compras vive en familia/, que ya tiene su regla", () => {
   assert.ok(/F\.doc\(db, "familia", "compras"\)/.test(app));

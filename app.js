@@ -1,6 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-19
+// Sello: app-20
+//
+// app-20 (9-oct-2026): sin cambios acá; sube el sello porque cambian
+// compras.js (el modo súper) y estilos.css, que pide index.html.
 //
 // app-16 (7-oct-2026, tiempos:V7): la primera solapa es PIZARRA (pizarra.js):
 // anotar rápido, lo que espera una decisión, la pizarra del teléfono con una

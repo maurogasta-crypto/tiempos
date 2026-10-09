@@ -150,6 +150,11 @@ la documentación diga la verdad.
   compras en `familia/compras`, las dos como MAPAS para que dos teléfonos no se
   pisen. Por eso no hizo falta una regla nueva. **Los chicos no se agregan
   desde la app**: lo pidió Mauro.
+- **La lista de compras tiene MODO SÚPER** (compras-2, nucleo-20, 9-oct-2026,
+  Mauro: «quiero que mi lista se visualice como ésta cuando vaya al súper»).
+  Pasillos opcionales en la misma lista (`secciones` y, por cosa, `seccion` y
+  `nota`) — mapas en `familia/compras`, sin regla nueva. En el súper lo
+  tildado NO se mueve: uno camina la lista de arriba abajo.
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco

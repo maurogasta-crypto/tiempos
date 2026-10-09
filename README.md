@@ -72,6 +72,13 @@ Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
   **Compras** (app-8): listas editables —súper, ferretería, materiales, lo que
   sea— que se despliegan con sus casillas; lo comprado se tacha y se saca con un
   botón. Viven en `familia/compras`, de los dos.
+  **🛒 Ir al súper** (compras-2, 9-oct-2026): una lista puede tener
+  **pasillos** (`secciones`, en el orden en que se camina el local) y cada cosa
+  su pasillo y una nota chica. El modo súper muestra una sola lista por
+  pasillos, con tildes grandes; lo tildado se tacha y **se queda en su lugar**
+  (`recorridoDeCompra`), la pantalla no se apaga mientras está abierto, y
+  «↺ Destildar todo» la deja lista para la próxima vez. Los pasillos hoy los
+  arma Claude en la base; desde la app se agrega una cosa eligiendo el pasillo.
 - **Chicos**: la semana o el mes, con un señalador por persona y por chico.
   Sale de **lo acordado** para cada día de la semana, y un día distinto se
   cambia tocándolo. Las **actividades** —básquet, kung fu, amigos, la
@@ -355,12 +362,12 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-19` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-20` |
 | `estado.js` | lo que comparten las vistas | `estado-3` |
-| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-19` |
+| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-20` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-1` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje, y el interruptor «Claude organiza mi agenda» | `lugares-2` |
-| `compras.js` | la lista de compras, en `familia/compras` | `compras-1` |
+| `compras.js` | la lista de compras, en `familia/compras` | `compras-2` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-7` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
 | `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-15` |
@@ -370,8 +377,8 @@ Florencia la acuerden.
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-9` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-13` |
-| `sw.js` | el cascarón sin señal | `tiempos-30` |
+| `estilos.css` | | `estilos-14` |
+| `sw.js` | el cascarón sin señal | `tiempos-31` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v12 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

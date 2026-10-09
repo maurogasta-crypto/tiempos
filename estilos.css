@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-13
+/* estilos.css — Tiempos. Sello: estilos-14
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -257,3 +257,22 @@ button.pl-celda { border:1px solid var(--linea); background:transparent; color:i
 .fila.apagada { opacity:.55; }
 .rep .barra-fila { grid-template-columns:1fr auto; }
 .rep .barra-fila small { grid-column:1 / -1; margin-top:-4px; }
+
+/* estilos-14 (app-20, compras-2): el modo súper de la lista de compras. Una
+   tarjeta por cosa, tildes grandes para el pulgar con el carrito en la otra
+   mano, los pasillos como títulos y lo tildado tachado en su lugar. */
+.super-boton { display:block; width:100%; margin:.4rem 0 .6rem; padding:.75rem; border-radius:10px; border:1px solid var(--acento);
+  background:transparent; color:var(--acento); font:inherit; font-weight:600; }
+.super-cab { display:flex; gap:.7rem; align-items:center; margin:.6rem 0 .2rem; }
+.super-cab div { display:flex; flex-direction:column; }
+.super-cab b { font-size:1.15rem; }
+.pasillo { color:#5b9bd5; border-bottom:2px solid #5b9bd5; padding-bottom:.25rem; margin:1.3rem 0 .5rem; font-size:1.02rem; }
+@media (prefers-color-scheme: light) { .pasillo { color:#2471a3; border-color:#2471a3; } }
+.item-super { display:flex; gap:.8rem; align-items:center; margin:.45rem 0; padding:.75rem .9rem; background:var(--tinta2);
+  border:1px solid var(--linea); border-radius:10px; color:var(--texto); font-size:1.05rem; min-height:48px; cursor:pointer; }
+.item-super input { width:1.45rem; height:1.45rem; margin:0; flex:none; accent-color:var(--ok); }
+.item-super span { display:flex; flex-direction:column; }
+.item-super small { color:var(--gris); font-size:.82rem; }
+.item-super.hecho span { text-decoration:line-through; color:var(--gris); }
+.item-super.hecho { opacity:.75; }
+.dos select { width:auto; flex:none; margin-top:0; }

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-19
+// Sello: nucleo-20
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -584,7 +584,11 @@ export const idNuevo = (prefijo, ahoraMs = Date.now()) =>
    alimentos, materiales—; al entrar se despliega la lista con checkbox.»
    Vive en `familia/compras`: { listas: { id: { nombre, orden, items: { id:
    { texto, hecho, por, orden } } } } }. Mapas y no listas por lo mismo de
-   arriba: cada tilde toca una sola clave. */
+   arriba: cada tilde toca una sola clave.
+   Desde nucleo-20 (9-oct-2026, «quiero que mi lista se visualice como ésta
+   cuando vaya al súper») una lista puede tener PASILLOS: `secciones: { sid:
+   { nombre, orden } }`, y cada cosa su `seccion` y una `nota` chica («para la
+   torta»). Son opcionales: una lista sin pasillos se ve como siempre. */
 export const LISTAS_DE_ENTRADA = ["Súper", "Verdulería", "Farmacia", "Ferretería"];
 export function listasDeCompras(doc) {
   return Object.entries((doc && doc.listas) || {})
@@ -592,11 +596,30 @@ export function listasDeCompras(doc) {
     .map(([id, l]) => {
       const items = Object.entries(l.items || {})
         .filter(([, it]) => it && typeof it.texto === "string" && it.texto.trim())
-        .map(([iid, it]) => ({ id: iid, texto: it.texto, hecho: it.hecho === true, por: it.por || "", orden: it.orden || 0 }))
+        .map(([iid, it]) => ({ id: iid, texto: it.texto, hecho: it.hecho === true, por: it.por || "", orden: it.orden || 0,
+          seccion: typeof it.seccion === "string" ? it.seccion : "", nota: typeof it.nota === "string" ? it.nota : "" }))
         .sort((a, b) => Number(a.hecho) - Number(b.hecho) || a.orden - b.orden || a.texto.localeCompare(b.texto));
-      return { id, nombre: l.nombre, orden: l.orden || 0, items, faltan: items.filter((i) => !i.hecho).length };
+      const secciones = Object.entries(l.secciones || {})
+        .filter(([, x]) => x && typeof x.nombre === "string" && x.nombre.trim())
+        .map(([sid, x]) => ({ id: sid, nombre: x.nombre, orden: x.orden || 0 }))
+        .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+      return { id, nombre: l.nombre, orden: l.orden || 0, items, secciones, faltan: items.filter((i) => !i.hecho).length };
     })
     .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+}
+
+/* La lista en el ORDEN DEL RECORRIDO, para el modo súper: un grupo por
+   pasillo, en su orden, y lo que no tiene pasillo (o tiene uno que ya no
+   existe) al final, en «Otras cosas». Acá lo tildado NO baja al final: en el
+   súper uno camina la lista de arriba abajo, y si las cosas se movieran al
+   tocarlas se perdería el lugar. Los pasillos vacíos no se muestran. */
+export function recorridoDeCompra(lista) {
+  const ids = new Set((lista.secciones || []).map((x) => x.id));
+  const porOrden = (a, b) => a.orden - b.orden || a.texto.localeCompare(b.texto);
+  const grupos = (lista.secciones || []).map((x) => ({ id: x.id, nombre: x.nombre,
+    items: lista.items.filter((i) => i.seccion === x.id).sort(porOrden) }));
+  grupos.push({ id: "", nombre: "Otras cosas", items: lista.items.filter((i) => !ids.has(i.seccion)).sort(porOrden) });
+  return grupos.filter((g) => g.items.length);
 }
 
 /* ── Colores de las tareas ───────────────────────────────────────────────────
