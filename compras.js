@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// compras.js — La lista de compras de la casa. Sello: compras-2
+// compras.js — La lista de compras de la casa. Sello: compras-3
 //
 // Pedido de Mauro, 30-sep-2026, desde el globo 💡: «Falta la lista de compras.
 // En categorías editables —súper, ferretería, o alimentos, materiales—;
@@ -16,15 +16,27 @@
 // tildado se tacha y se queda en su lugar (`recorridoDeCompra`). Mientras está
 // abierto la pantalla no se apaga, si el teléfono lo deja. Al terminar,
 // «Destildar todo» deja la lista lista para la próxima vez.
+//
+// compras-3 (9-oct-2026). Mauro: «un link para compartir en tiempo real, para
+// hacer las compras junto con una persona y ver lo que consiguió la otra».
+// La lista ya era en vivo (los dos escuchan `familia/compras`); faltaba
+// VERLO: lo que tildó el otro dice quién («✓ Flor») y se ilumina un momento
+// al llegar. Y el enlace: «🔗 Compartir» manda `?super=<lista>`, que abre
+// Tiempos directo en esta lista en modo súper (app-21). Lo abre quien es
+// miembro de Tiempos: la lista es de la familia, no pública.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F } from "./firebase-init.js";
 import { esc, listasDeCompras, recorridoDeCompra, idNuevo, LISTAS_DE_ENTRADA } from "./nucleo.js";
-import { E, repintar, fallo } from "./estado.js";
+import { E, repintar, fallo, nombreDe } from "./estado.js";
 
 const abiertas = new Set();
 let enSuper = null;          // la lista abierta en modo súper, en ESTE teléfono
 let despierta = null;        // el pedido de pantalla encendida
+let vistos = null;           // lo tildado en la pintada anterior, para iluminar lo nuevo
+
+/** Abre una lista en modo súper (lo usa app.js con ?super=). */
+export function abrirSuper(id) { enSuper = id; vistos = null; mantenerDespierta(true); }
 
 async function mantenerDespierta(si) {
   try {
@@ -52,18 +64,27 @@ function pintarSuper(l) {
   const conPasillos = l.secciones.length > 0;
   let h = `<div class="super">
     <div class="super-cab"><button class="mini" data-salir-super>← Listas</button>
-      <div><b>🛒 ${esc(l.nombre)}</b><small class="gris">${l.faltan ? `faltan ${l.faltan} de ${l.items.length}` : l.items.length ? "¡todo en el carrito!" : "vacía"}</small></div></div>`;
+      <div><b>🛒 ${esc(l.nombre)}</b><small class="gris">${l.faltan ? `faltan ${l.faltan} de ${l.items.length}` : l.items.length ? "¡todo en el carrito!" : "vacía"}</small></div>
+      <button class="mini" data-compartir="${esc(l.id)}">🔗 Compartir</button></div>`;
+  // Lo que acaba de tildar OTRO se ilumina; en la primera pintada, nada.
+  const ahora = new Set(l.items.filter((i) => i.hecho).map((i) => i.id));
+  const nuevo = (it) => vistos && it.hecho && !vistos.has(it.id) && it.por && it.por !== E.yo.uid;
   for (const g of grupos) {
     if (conPasillos) h += `<h3 class="pasillo">${esc(g.nombre)}</h3>`;
-    h += g.items.map((it) => `<label class="item-super${it.hecho ? " hecho" : ""}">
+    h += g.items.map((it) => `<label class="item-super${it.hecho ? " hecho" : ""}${nuevo(it) ? " recien" : ""}">
         <input type="checkbox" data-item="${esc(l.id)}|${esc(it.id)}"${it.hecho ? " checked" : ""}>
-        <span>${esc(it.texto)}${it.nota ? `<small>${esc(it.nota)}</small>` : ""}</span></label>`).join("");
+        <span><span class="t">${esc(it.texto)}</span>${it.nota ? `<small class="t">${esc(it.nota)}</small>` : ""}${it.hecho && it.por && it.por !== E.yo.uid
+          ? `<small class="quien">✓ ${esc(nombreDe(it.por))}</small>` : ""}</span></label>`).join("");
   }
+  vistos = ahora;
   if (!l.items.length) h += `<p class="gris">La lista está vacía: agregá cosas desde «← Listas».</p>`;
   h += `<div class="botones">${l.items.some((i) => i.hecho) ? `<button class="mini" data-destildar="${esc(l.id)}">↺ Destildar todo</button>
       <button class="mini" data-limpiar="${esc(l.id)}">Sacar lo comprado</button>` : ""}</div></div>`;
   return h;
 }
+
+/** La dirección que abre esta lista en modo súper, en Tiempos. */
+export const enlaceSuper = (id, base = location.origin + location.pathname) => `${base}?super=${encodeURIComponent(id)}`;
 
 export function pintarCompras(v) {
   const listas = listasDeCompras(E.compras);
@@ -107,8 +128,17 @@ export function pintarCompras(v) {
     abiertas.has(id) ? abiertas.delete(id) : abiertas.add(id);
     repintar();
   });
-  todos("[data-super]", (b) => b.onclick = () => { enSuper = b.dataset.super; mantenerDespierta(true); repintar(); scrollTo(0, 0); });
-  todos("[data-salir-super]", (b) => b.onclick = () => { enSuper = null; mantenerDespierta(false); repintar(); });
+  todos("[data-super]", (b) => b.onclick = () => { abrirSuper(b.dataset.super); repintar(); scrollTo(0, 0); });
+  todos("[data-salir-super]", (b) => b.onclick = () => { enSuper = null; vistos = null; mantenerDespierta(false); repintar(); });
+  todos("[data-compartir]", (b) => b.onclick = async () => {
+    const l = lista(b.dataset.compartir); if (!l) return;
+    const url = enlaceSuper(l.id);
+    try {
+      if (navigator.share) { await navigator.share({ title: `🛒 ${l.nombre}`, text: `Hagamos las compras juntos: ${l.nombre}`, url }); return; }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+    try { await navigator.clipboard.writeText(url); b.textContent = "✓ Enlace copiado"; }
+    catch { prompt("Copiá el enlace:", url); }
+  });
   todos("[data-destildar]", (b) => b.onclick = () => {
     const l = lista(b.dataset.destildar); if (!l) return;
     guardar({ [l.id]: { items: Object.fromEntries(l.items.filter((i) => i.hecho).map((i) => [i.id, { hecho: false }])) } });

@@ -911,6 +911,13 @@ prueba("el modo súper destilda sin borrar y pide la pantalla encendida sin depe
   assert.ok(/\[i\.id, \{ hecho: false \}\]/.test(c));
   assert.ok(/wakeLock/.test(c) && /catch \{ despierta = null; \}/.test(c));
 });
+prueba("de a dos (compras-3): el enlace abre la lista en modo súper y dice quién tildó", async () => {
+  const c = fs.readFileSync("compras.js", "utf8");
+  assert.ok(/\?super=\$\{encodeURIComponent\(id\)\}/.test(c));
+  assert.ok(/nombreDe\(it\.por\)/.test(c) && /it\.por !== E\.yo\.uid/.test(c));
+  assert.ok(/params\.get\("super"\)/.test(app) && /abrirSuper\(/.test(app));
+  assert.ok(/history\.replaceState\(null, "", location\.pathname\)/.test(app));
+});
 prueba("la lista de compras vive en familia/, que ya tiene su regla", () => {
   assert.ok(/F\.doc\(db, "familia", "compras"\)/.test(app));
   assert.ok(/match \/familia\//.test(reglas));

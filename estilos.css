@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-14
+/* estilos.css — Tiempos. Sello: estilos-15
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -273,6 +273,13 @@ button.pl-celda { border:1px solid var(--linea); background:transparent; color:i
 .item-super input { width:1.45rem; height:1.45rem; margin:0; flex:none; accent-color:var(--ok); }
 .item-super span { display:flex; flex-direction:column; }
 .item-super small { color:var(--gris); font-size:.82rem; }
-.item-super.hecho span { text-decoration:line-through; color:var(--gris); }
+.item-super.hecho .t { text-decoration:line-through; color:var(--gris); }
 .item-super.hecho { opacity:.75; }
 .dos select { width:auto; flex:none; margin-top:0; }
+/* estilos-15 (compras-3): de a dos. Lo que tildó el otro dice quién, y lo que
+   acaba de llegar se ilumina un momento. */
+.super-cab div { flex:1; min-width:0; }
+.item-super small.quien { color:var(--ok); text-decoration:none; font-weight:600; }
+.item-super.recien { animation:recien 2.4s ease-out; }
+@keyframes recien { from { box-shadow:0 0 0 3px var(--ok); background:color-mix(in srgb, var(--ok) 25%, var(--tinta2)); } to { box-shadow:none; } }
+@media (prefers-reduced-motion: reduce) { .item-super.recien { animation:none; outline:2px solid var(--ok); } }

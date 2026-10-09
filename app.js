@@ -1,7 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-20
+// Sello: app-21
 //
+// app-21 (9-oct-2026): ?super=<lista> abre Tareas → Compras en modo súper
+// (compras-3, el enlace para hacer las compras de a dos).
 // app-20 (9-oct-2026): sin cambios acá; sube el sello porque cambian
 // compras.js (el modo súper) y estilos.css, que pide index.html.
 //
@@ -42,7 +44,7 @@ import { pintarAgenda, alternarEnAgenda, estaEnAgenda } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
-import { pintarCompras } from "./compras.js";
+import { pintarCompras, abrirSuper } from "./compras.js";
 import { montarGlobo, abrirDictado } from "./sugerir.js";
 import { pintarPizarra } from "./pizarra.js";
 
@@ -111,6 +113,15 @@ async function entrarAlaApp() {
   // Android —el mismo del micrófono del teclado, que sí anda— y abre Tiempos
   // con ?dictar=<texto>. Se saca de la dirección para que recargar no lo repita.
   const params = new URLSearchParams(location.search);
+  const superId = params.get("super");
+  if (superId) {
+    history.replaceState(null, "", location.pathname);
+    E.solapa = "tareas"; E.vistaTareas = "compras";
+    for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x.dataset.solapa === "tareas"));
+    for (const x of document.querySelectorAll("[data-vt]")) x.setAttribute("aria-selected", String(x.dataset.vt === "compras"));
+    abrirSuper(superId.slice(0, 60));
+    pintar();
+  }
   const dictado = params.get("dictar");
   if (dictado) {
     history.replaceState(null, "", location.pathname);

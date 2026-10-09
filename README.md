@@ -79,6 +79,10 @@ Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
   (`recorridoDeCompra`), la pantalla no se apaga mientras está abierto, y
   «↺ Destildar todo» la deja lista para la próxima vez. Los pasillos hoy los
   arma Claude en la base; desde la app se agrega una cosa eligiendo el pasillo.
+  **De a dos** (compras-3): la lista es en vivo para los dos, y en el modo
+  súper lo que tildó el otro dice quién («✓ Flor») y se ilumina al llegar.
+  «🔗 Compartir» manda `…/tiempos/?super=<lista>`, que abre Tiempos directo en
+  esa lista; lo abre quien es miembro de Tiempos.
 - **Chicos**: la semana o el mes, con un señalador por persona y por chico.
   Sale de **lo acordado** para cada día de la semana, y un día distinto se
   cambia tocándolo. Las **actividades** —básquet, kung fu, amigos, la
@@ -364,10 +368,10 @@ Florencia la acuerden.
 |---|---|---|
 | `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-20` |
 | `estado.js` | lo que comparten las vistas | `estado-3` |
-| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-20` |
+| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-21` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-1` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje, y el interruptor «Claude organiza mi agenda» | `lugares-2` |
-| `compras.js` | la lista de compras, en `familia/compras` | `compras-2` |
+| `compras.js` | la lista de compras, en `familia/compras` | `compras-3` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-7` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
 | `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-15` |
@@ -377,8 +381,8 @@ Florencia la acuerden.
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-9` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-14` |
-| `sw.js` | el cascarón sin señal | `tiempos-31` |
+| `estilos.css` | | `estilos-15` |
+| `sw.js` | el cascarón sin señal | `tiempos-32` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v12 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

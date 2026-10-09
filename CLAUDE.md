@@ -155,6 +155,10 @@ la documentación diga la verdad.
   Pasillos opcionales en la misma lista (`secciones` y, por cosa, `seccion` y
   `nota`) — mapas en `familia/compras`, sin regla nueva. En el súper lo
   tildado NO se mueve: uno camina la lista de arriba abajo.
+  **Y se hace de a dos** (compras-3): «🔗 Compartir» manda `?super=<lista>`
+  (app.js lo abre directo); lo tildado por el otro dice quién y se ilumina.
+  El enlace NO es público: entra sólo quien es miembro, porque la lista es de
+  la familia y abrirla a cualquiera sería una regla nueva.
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco
