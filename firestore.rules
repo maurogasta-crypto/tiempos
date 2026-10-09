@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v11, 8-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v12, 9-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -33,6 +33,11 @@ rules_version = '2';
 //      corre o saca sus alertas. La copia de «antes» de lo privado NO va a
 //      `_historial` (que leen los dos): va a `agendas/{uid}/copias`, que lee
 //      sólo su dueño.
+//  v12: el BUZÓN de avisos (`avisos`, tiempos:V10): lo que Claude le avisa a
+//      Mauro o a Florencia de CUALQUIER sitio queda acá, y su Pizarra lo trae
+//      como notificación. Lo lee, lo marca leído o lo borra sólo su dueño; lo
+//      crea sólo el agente, con forma fija. No va a `_historial`: es nuevo, no
+//      pisa nada, y la copia la leerían los dos.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -329,6 +334,17 @@ service cloud.firestore {
     // De su dueño, que las crea al aceptar lo que dictó. El agente las LEE
     // (para mandar el recordatorio por WhatsApp) y desde la v11 las escribe
     // sólo si su dueño encendió «Claude organiza mi agenda».
+    // ── v12 · El buzón de avisos de cada uno ────────────────────────────
+    match /avisos/{id} {
+      allow read, delete: if esPersona() && resource.data.uid == request.auth.uid;
+      allow update: if esPersona() && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leido']);
+      allow create: if esAgente()
+        && request.resource.data.keys().hasOnly(['uid', 'sitio', 'tema', 'texto', 'creadoEn', 'leido'])
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() <= 600;
+    }
+
     match /alertas/{id} {
       allow read: if esAgente() || (esPersona() && resource.data.uid == request.auth.uid);
       allow create: if esPersona()

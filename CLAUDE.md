@@ -168,6 +168,14 @@ la documentación diga la verdad.
   repositorio es público. Van a Gemini (por claude-proxy) sólo para estimar
   el viaje de la alarma de salir. La ubicación del teléfono es aproximada, se
   pide al armar un plan y no se guarda.
+- **El buzón de avisos** (reglas v12, 9-oct-2026, `tiempos:V10`): lo que
+  Claude le avisa a Mauro o a Florencia —de cualquier sitio— queda en
+  `avisos/` y su **Pizarra** lo trae como notificación (`Avisos.kt` de
+  `pizarra`). Lo crea sólo el agente (`herramientas/avisos.mjs` de `datos`,
+  avisos-4: además del WhatsApp, que sigue igual); lo lee y lo marca leído
+  sólo su dueño. **No pasa por `_historial`**: es nuevo, no pisa nada, y la
+  copia la leerían los dos. Los demás del equipo tienen el mismo buzón en la
+  base de su sitio.
 - **El reparto (`repartir`) no se muestra hasta que Mauro y Florencia lo
   acuerden.** Está probado; mostrarlo es una decisión de ellos. **Desde app-19
   lo que se muestra es otro reparto, el que Mauro definió el 8-oct**

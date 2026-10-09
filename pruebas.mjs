@@ -1102,5 +1102,14 @@ prueba("las reglas de movimientos ya aceptan el pago de un fijo (monto > 0, mone
   assert.match(r, /match \/familia\/\{doc\} \{\s*allow read, create, update: if esPersona\(\) \|\| esAgente\(\);/);
 });
 
+prueba("reglas v12: el buzón de avisos es de su dueño, lo crea sólo el agente con forma fija, y sólo se marca leído", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  const b = /match \/avisos\/\{id\} \{([\s\S]*?)\n    \}/.exec(r)[1];
+  assert.match(b, /allow read, delete: if esPersona\(\) && resource\.data\.uid == request\.auth\.uid;/);
+  assert.match(b, /affectedKeys\(\)\.hasOnly\(\['leido'\]\)/);
+  assert.match(b, /allow create: if esAgente\(\)\s*&& request\.resource\.data\.keys\(\)\.hasOnly\(\['uid', 'sitio', 'tema', 'texto', 'creadoEn', 'leido'\]\)/);
+  assert.ok(!/allow create: if esPersona/.test(b), "una persona no se crea avisos");
+});
+
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);
