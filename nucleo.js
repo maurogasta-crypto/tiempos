@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-20
+// Sello: nucleo-21
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -590,20 +590,32 @@ export const idNuevo = (prefijo, ahoraMs = Date.now()) =>
    { nombre, orden } }`, y cada cosa su `seccion` y una `nota` chica («para la
    torta»). Son opcionales: una lista sin pasillos se ve como siempre. */
 export const LISTAS_DE_ENTRADA = ["Súper", "Verdulería", "Farmacia", "Ferretería"];
-export function listasDeCompras(doc) {
+/* nucleo-21 (compras-4): una lista COMPARTIDA SIN CUENTA vive mientras tanto
+   en `compartidas/{token}` (la única colección que se lee sin sesión, y sólo
+   por su token); en `familia/compras` queda el puntero `compartida: {token}`.
+   `compartidas` son esos documentos ya leídos, por token: si está, las cosas y
+   los pasillos salen de ahí. Mientras no llegó, la lista se ve vacía, nunca
+   con lo de antes. */
+const msDe = (v) => (v && typeof v.toMillis === "function") ? v.toMillis() : Number(v) || 0;
+export function listasDeCompras(doc, compartidas = {}) {
   return Object.entries((doc && doc.listas) || {})
     .filter(([, l]) => l && typeof l.nombre === "string")
-    .map(([id, l]) => {
+    .map(([id, l0]) => {
+      const token = l0.compartida && typeof l0.compartida.token === "string" ? l0.compartida.token : "";
+      const fuera = token ? (compartidas[token] || null) : null;
+      const l = token ? { ...l0, items: (fuera && fuera.items) || {}, secciones: (fuera && fuera.secciones) || l0.secciones } : l0;
       const items = Object.entries(l.items || {})
         .filter(([, it]) => it && typeof it.texto === "string" && it.texto.trim())
         .map(([iid, it]) => ({ id: iid, texto: it.texto, hecho: it.hecho === true, por: it.por || "", orden: it.orden || 0,
+          porNombre: typeof it.porNombre === "string" ? it.porNombre.slice(0, 30) : "",
           seccion: typeof it.seccion === "string" ? it.seccion : "", nota: typeof it.nota === "string" ? it.nota : "" }))
         .sort((a, b) => Number(a.hecho) - Number(b.hecho) || a.orden - b.orden || a.texto.localeCompare(b.texto));
       const secciones = Object.entries(l.secciones || {})
         .filter(([, x]) => x && typeof x.nombre === "string" && x.nombre.trim())
         .map(([sid, x]) => ({ id: sid, nombre: x.nombre, orden: x.orden || 0 }))
         .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
-      return { id, nombre: l.nombre, orden: l.orden || 0, items, secciones, faltan: items.filter((i) => !i.hecho).length };
+      return { id, nombre: l.nombre, orden: l.orden || 0, items, secciones, faltan: items.filter((i) => !i.hecho).length,
+        compartida: token ? { token, vence: msDe(fuera && fuera.vence), cargada: !!fuera } : null };
     })
     .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
 }
@@ -620,6 +632,21 @@ export function recorridoDeCompra(lista) {
     items: lista.items.filter((i) => i.seccion === x.id).sort(porOrden) }));
   grupos.push({ id: "", nombre: "Otras cosas", items: lista.items.filter((i) => !ids.has(i.seccion)).sort(porOrden) });
   return grupos.filter((g) => g.items.length);
+}
+
+/* El token de una lista compartida: 22 letras al azar de 64 posibles (132
+   bits). ES la llave: quien no lo tiene no puede leer el documento, y la
+   regla no deja LISTAR la colección sin sesión. */
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+export function tokenNuevo(azar = (n) => crypto.getRandomValues(new Uint8Array(n))) {
+  return Array.from(azar(22), (x) => B64[x & 63]).join("");
+}
+export const HORAS_COMPARTIDA = 48;
+
+/* Lo que se copia al compartir: nombre, pasillos y cosas, tal cual. */
+export function documentoCompartido(l0, uid, ahoraMs) {
+  return { nombre: String(l0.nombre || "").slice(0, 40), lista: l0.id || "", secciones: l0.secciones || {}, items: l0.items || {},
+    creadoPor: uid, venceMs: ahoraMs + HORAS_COMPARTIDA * 3600000 };
 }
 
 /* ── Colores de las tareas ───────────────────────────────────────────────────

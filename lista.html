@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14161a">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Lista de compras</title>
+<link rel="stylesheet" href="estilos.css?v=16">
+<!--
+  lista.html — Una lista de compras compartida SIN CUENTA. Sello: lista-1
+  (compras-4, 9-oct-2026). Mauro: «un enlace sólo para esa lista, sin cuenta».
+
+  Se abre con ?c=<token>, que crea «🔗 Compartir» en el modo súper de Tiempos.
+  Muestra ESA lista y nada más: no pide sesión, no ve el resto de Tiempos, y la
+  regla v13 sólo la deja leer con el token y antes de que venza. Lo que se
+  tilda acá lo ve Tiempos al instante, con el nombre de quien lo tildó. No es
+  parte del cascarón (no está en el SHELL de sw.js).
+-->
+</head>
+<body>
+<main class="contenedor" id="v"><p class="gris" style="margin-top:2rem">Cargando la lista…</p></main>
+<script type="module" src="lista.js?v=1"></script>
+</body>
+</html>

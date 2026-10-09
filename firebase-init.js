@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // firebase-init.js — El único contacto con Firebase. Dos bases, un SDK.
-// Sello: init-2
+// Sello: init-3
 //
 // ── LAS DOS BASES ────────────────────────────────────────────────────────────
 // · `tiempos-71d42` — la de la familia: tareas, sesiones y (después) el
@@ -46,7 +46,10 @@ export let errorCasaVerde = "";
 
 let promesa = null;
 
-export function cargar() {
+// init-3: la página de una lista compartida (lista.html, compras-4) la abre
+// gente sin cuenta: pide `{ casaVerde: false }` y no baja el código de Casa
+// Verde, que no le sirve de nada.
+export function cargar({ casaVerde = true } = {}) {
   if (promesa) return promesa;
   promesa = (async () => {
     let a, au, fs;
@@ -69,6 +72,7 @@ export function cargar() {
     } catch { db = fs.getFirestore(app); }
     auth = au.getAuth(app);
     F = { ...fs, ...au };
+    if (!casaVerde) return true;
 
     try {
       const mod = await import(CASA_VERDE + "firebase-init.js");

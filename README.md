@@ -83,6 +83,14 @@ Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
   súper lo que tildó el otro dice quién («✓ Flor») y se ilumina al llegar.
   «🔗 Compartir» manda `…/tiempos/?super=<lista>`, que abre Tiempos directo en
   esa lista; lo abre quien es miembro de Tiempos.
+  **Sin cuenta** (compras-4, reglas v13): desde compras-4 «🔗 Compartir»
+  manda `lista.html?c=<token>`, que abre ESA lista sin cuenta durante 48 h
+  (se renuevan con «+48 h»). Quien la abre escribe su nombre una vez, tilda
+  y agrega; Tiempos lo ve al instante con su nombre. Mientras dura, la lista
+  vive en `compartidas/{token}` (en `familia/compras` queda el puntero); «Cerrar
+  el enlace» la trae de vuelta y borra el documento. El token (22 letras al
+  azar) es la llave: la regla no deja listar sin sesión, ni leer vencida, ni
+  cambiar otra cosa que las cosas de la lista.
 - **Chicos**: la semana o el mes, con un señalador por persona y por chico.
   Sale de **lo acordado** para cada día de la semana, y un día distinto se
   cambia tocándolo. Las **actividades** —básquet, kung fu, amigos, la
@@ -366,12 +374,13 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-20` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-21` |
 | `estado.js` | lo que comparten las vistas | `estado-3` |
-| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-21` |
+| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-22` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-1` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje, y el interruptor «Claude organiza mi agenda» | `lugares-2` |
-| `compras.js` | la lista de compras, en `familia/compras` | `compras-3` |
+| `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
+| `lista.html` + `lista.js` | la lista compartida sin cuenta (`?c=<token>`); fuera del SHELL | `lista-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-7` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
 | `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-15` |
@@ -380,9 +389,9 @@ Florencia la acuerden.
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-9` |
 | `familia.js` | Hoy y Chicos | `familia-3` |
-| `firebase-init.js` | el único contacto con las dos bases | `init-2` |
-| `estilos.css` | | `estilos-15` |
-| `sw.js` | el cascarón sin señal | `tiempos-32` |
+| `firebase-init.js` | el único contacto con las dos bases | `init-3` |
+| `estilos.css` | | `estilos-16` |
+| `sw.js` | el cascarón sin señal | `tiempos-33` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v12 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

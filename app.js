@@ -1,7 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-21
+// Sello: app-22
 //
+// app-22 (9-oct-2026): con la lista escucha las compartidas sin cuenta
+// (compras-4, `compartidas/{token}`).
 // app-21 (9-oct-2026): ?super=<lista> abre Tareas → Compras en modo súper
 // (compras-3, el enlace para hacer las compras de a dos).
 // app-20 (9-oct-2026): sin cambios acá; sube el sello porque cambian
@@ -44,7 +46,7 @@ import { pintarAgenda, alternarEnAgenda, estaEnAgenda } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
-import { pintarCompras, abrirSuper } from "./compras.js";
+import { pintarCompras, abrirSuper, escucharCompartidas } from "./compras.js";
 import { montarGlobo, abrirDictado } from "./sugerir.js";
 import { pintarPizarra } from "./pizarra.js";
 
@@ -194,7 +196,7 @@ function escucharFamilia() {
   }, mal("los datos de los chicos"));
   // app-8: la lista de compras, en el mismo documento para los dos.
   F.onSnapshot(F.doc(db, "familia", "compras"), (d) => {
-    E.compras = d.exists() ? d.data() : {}; pintar();
+    E.compras = d.exists() ? d.data() : {}; escucharCompartidas(); pintar();
   }, mal("la lista de compras"));
   // app-19 (tiempos:V9): los gastos del año y los repartos de cada mes.
   F.onSnapshot(F.doc(db, "familia", "presupuesto"), (d) => {

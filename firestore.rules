@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v12, 9-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v13, 9-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -38,6 +38,14 @@ rules_version = '2';
 //      como notificación. Lo lee, lo marca leído o lo borra sólo su dueño; lo
 //      crea sólo el agente, con forma fija. No va a `_historial`: es nuevo, no
 //      pisa nada, y la copia la leerían los dos.
+//  v13: la LISTA COMPARTIDA SIN CUENTA (`compartidas`, compras-4, Mauro:
+//      «un enlace sólo para esa lista, sin cuenta»). Es la ÚNICA colección
+//      que se lee sin sesión, y sólo así: con el token —22 letras al azar,
+//      que son el nombre del documento—, nunca listando, y antes de que
+//      venza (48 h, que se renuevan desde la app). Sin sesión se cambian
+//      SÓLO las cosas de la lista, hasta 300: ni el vencimiento, ni el
+//      nombre, ni quién la abrió. La crean, la renuevan y la borran Mauro o
+//      Florencia; el agente la lee.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -334,6 +342,34 @@ service cloud.firestore {
     // De su dueño, que las crea al aceptar lo que dictó. El agente las LEE
     // (para mandar el recordatorio por WhatsApp) y desde la v11 las escribe
     // sólo si su dueño encendió «Claude organiza mi agenda».
+    // ── v13 · La lista compartida sin cuenta ───────────────────────────
+    // El token es la llave: `get` sí, `list` nunca sin sesión (listar sería
+    // entregar todas las llaves). Un vencimiento a más de 8 días no entra.
+    match /compartidas/{token} {
+      function bienFormada() {
+        return request.resource.data.items is map
+          && request.resource.data.items.size() <= 300
+          && request.resource.data.vence is timestamp
+          && request.resource.data.vence < request.time + duration.value(8, 'd');
+      }
+      allow get: if token.size() >= 20
+        && (esPersona() || esAgente() || request.time < resource.data.vence);
+      allow list: if esPersona() || esAgente();
+      allow create: if esPersona() && token.size() >= 20
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() <= 40
+        && bienFormada();
+      allow update: if esPersona()
+        && request.resource.data.creadoPor == resource.data.creadoPor
+        && bienFormada();
+      allow update: if request.time < resource.data.vence
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['items', 'actualizadoEn'])
+        && request.resource.data.items is map
+        && request.resource.data.items.size() <= 300;
+      allow delete: if esPersona();
+    }
+
     // ── v12 · El buzón de avisos de cada uno ────────────────────────────
     match /avisos/{id} {
       allow read, delete: if esPersona() && resource.data.uid == request.auth.uid;

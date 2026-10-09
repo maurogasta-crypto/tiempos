@@ -16,7 +16,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
-         cotidianasDe, listasDeCompras, recorridoDeCompra, colorHeredado, COLORES_TAREA, idNuevo,
+         cotidianasDe, listasDeCompras, recorridoDeCompra, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
@@ -1137,6 +1137,60 @@ prueba("reglas v12: el buzón de avisos es de su dueño, lo crea sólo el agente
   assert.match(b, /affectedKeys\(\)\.hasOnly\(\['leido'\]\)/);
   assert.match(b, /allow create: if esAgente\(\)\s*&& request\.resource\.data\.keys\(\)\.hasOnly\(\['uid', 'sitio', 'tema', 'texto', 'creadoEn', 'leido'\]\)/);
   assert.ok(!/allow create: if esPersona/.test(b), "una persona no se crea avisos");
+});
+
+titulo("compras-4: la lista compartida sin cuenta (reglas v13)");
+prueba("el token: 22 letras url-seguras, al azar, nunca dos iguales", () => {
+  const ts = new Set(Array.from({ length: 200 }, () => tokenNuevo()));
+  assert.equal(ts.size, 200);
+  for (const t of ts) assert.match(t, /^[A-Za-z0-9_-]{22}$/);
+  assert.equal(tokenNuevo(() => new Uint8Array(22)), "A".repeat(22));
+});
+prueba("una lista compartida se lee de su documento, y mientras no llegó se ve vacía (nunca lo viejo)", () => {
+  const doc = { listas: { m: { nombre: "Macro", orden: 1, secciones: { s1: { nombre: "Lácteos", orden: 1 } },
+    compartida: { token: "T".repeat(22) }, items: { viejo: { texto: "no debería verse" } } } } };
+  const [sin] = listasDeCompras(doc);
+  assert.deepEqual(sin.items, []);
+  assert.deepEqual(sin.compartida, { token: "T".repeat(22), vence: 0, cargada: false });
+  const [con] = listasDeCompras(doc, { ["T".repeat(22)]: { vence: { toMillis: () => 1234 },
+    items: { a: { texto: "Leche", seccion: "s1", hecho: true, porNombre: "Ana" } } } });
+  assert.deepEqual(con.items.map((i) => [i.texto, i.porNombre]), [["Leche", "Ana"]]);
+  assert.equal(con.compartida.vence, 1234);
+  assert.deepEqual(con.secciones.map((x) => x.nombre), ["Lácteos"]);
+  assert.equal(listasDeCompras({ listas: { x: { nombre: "Común", items: {} } } })[0].compartida, null);
+});
+prueba("al compartir se copia nombre, pasillos y cosas, y vence en 48 h", () => {
+  const d = documentoCompartido({ id: "m", nombre: "Macro", secciones: { s: {} }, items: { a: { texto: "x" } } }, "u1", 1000);
+  assert.deepEqual(Object.keys(d).sort(), ["creadoPor", "items", "lista", "nombre", "secciones", "venceMs"]);
+  assert.equal(d.venceMs, 1000 + 48 * 3600000);
+  assert.equal(HORAS_COMPARTIDA, 48);
+});
+prueba("reglas v13: sin sesión, sólo con el token y antes de que venza; nunca listar; sólo cambiar las cosas", () => {
+  const b = /match \/compartidas\/\{token\} \{([\s\S]*?)\n    \}/.exec(reglas)[1];
+  assert.match(b, /allow get: if token\.size\(\) >= 20\s*&& \(esPersona\(\) \|\| esAgente\(\) \|\| request\.time < resource\.data\.vence\);/);
+  assert.match(b, /allow list: if esPersona\(\) \|\| esAgente\(\);/);
+  assert.match(b, /allow update: if request\.time < resource\.data\.vence\s*&& request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['items', 'actualizadoEn'\]\)/);
+  assert.match(b, /duration\.value\(8, 'd'\)/);
+  assert.match(b, /allow delete: if esPersona\(\);/);
+  assert.ok(!/allow (read|write)/.test(b), "nada de read o write en bloque: get y list van separados");
+});
+prueba("la página pública escribe sólo items y actualizadoEn, y no baja Casa Verde", () => {
+  const l = fs.readFileSync("lista.js", "utf8");
+  for (const m of l.matchAll(/updateDoc\(ref, \{([^}]*)\}/g))
+    for (const k of m[1].match(/\[[^\]]+\]|\b\w+(?=:)/g)) assert.ok(/items|actualizadoEn|^\[k \+/.test(k), "escribe " + k);
+  assert.match(l, /const k = "items\." \+ c\.dataset\.item;/);
+  assert.match(l, /cargar\(\{ casaVerde: false \}\)/);
+  assert.ok(!/setDoc|deleteDoc/.test(l));
+  assert.match(fs.readFileSync("lista.html", "utf8"), /<meta name="robots" content="noindex">/);
+  assert.ok(!/"lista\.(html|js)/.test(fs.readFileSync("sw.js", "utf8").split("\n").find((x) => x.startsWith("const SHELL"))));
+  assert.match(fs.readFileSync("sw.js", "utf8"), /searchParams\.has\("c"\)\) return;/);
+});
+prueba("Tiempos: mientras está compartida, las cosas se escriben en el documento compartido", () => {
+  const c = fs.readFileSync("compras.js", "utf8");
+  assert.match(c, /if \(!l\.compartida\) return guardar/);
+  assert.ok(!/guardar\(\{ \[lid\]/.test(c), "tildar/sacar no van directo a familia");
+  // primero se crea el compartido, después se muda: si falla, no se pierde nada
+  assert.ok(c.indexOf("await F.setDoc(refC(token)") < c.indexOf("items: F.deleteField() } }"));
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

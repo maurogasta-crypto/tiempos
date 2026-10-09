@@ -157,8 +157,16 @@ la documentación diga la verdad.
   tildado NO se mueve: uno camina la lista de arriba abajo.
   **Y se hace de a dos** (compras-3): «🔗 Compartir» manda `?super=<lista>`
   (app.js lo abre directo); lo tildado por el otro dice quién y se ilumina.
-  El enlace NO es público: entra sólo quien es miembro, porque la lista es de
-  la familia y abrirla a cualquiera sería una regla nueva.
+  Ese enlace (`?super=`) es sólo para miembros.
+  **Y desde compras-4 (reglas v13) hay un enlace SIN CUENTA**, pedido por
+  Mauro: «Compartir» muda la lista a `compartidas/{token}` por 48 h y manda
+  `lista.html?c=<token>`. Es la ÚNICA colección que se lee sin sesión: sólo con
+  el token, nunca listando, antes de que venza, y sin sesión se cambian sólo
+  las cosas (`items`). Mientras dura, Tiempos lee y escribe ahí
+  (`escribirLista`); «Cerrar el enlace» la trae de vuelta. **Una cosa, un
+  lugar**: la lista no se copia, se muda. `lista.html` no está en el SHELL y
+  no baja Casa Verde (`cargar({ casaVerde: false })`). Probado contra el
+  emulador de Firestore (23 casos, el 9-oct).
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco
