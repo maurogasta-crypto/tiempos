@@ -22,7 +22,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
          paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas,
-         CLASES_EXTRACTO, idExtracto, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
+         CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
          CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
@@ -1479,6 +1479,68 @@ prueba("registrar escribe el movimiento con id fijo y la línea en el MISMO lote
   assert.match(fs.readFileSync("plata.js", "utf8"), /extractos: "Extractos"/);
   assert.match(fs.readFileSync("app.js", "utf8"), /todo\("extractos", "extractos"\)/);
   assert.match(fs.readFileSync("sw.js", "utf8"), /"extractos\.js"/);
+});
+
+titulo("La economía centralizada (nucleo-28, tiempos:V13)");
+const CU = cuentasDe({ cuentas: { gf: { nombre: "General Flores", clase: "lugar", orden: 1 }, gfd: { nombre: "Depósito", padre: "gf" },
+  hx: { nombre: "Hilux", clase: "vehiculo", orden: 2 }, pq: { nombre: "Pisquito", clase: "vehiculo", orden: 3 }, cv: { nombre: "Casa Verde", clase: "lugar", orden: 4 } } });
+const NI = [{ id: "k1", nombre: "Chico1" }, { id: "k2", nombre: "Chico2" }], PE = [{ id: "m", nombre: "Mauro" }, { id: "f", nombre: "Flor" }];
+const EM = [
+  { monto: 1000, moneda: "UYU", fecha: "2026-09-02", categoria: "materiales", cuenta: "gfd" },
+  { monto: 500, moneda: "USD", fecha: "2026-09-03", categoria: "alquileres", cuenta: "gf" },
+  { monto: 4000, moneda: "UYU", fecha: "2026-09-04", categoria: "combustible", cuenta: "hx" },
+  { monto: 300, moneda: "UYU", fecha: "2026-09-05", categoria: "repuestos", cuenta: "pq" },
+  { monto: 200, moneda: "UYU", fecha: "2026-09-06", categoria: "actividades", para: "k1" },
+  { monto: 100, moneda: "UYU", fecha: "2026-09-06", categoria: "chicos" },
+  { monto: 640, moneda: "UYU", fecha: "2026-09-07", categoria: "personal", uid: "m" },
+  { monto: 900, moneda: "UYU", fecha: "2026-09-07", categoria: "comida", para: "f" },
+  { monto: 2860, moneda: "UYU", fecha: "2026-09-08", categoria: "comida" },
+  { monto: 150, moneda: "BRL", fecha: "2026-09-09", categoria: "materiales", cuenta: "cv" },
+  { monto: 9999, moneda: "UYU", fecha: "2026-08-31", categoria: "comida" },
+];
+const ECO = economiaFamiliar({ movs: EM, cuentas: CU, ninos: NI, personas: PE, desde: "2026-09-01", hasta: "2026-09-30" });
+const dst = (id) => ECO.destinos.find((d) => d.id === id);
+prueba("cada gasto va a UN destino: el proyecto de su cuenta (el depósito suma a General Flores), el chico, la persona o la casa", () => {
+  assert.deepEqual(dst("c:gf").porMoneda.UYU, { entro: 0, salio: 1000, neto: -1000, parte: 10 });
+  assert.deepEqual(dst("c:gf").porMoneda.USD, { entro: 500, salio: 0, neto: 500, parte: 0 });
+  assert.equal(dst("c:hx").porMoneda.UYU.salio, 4000);
+  assert.equal(dst("c:pq").porMoneda.UYU.salio, 300);
+  assert.equal(dst("n:k1").porMoneda.UYU.salio, 200);
+  assert.equal(dst("n:*").porMoneda.UYU.salio, 100, "de chicos sin decir cuál");
+  assert.equal(dst("p:m").porMoneda.UYU.salio, 640, "personal de quien pagó");
+  assert.equal(dst("p:f").porMoneda.UYU.salio, 900, "para Flor");
+  assert.equal(dst("casa").porMoneda.UYU.salio, 2860);
+  assert.equal(dst("c:cv").porMoneda.BRL.parte, 100);
+});
+prueba("las partes de cada moneda suman 100; nada fuera del período; el total es uno solo", () => {
+  const partes = ECO.destinos.reduce((a, d) => a + ((d.porMoneda.UYU || {}).parte || 0), 0);
+  assert.ok(Math.abs(partes - 100) < 0.5, String(partes));
+  assert.deepEqual(ECO.total.UYU, { entro: 0, salio: 10000 });
+  assert.equal(ECO.destinos[0].id, "c:hx", "primero lo que más se lleva");
+});
+prueba("lo de los extractos sin registrar entra si ya tiene categoría, y se marca", () => {
+  const p = pendientesComoMovs([{ id: "z", medio: "prex", fecha: "2026-09-10", moneda: "UYU", monto: 50, sentido: "salio", clase: "gasto", categoria: "combustible", cuenta: "hx", estado: "pendiente", uid: "m" },
+    { id: "y", medio: "prex", fecha: "2026-09-10", moneda: "UYU", monto: 70, sentido: "salio", clase: "revisar", estado: "pendiente" },
+    { id: "w", medio: "prex", fecha: "2026-09-10", moneda: "UYU", monto: 80, sentido: "salio", clase: "gasto", categoria: "comida", estado: "registrado" }]);
+  assert.equal(p.length, 1); assert.equal(p[0].id, "x-z");
+  const e = economiaFamiliar({ movs: [...EM, ...p], cuentas: CU, ninos: NI, personas: PE, desde: "2026-09-01", hasta: "2026-09-30" });
+  assert.equal(e.sinRegistrar, 1); assert.equal(e.destinos.find((d) => d.id === "c:hx").porMoneda.UYU.salio, 4050);
+});
+prueba("el libro propio de un negocio: por moneda, entró, salió y neto, en el período", () => {
+  const l = libroDeNegocio([{ tipo: "entro", moneda: "USD", monto: 390, fecha: "2026-08-14", categoria: "Reservas" },
+    { tipo: "salio", moneda: "BRL", monto: 120, fecha: "2026-07-24", categoria: "Honorarios" },
+    { tipo: "entro", moneda: "BRL", monto: 1000, fecha: "2026-07-30", categoria: "Reservas" }, { tipo: "x", moneda: "BRL", monto: 5, fecha: "2026-07-30" }],
+    { desde: "2026-07-01", hasta: "2026-07-31" });
+  assert.deepEqual(l.BRL, { entro: 1000, salio: 120, neto: 880, porCategoria: { Reservas: 1000, Honorarios: -120 } });
+  assert.equal(l.USD, undefined);
+});
+prueba("Plata tiene Proyectos y lee el libro de Casa Verde SÓLO leyendo, con la sesión de Casa Verde", () => {
+  const p = fs.readFileSync("proyectos.js", "utf8");
+  assert.match(fs.readFileSync("plata.js", "utf8"), /proyectos: "Proyectos"/);
+  assert.match(p, /M\.getDocs\(M\.collection\(M\.db, "movimientos"\)\)/);
+  assert.ok(!/setDoc|addDoc|updateDoc|deleteDoc/.test(p), "proyectos.js no escribe");
+  assert.match(fs.readFileSync("sw.js", "utf8"), /"proyectos\.js"/);
+  assert.match(fs.readFileSync("extractos.js", "utf8"), /sel\("para"/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

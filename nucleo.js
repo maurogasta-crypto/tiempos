@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-27
+// Sello: nucleo-28
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1759,5 +1759,90 @@ export function resumenExtractos(lineas, { desde = "", hasta = "", medio = "", s
     sum(out.porMes, l.fecha.slice(0, 7), l.moneda, signo * v);
   }
   out.meses = [...meses].sort();
+  return out;
+}
+
+/* ── La ECONOMÍA CENTRALIZADA (nucleo-28, 10-oct-2026, tiempos:V13) ──────────
+   Mauro: «quiero que la economía esté centralizada para poder, de un solo
+   lugar, saber cómo se están derivando los gastos… diferenciar si ese gasto
+   es en el mantenimiento de Casa Verde, del auto, del triciclo, de la
+   actividad de los niños, en salidas para uno o para el otro… como la plata
+   es toda una y viene a un solo lugar, que es la familia… analizar el
+   funcionamiento de cada proyecto y su viabilidad: cuántos recursos se le
+   dedican y si es rentable».
+
+   Toda la plata es UNA. Cada movimiento va a UN destino, y se decide así:
+   · tiene `cuenta` → el proyecto raíz de esa cuenta (el depósito de General
+     Flores es General Flores; la Hilux es la Hilux);
+   · si no, es de un chico (`para` = un chico, o categoría de chicos) → ese
+     chico, o «los chicos» si no dice cuál;
+   · si no, es personal de alguien (`para` = una persona, o categoría
+     personal con quien pagó) → esa persona;
+   · si no → «la casa», el funcionamiento de la familia.
+   De cada destino: lo que se le dedicó (salió), lo que dejó (entró), el neto
+   y su PARTE de todo lo que salió de la familia — por moneda, sin convertir.
+   Lo que dice un extracto y todavía no se registró también cuenta (si ya
+   tiene categoría), marcado, para que la vista esté viva desde el día uno. */
+export function pendientesComoMovs(extractos) {
+  return (extractos || []).filter((l) => !faltaParaRegistrar(l).length)
+    .map((l) => ({ ...movimientoDeExtracto(l, l.uid), id: "x-" + l.id, sinRegistrar: true }));
+}
+
+export function economiaFamiliar({ movs = [], cuentas = [], ninos = [], personas = [], desde = "", hasta = "" } = {}) {
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const raiz = {};
+  for (const c of cuentas) raiz[c.id] = c.nivel ? c.padre : c.id;
+  const nombreCuenta = Object.fromEntries(cuentas.map((c) => [c.id, c.nombre]));
+  const esNino = new Set(ninos.map((n) => n.id)), esPersona = new Set(personas.map((p) => p.id));
+  const DE_CHICOS = new Set(["chicos", "actividades"]);
+  const destinos = {};
+  const de = (id, nombre, clase) => (destinos[id] = destinos[id] || { id, nombre, clase, porMoneda: {}, porCategoria: {}, n: 0, sinRegistrar: 0 });
+  const total = {};
+  let sinRegistrar = 0;
+  for (const m of movs) {
+    const c = m && CATEGORIAS[m.categoria];
+    if (!c || !(Number(m.monto) > 0) || !MONEDAS.includes(m.moneda) || !enRango(m.fecha, desde, hasta)) continue;
+    let d;
+    if (m.cuenta && raiz[m.cuenta]) { const id = raiz[m.cuenta], cu = cuentas.find((x) => x.id === id); d = de("c:" + id, nombreCuenta[id], cu ? cu.clase : "proyecto"); }
+    else if (esNino.has(m.para)) d = de("n:" + m.para, (ninos.find((n) => n.id === m.para) || {}).nombre || "un chico", "chico");
+    else if (DE_CHICOS.has(m.categoria)) d = de("n:*", "Los chicos", "chico");
+    else if (esPersona.has(m.para) || (m.categoria === "personal" && esPersona.has(m.uid))) {
+      const u = esPersona.has(m.para) ? m.para : m.uid; d = de("p:" + u, (personas.find((p) => p.id === u) || {}).nombre || "alguien", "persona");
+    } else d = de("casa", "La casa (funcionamiento)", "casa");
+    const v = Number(m.monto), lado = c.tipo === "entro" ? "entro" : "salio";
+    const o = (d.porMoneda[m.moneda] = d.porMoneda[m.moneda] || { entro: 0, salio: 0 });
+    o[lado] = r2(o[lado] + v);
+    const t = (total[m.moneda] = total[m.moneda] || { entro: 0, salio: 0 });
+    t[lado] = r2(t[lado] + v);
+    d.porCategoria[m.categoria] = d.porCategoria[m.categoria] || {};
+    d.porCategoria[m.categoria][m.moneda] = r2((d.porCategoria[m.categoria][m.moneda] || 0) + (lado === "entro" ? v : -v));
+    d.n++; if (m.sinRegistrar) { d.sinRegistrar++; sinRegistrar++; }
+  }
+  const lista = Object.values(destinos);
+  for (const d of lista) for (const [mon, o] of Object.entries(d.porMoneda)) {
+    o.neto = r2(o.entro - o.salio);
+    o.parte = total[mon].salio > 0 ? Math.round((o.salio / total[mon].salio) * 1000) / 10 : 0;
+  }
+  // Primero lo que más se lleva (en la moneda donde más se gastó), después el resto.
+  const monMayor = Object.entries(total).sort((a, b) => b[1].salio - a[1].salio).map(([m]) => m)[0];
+  lista.sort((a, b) => ((b.porMoneda[monMayor] || {}).salio || 0) - ((a.porMoneda[monMayor] || {}).salio || 0) || a.nombre.localeCompare(b.nombre));
+  return { total, destinos: lista, sinRegistrar };
+}
+
+/** El libro propio de un negocio (Casa Verde): lo que entró y salió, por moneda.
+    Va aparte del de la familia: su plata se mueve en su base y su neto llega
+    a la familia como «neto de un negocio». Sirve para ver si es rentable. */
+export function libroDeNegocio(movs, { desde = "", hasta = "" } = {}) {
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const out = {};
+  for (const m of movs || []) {
+    if (!m || !(Number(m.monto) > 0) || !MONEDAS.includes(m.moneda) || !esISO(m.fecha) || !enRango(m.fecha, desde, hasta)) continue;
+    if (m.tipo !== "entro" && m.tipo !== "salio") continue;
+    const o = (out[m.moneda] = out[m.moneda] || { entro: 0, salio: 0, neto: 0, porCategoria: {} });
+    o[m.tipo] = r2(o[m.tipo] + Number(m.monto));
+    o.neto = r2(o.entro - o.salio);
+    const k = String(m.categoria || "otros");
+    o.porCategoria[k] = r2((o.porCategoria[k] || 0) + (m.tipo === "entro" ? 1 : -1) * Number(m.monto));
+  }
   return out;
 }

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// extractos.js — Plata → Extractos. Sello: extractos-1
+// extractos.js — Plata → Extractos. Sello: extractos-2
 //
 // Mauro, 10-oct-2026: «vamos integrando esta información para tener datos
 // estadísticos… dejar un registro vivo y unificado. Cuando se haga un análisis
@@ -16,12 +16,16 @@
 // Lo que no es gasto ni entrada (cargas, cambios de moneda, una seña que ya
 // está en Casa Verde, una compra devuelta) se ve, con su clase, y no se
 // registra. «A revisar» es lo que el agente no supo: se decide acá.
+//
+// extractos-2 (tiempos:V13): cada línea elige también PARA QUIÉN (una persona
+// o un chico): es lo que separa en Plata → Proyectos una salida de Mauro de
+// una de Florencia, o la actividad de un chico.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F } from "./firebase-init.js";
 import { esc, CATEGORIAS, MESES, CLASES_EXTRACTO, faltaParaRegistrar, movimientoDeExtracto,
          resumenExtractos, cuentasDe } from "./nucleo.js";
-import { E, aviso, repintar, fallo } from "./estado.js";
+import { E, aviso, repintar, fallo, personas } from "./estado.js";
 
 let medioVisto = "";
 let trabajando = false;
@@ -78,7 +82,8 @@ function lineaHTML(l) {
       ${(l.dudas || []).length && !hecha ? `<small class="aviso-chico">❓ ${l.dudas.map(esc).join(" · ")}</small>` : ""}
       ${hecha ? "" : `<span class="selects">${sel("clase", Object.entries(CLASES_EXTRACTO).map(([k, c]) => [k, c.nombre]), l.clase)}
         ${l.clase === "gasto" || l.clase === "entrada" ? sel("categoria", [["", "— categoría —"], ...cats.map(([k, c]) => [k, c.nombre])], l.categoria || "")
-          + sel("cuenta", [["", "— la casa en general —"], ...cuentasDe(E.cuentasDoc).map((c) => [c.id, c.ruta])], l.cuenta || "") : ""}
+          + sel("cuenta", [["", "— la casa en general —"], ...cuentasDe(E.cuentasDoc).map((c) => [c.id, c.ruta])], l.cuenta || "")
+          + sel("para", [["", "— para nadie en especial —"], ...personas().map((p) => [p.id, "para " + p.nombre]), ...((E.familia && E.familia.ninos) || []).map((n) => [n.id, "para " + n.nombre])], l.para || "") : ""}
         ${falta.length && (l.clase === "gasto" || l.clase === "entrada") ? `<small class="gris">falta ${esc(falta.join(", "))}</small>` : ""}</span>`}</span>
     <span class="num">${signo}${fmt(Number(l.monto))} ${esc(l.moneda)}</span></div>`;
 }

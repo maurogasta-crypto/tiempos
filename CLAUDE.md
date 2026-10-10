@@ -139,6 +139,15 @@ la documentación diga la verdad.
   El análisis (`analisis.mjs`) suma aparte lo no registrado; lo registrado ya
   está en los movimientos. Una seña de un huésped que entró a Prex está en
   Casa Verde: va como clase `negocio`, no se cuenta dos veces.
+- **La economía es UNA y se mira por DESTINO** (proyectos-1, nucleo-28,
+  10-oct-2026, `tiempos:V13`). Plata → Proyectos: `economiaFamiliar` pone cada
+  movimiento en un solo destino —el proyecto raíz de su `cuenta`; si no, el
+  chico o la persona de `para` (o el dueño de un gasto personal); si no, la
+  casa— y da lo dedicado, la parte de lo que salió, lo que dejó y el neto, por
+  moneda. **No hay campo nuevo**: alcanzan `cuenta` y `para`. Casa Verde
+  suma su libro propio, que se LEE con la sesión de Casa Verde (`CV.mod`,
+  permiso de finanzas) y no se copia. `proyectos.js` no escribe, y el banco
+  lo comprueba.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

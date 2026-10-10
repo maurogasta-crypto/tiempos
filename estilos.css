@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-20
+/* estilos.css — Tiempos. Sello: estilos-21
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -317,3 +317,7 @@ small.ok { color:var(--ok); font-weight:600; }
 .fila.extracto select.chico { font-size:.82rem; padding:3px 4px; max-width:100%; }
 .aviso-chico { display:block; color:var(--acento); font-size:.8rem; }
 .chica { font-size:.82rem; }
+
+/* estilos-21 (tiempos:V13): Plata → Proyectos. */
+.tarjeta.proyecto h3 small { font-weight:400; }
+.num.ok { color:var(--ok); } .num.mal { color:var(--mal); }
