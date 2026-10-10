@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v13, 9-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v14, 10-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -46,6 +46,12 @@ rules_version = '2';
 //      SÓLO las cosas de la lista, hasta 300: ni el vencimiento, ni el
 //      nombre, ni quién la abrió. La crean, la renuevan y la borran Mauro o
 //      Florencia; el agente la lee.
+//  v14: los EXTRACTOS de las cuentas (`extractos`, tiempos:V12, Mauro: «un
+//      registro vivo y unificado» de Prex, BTG…). Lo que dice el banco, línea
+//      por línea. El agente las CARGA y las clasifica mientras están
+//      pendientes; una persona las REGISTRA (la app escribe el movimiento con
+//      su sesión) o las excluye. El agente no toca una línea ya decidida, ni
+//      cambia lo que dijo el banco: monto, moneda, fecha y medio quedan.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -310,6 +316,31 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'decididoPor', 'decididoEn', 'resultadoId'])
         && request.resource.data.estado in ['aprobada', 'descartada'];
+    }
+
+    // ── v14 · Los extractos de las cuentas ─────────────────────────────
+    match /extractos/{id} {
+      function lineaBien() {
+        let d = request.resource.data;
+        return d.monto is number && d.monto > 0
+          && d.moneda in ['BRL', 'UYU', 'USD']
+          && d.fecha is string && d.fecha.size() == 10
+          && d.medio is string && d.medio.size() > 0 && d.medio.size() <= 40
+          && d.sentido in ['entro', 'salio']
+          && d.desc is string && d.desc.size() <= 120
+          && d.clase in ['gasto', 'entrada', 'revisar', 'interno', 'negocio', 'devuelto'];
+      }
+      function loDelBancoQueda() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['clase', 'categoria', 'cuenta', 'para', 'nota', 'dudas', 'estado',
+                    'movId', 'decididoPor', 'decididoEn', 'actualizadoEn']);
+      }
+      allow read: if esPersona() || esAgente();
+      allow create: if esAgente() && lineaBien() && request.resource.data.estado == 'pendiente';
+      allow update: if lineaBien() && loDelBancoQueda() && (
+          (esAgente() && resource.data.estado == 'pendiente' && request.resource.data.estado == 'pendiente')
+          || (esPersona() && request.resource.data.estado in ['pendiente', 'registrado', 'excluido']));
+      allow delete: if esPersona();
     }
 
     // ── v4 · La auditoría ──────────────────────────────────────────────

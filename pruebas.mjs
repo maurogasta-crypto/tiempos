@@ -22,6 +22,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
          paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas,
+         CLASES_EXTRACTO, idExtracto, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
          CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
@@ -1405,6 +1406,79 @@ prueba("la pantalla del trimestre ajusta el Año con la sesión de quien toca, y
   assert.match(fi, /trimestres: \{ \[trimestre\]: \{ confirmado: \{ \[E\.yo\.uid\]: \{ firma/);
   assert.match(fi, /que: "trimestre"/);
   assert.match(pl, /trimestre: "Trimestre"/);
+});
+
+titulo("Los extractos de las cuentas (nucleo-27, reglas v14, tiempos:V12)");
+const LX = [
+  { id: "a", medio: "prex-mauro", fecha: "2026-07-24", moneda: "UYU", monto: 7478.61, sentido: "salio", desc: "MACROMERCADO", clase: "gasto", categoria: "comida", estado: "pendiente", uid: "m" },
+  { id: "b", medio: "prex-mauro", fecha: "2026-07-21", moneda: "UYU", monto: 3238.03, sentido: "salio", desc: "UTE", clase: "gasto", categoria: "casa", cuenta: "santa-fe", estado: "registrado", uid: "m" },
+  { id: "c", medio: "prex-mauro", fecha: "2026-07-29", moneda: "USD", monto: 506, sentido: "entro", desc: "CARGA ABITAB", clase: "interno", estado: "pendiente" },
+  { id: "d", medio: "prex-mauro", fecha: "2026-09-17", moneda: "UYU", monto: 6000, sentido: "entro", desc: "CARGA", clase: "negocio", estado: "pendiente" },
+  { id: "e", medio: "prex-mauro", fecha: "2026-07-21", moneda: "UYU", monto: 14491.28, sentido: "entro", desc: "DLOCAL", clase: "revisar", dudas: ["¿qué cobro es?"], estado: "pendiente" },
+  { id: "f", medio: "prex-mauro", fecha: "2026-06-12", moneda: "UYU", monto: 5632, sentido: "entro", desc: "BPS", clase: "entrada", categoria: "ingreso", estado: "pendiente", uid: "m" },
+  { id: "g", medio: "btg-flor", fecha: "2026-07-02", moneda: "BRL", monto: 80, sentido: "salio", desc: "X", clase: "gasto", categoria: "comida", estado: "excluido" },
+  { id: "h", medio: "prex-mauro", fecha: "2026-07-02", moneda: "UYU", monto: 100, sentido: "salio", desc: "Y", clase: "gasto", categoria: "ingreso", estado: "pendiente" },
+];
+prueba("el id sale de la línea: mismo extracto, mismo id; dos iguales el mismo día se distinguen por orden", () => {
+  const a = idExtracto("Prex Mauro", "2026-07-24", "UYU", 7478.61, "salio");
+  assert.equal(a, "prex-mauro-20260724-uyu-747861-s");
+  assert.equal(a, idExtracto("prex-mauro", "2026-07-24", "UYU", "7478.61", "salio"));
+  assert.notEqual(a, idExtracto("prex-mauro", "2026-07-24", "UYU", 7478.61, "salio", 2));
+  assert.notEqual(a, idExtracto("prex-mauro", "2026-07-24", "UYU", 7478.61, "entro"));
+});
+prueba("sólo se registra un gasto o una entrada pendiente, con la categoría que corresponde", () => {
+  assert.deepEqual(faltaParaRegistrar(LX[0]), []);
+  assert.deepEqual(faltaParaRegistrar(LX[5]), []);
+  assert.ok(faltaParaRegistrar(LX[1]).length, "ya registrado");
+  assert.ok(faltaParaRegistrar(LX[2]).length, "una carga no es un gasto");
+  assert.ok(faltaParaRegistrar(LX[4]).length, "a revisar no se registra");
+  assert.match(faltaParaRegistrar(LX[7]).join(), /categoría de gasto/);
+  assert.match(faltaParaRegistrar({ ...LX[0], categoria: "" }).join(), /categoría/);
+});
+prueba("el movimiento que sale de una línea es válido y dice de qué línea vino", () => {
+  const m = movimientoDeExtracto(LX[0], "otro");
+  assert.deepEqual(validarMovimiento(m), []);
+  assert.equal(m.uid, "m"); assert.equal(m.extracto, "a"); assert.equal(m.origen, "extracto"); assert.equal(m.tipo, "salio");
+  assert.equal(movimientoDeExtracto(LX[5]).tipo, "entro");
+  assert.equal(movimientoDeExtracto({ ...LX[0], uid: "" }, "yo").uid, "yo");
+  assert.ok(!("cuenta" in movimientoDeExtracto(LX[0])));
+  assert.equal(movimientoDeExtracto(LX[1]).cuenta, "santa-fe");
+});
+prueba("el resumen cuenta gastos y entradas por moneda; cargas, señas de Casa Verde y excluidas no; lo dudoso aparte", () => {
+  const r = resumenExtractos(LX);
+  assert.deepEqual(r.porMedio["prex-mauro"], { UYU: Math.round((5632 - 7478.61 - 3238.03 - 100) * 100) / 100 });
+  assert.ok(!r.porMedio["btg-flor"], "la excluida no cuenta");
+  assert.equal(r.porCategoria.comida.UYU, -7478.61);
+  assert.equal(r.porClase.interno.USD, 506);
+  assert.equal(r.porClase.negocio.UYU, 6000);
+  assert.equal(r.revisar.length, 1); assert.equal(r.revisar[0].duda, "¿qué cobro es?");
+  assert.ok(!r.porCategoria.ingreso || r.porCategoria.ingreso.UYU === 5632 - 100);
+});
+prueba("para el análisis, lo ya registrado no se cuenta dos veces; y se filtra por fechas y por medio", () => {
+  const r = resumenExtractos(LX, { soloPendientes: true });
+  assert.ok(!r.porCategoria.casa, "la UTE registrada ya está en los movimientos");
+  assert.equal(resumenExtractos(LX, { desde: "2026-07-01", hasta: "2026-07-31" }).porMes["2026-06"], undefined);
+  assert.equal(resumenExtractos(LX, { medio: "btg-flor" }).lineas, 0);
+  assert.deepEqual(resumenExtractos(LX).meses, ["2026-06", "2026-07", "2026-09"]);
+});
+prueba("reglas v14: el agente carga y clasifica lo pendiente; lo del banco no se cambia; registra una persona", () => {
+  const b = /match \/extractos\/\{id\} \{([\s\S]*?)\n    \}/.exec(reglas)[1];
+  assert.match(b, /allow create: if esAgente\(\) && lineaBien\(\) && request\.resource\.data\.estado == 'pendiente'/);
+  assert.match(b, /esAgente\(\) && resource\.data\.estado == 'pendiente' && request\.resource\.data\.estado == 'pendiente'/);
+  const lista = /hasOnly\(\[([^\]]*)\]\)/.exec(b)[1];
+  for (const k of ["monto", "moneda", "fecha", "medio", "sentido", "desc"]) assert.ok(!lista.includes("'" + k + "'"), k + " no se cambia");
+  assert.match(b, /\['gasto', 'entrada', 'revisar', 'interno', 'negocio', 'devuelto'\]/);
+  assert.deepEqual(Object.keys(CLASES_EXTRACTO).sort(), ["devuelto", "entrada", "gasto", "interno", "negocio", "revisar"]);
+});
+prueba("registrar escribe el movimiento con id fijo y la línea en el MISMO lote, de a 200", () => {
+  const x = fs.readFileSync("extractos.js", "utf8");
+  assert.match(x, /const movId = "x-" \+ l\.id/);
+  assert.match(x, /b\.set\(F\.doc\(db, "movimientos", movId\)/);
+  assert.match(x, /b\.update\(F\.doc\(db, "extractos", l\.id\), \{ estado: "registrado", movId/);
+  assert.match(x, /i \+= 200/);
+  assert.match(fs.readFileSync("plata.js", "utf8"), /extractos: "Extractos"/);
+  assert.match(fs.readFileSync("app.js", "utf8"), /todo\("extractos", "extractos"\)/);
+  assert.match(fs.readFileSync("sw.js", "utf8"), /"extractos\.js"/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

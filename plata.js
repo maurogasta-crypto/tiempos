@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-9
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-10
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -39,6 +39,9 @@
 //
 // plata-9 (10-oct-2026): la solapa «Trimestre» (finanzas.js, pintarTrimestre):
 // el neto contra los fijos, el costo de funcionamiento y el ajuste del Año.
+//
+// plata-10 (10-oct-2026, tiempos:V12): la solapa «Extractos» (extractos.js):
+// lo que dice el banco, línea por línea, para registrarlo de a muchas.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
@@ -48,6 +51,7 @@ import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
 import { cuentasDe, idsDeCuenta, balanceDe, CLASES_CUENTA, idNuevo, balanceDelMes, firmaBalance, estadoCierre, trimestreDe } from "./nucleo.js";
 import { pedirAnalisis } from "./sugerir.js";
 import { pintarFijos, pintarAnio, pintarReparto, pintarTrimestre } from "./finanzas.js";
+import { pintarExtractos } from "./extractos.js";
 
 let mesVisto = null;              // "2026-09"
 let form = null;                  // null | { id?, tipo, datos, archivo?, leyendo? }
@@ -59,7 +63,7 @@ const sumarMes = (m, n) => { const d = new Date(Number(m.slice(0, 4)), Number(m.
 const categoriasDe = (tipo) => Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === tipo);
 
 let sub = "dia";                  // plata-5: dia | fijos | anio | reparto
-const SUBS = { dia: "Día a día", cuentas: "Cuentas", fijos: "Fijos", anio: "Año", trimestre: "Trimestre", reparto: "Reparto" };
+const SUBS = { dia: "Día a día", cuentas: "Cuentas", extractos: "Extractos", fijos: "Fijos", anio: "Año", trimestre: "Trimestre", reparto: "Reparto" };
 
 export function pintarPlata() {
   const v = $("v-plata");
@@ -72,6 +76,7 @@ export function pintarPlata() {
       v.innerHTML = nav + `<div class="nav-semana"><button class="mini" data-mes="-3">‹</button><b>${esc(t.replace("-T", " · T"))}</b><button class="mini" data-mes="3">›</button></div>`;
       pintarTrimestre(v, t); engancharSub(v); return;
     }
+    if (sub === "extractos") { v.innerHTML = nav + `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`; pintarExtractos(v, mesVisto); engancharSub(v); return; }
     if (sub === "cuentas") { v.innerHTML = nav + `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`; pintarCuentas(v); engancharSub(v); return; }
     if (sub === "fijos") pintarFijos(v, mesVisto);
     else if (sub === "anio") pintarAnio(v);
@@ -109,7 +114,7 @@ export function pintarPlata() {
     return `<div class="fila mov${c.tipo === "entro" ? " entro" : ""}" data-editar-mov="${esc(m.id)}">
       <span class="fecha-chica">${Number(String(m.fecha).slice(8))}</span>
       <span class="txt"><b>${esc(m.comercio || m.detalle || c.nombre || "—")}</b>
-        <small class="gris">${esc(c.nombre || m.categoria)}${m.comercio && m.detalle ? " · " + esc(m.detalle) : ""}${m.cuenta && rutaCuenta(m.cuenta) ? " · 📍 " + esc(rutaCuenta(m.cuenta)) : ""}${m.para ? " · para " + esc(nombrePara(m.para)) : ""}${m.uid ? " · " + esc(nombreDe(m.uid)) : ""}${m.automatico ? " · automático" : ""}${m.origen === "propuesta" ? " · del chat" : ""}</small></span>
+        <small class="gris">${esc(c.nombre || m.categoria)}${m.comercio && m.detalle ? " · " + esc(m.detalle) : ""}${m.cuenta && rutaCuenta(m.cuenta) ? " · 📍 " + esc(rutaCuenta(m.cuenta)) : ""}${m.para ? " · para " + esc(nombrePara(m.para)) : ""}${m.uid ? " · " + esc(nombreDe(m.uid)) : ""}${m.automatico ? " · automático" : ""}${m.origen === "propuesta" ? " · del chat" : ""}${m.origen === "extracto" ? " · del extracto" : ""}</small></span>
       ${m.comprobanteUrl ? `<a href="${esc(m.comprobanteUrl)}" target="_blank" rel="noopener" class="clip" title="Boleta">📎</a>` : ""}
       <span class="num">${c.tipo === "entro" ? "+" : "−"}${fmt(Number(m.monto))} ${esc(m.moneda)}</span></div>`;
   }).join("") : `<p class="gris">Nada en ${esc(nombreMes(mesVisto))}.</p>`;

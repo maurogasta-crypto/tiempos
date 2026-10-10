@@ -126,6 +126,19 @@ la documentación diga la verdad.
   quien toca) y lo que se repite sin ser concepto (`posiblesFijos`). Lo
   confirman los dos con `firmaTrimestre`. **Las horas no entran al reparto ni
   a las consultas de plata**: son control interno de Casa Verde.
+- **Los EXTRACTOS de los bancos** (extractos-1, nucleo-27, reglas v14,
+  10-oct-2026, `tiempos:V12`). Lo que dice Prex o BTG, línea por línea, en
+  `extractos/`: lo CARGA y lo clasifica el agente (`herramientas/extractos.mjs`
+  de `datos`, sólo crea lo que falta, sin `_historial`); lo REGISTRA una
+  persona en Plata → Extractos, que escribe el movimiento con su sesión y con
+  id `x-<línea>`. La regla no deja cambiar lo que dijo el banco (monto,
+  moneda, fecha, medio) ni que el agente toque una línea ya decidida. El id
+  de la línea sale de ella misma (`idExtracto`): **si cambia esa forma,
+  cambian los ids y un extracto cargado dos veces se duplica.** De la
+  descripción no se guardan números de 6 cifras o más (cuentas, tarjetas).
+  El análisis (`analisis.mjs`) suma aparte lo no registrado; lo registrado ya
+  está en los movimientos. Una seña de un huésped que entró a Prex está en
+  Casa Verde: va como clase `negocio`, no se cuenta dos veces.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

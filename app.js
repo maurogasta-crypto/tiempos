@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-26
+// Sello: app-27
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
+// app-27 (10-oct-2026, tiempos:V12): escucha `extractos` (Plata → Extractos).
 // app-25 (10-oct-2026, tiempos:V11): escucha `familia/cuentas` (E.cuentasDoc).
 // app-24 (10-oct-2026): sin cambios acá; nucleo-23 y sugerir-17 («los chicos» son todos).
 // app-23 (10-oct-2026): sin cambios acá; suben nucleo-22, sugerir-16, agenda-10,
@@ -252,6 +253,7 @@ function escucharFamilia() {
     E[campo] = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
   }, mal(col));
   todo("movimientos", "movs");
+  todo("extractos", "extractos");   // app-27 (tiempos:V12): lo que dice el banco, línea por línea
   todo("recurrentes", "recurrentes");
   todo("bloques", "bloques");
   todo("auditoria", "auditoria");

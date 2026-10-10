@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-26
+// Sello: nucleo-27
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1669,5 +1669,95 @@ export function repartoDelMes({ movs = [], conceptos = {}, mes, uids = [], salid
     out[mon] = { entro: redondo(r.entro), reserva, sinPresupuesto, gastoReal: redondo(r.mantenimiento + r.chicos),
                  libre, dias, valorDia, compensa, deQuien, aQuien, diferenciaDias: salidas ? salidas.diferencia || 0 : 0, porPersona };
   }
+  return out;
+}
+
+/* ── Los EXTRACTOS de las cuentas (nucleo-27, 10-oct-2026, tiempos:V12) ───────
+   Mauro: «vamos integrando esta información para tener datos estadísticos…
+   dejar un registro vivo y unificado. Cuando se haga un análisis de gastos
+   habrá que incluir esta información».
+
+   Un extracto es lo que dice el BANCO (Prex de Mauro, BTG de cada uno…), línea
+   por línea, tal como vino: `extractos/{id}`. No es todavía un movimiento: el
+   agente lo carga y lo clasifica, y una persona lo REGISTRA —de a muchos—, que
+   es lo que escribe el movimiento con su sesión. El agente sigue sin escribir
+   plata.
+
+   El id sale de la línea misma (`idExtracto`): cargar dos veces el mismo
+   extracto, o dos capturas que se pisan, no duplica nada.
+
+   Cada línea tiene una CLASE, porque no todo lo que sale de una cuenta es un
+   gasto de la familia:
+   · gasto / entrada — lo que se registra;
+   · interno — plata propia que se mueve: cargas, cambios de moneda,
+     transferencias entre cuentas de uno;
+   · negocio — ya está en el libro de Casa Verde (una seña que entró a Prex):
+     contarla acá sería contarla dos veces;
+   · devuelto — una compra que el comercio devolvió: neto cero;
+   · revisar — no se sabe todavía; se cuenta aparte y se pregunta. */
+export const CLASES_EXTRACTO = {
+  gasto:    { nombre: "Gasto",               cuenta: true },
+  entrada:  { nombre: "Entrada",             cuenta: true },
+  revisar:  { nombre: "A revisar",           cuenta: false },
+  interno:  { nombre: "Movimiento propio",   cuenta: false },
+  negocio:  { nombre: "Ya en Casa Verde",    cuenta: false },
+  devuelto: { nombre: "Compra devuelta",     cuenta: false },
+};
+
+/** El nombre del documento: medio, día, monto en centavos, sentido y orden. */
+export function idExtracto(medio, fecha, moneda, monto, sentido, n = 1) {
+  const med = String(medio || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `${med}-${String(fecha).replace(/-/g, "")}-${String(moneda).toLowerCase()}-${Math.round(Number(monto) * 100)}-${sentido === "entro" ? "e" : "s"}${n > 1 ? "-" + n : ""}`;
+}
+
+/** ¿Esta línea está lista para registrarse? Devuelve lo que le falta. */
+export function faltaParaRegistrar(l) {
+  const e = [];
+  if (!l || l.estado !== "pendiente") return ["ya se decidió"];
+  if (l.clase !== "gasto" && l.clase !== "entrada") return ["no es un gasto ni una entrada"];
+  const c = CATEGORIAS[l.categoria];
+  if (!c) e.push("la categoría");
+  else if (c.tipo !== (l.clase === "entrada" ? "entro" : "salio")) e.push("una categoría de " + (l.clase === "entrada" ? "entrada" : "gasto"));
+  if (!(Number(l.monto) > 0) || !MONEDAS.includes(l.moneda) || !esISO(l.fecha)) e.push("monto, moneda o fecha");
+  return e;
+}
+
+/** El movimiento que escribe la persona al registrar una línea. */
+export function movimientoDeExtracto(l, quien) {
+  const m = {
+    tipo: l.clase === "entrada" ? "entro" : "salio",
+    monto: Number(l.monto), moneda: l.moneda, fecha: l.fecha, categoria: l.categoria,
+    comercio: String(l.desc || "").slice(0, 80),
+    detalle: String(l.nota || "").slice(0, 300),
+    uid: l.uid || quien, origen: "extracto", extracto: l.id, medio: l.medio || "",
+  };
+  if (l.cuenta) m.cuenta = l.cuenta;
+  if (l.para) m.para = l.para;
+  return m;
+}
+
+/** Los números de los extractos, por medio, clase, categoría y moneda. Sin
+    convertir. `soloPendientes` deja afuera lo ya registrado: eso ya está en
+    los movimientos, y el análisis lo contaría dos veces. */
+export function resumenExtractos(lineas, { desde = "", hasta = "", medio = "", soloPendientes = false } = {}) {
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const out = { lineas: 0, porMedio: {}, porClase: {}, porCategoria: {}, porMes: {}, revisar: [], meses: [] };
+  const sum = (o, k, mon, v) => { o[k] = o[k] || {}; o[k][mon] = r2((o[k][mon] || 0) + v); };
+  const meses = new Set();
+  for (const l of lineas || []) {
+    if (!l || !(Number(l.monto) > 0) || !esISO(l.fecha) || !enRango(l.fecha, desde, hasta)) continue;
+    if (medio && l.medio !== medio) continue;
+    if (l.estado === "excluido" || (soloPendientes && l.estado === "registrado")) continue;
+    const v = Number(l.monto), clase = CLASES_EXTRACTO[l.clase] ? l.clase : "revisar";
+    out.lineas++; meses.add(l.fecha.slice(0, 7));
+    sum(out.porClase, clase, l.moneda, v);
+    if (clase === "revisar") { if (out.revisar.length < 60) out.revisar.push({ fecha: l.fecha, desc: l.desc, monto: v, moneda: l.moneda, sentido: l.sentido, duda: (l.dudas || [])[0] || "" }); continue; }
+    if (!CLASES_EXTRACTO[clase].cuenta) continue;
+    const signo = clase === "entrada" ? 1 : -1;
+    sum(out.porMedio, l.medio || "?", l.moneda, signo * v);
+    sum(out.porCategoria, CATEGORIAS[l.categoria] ? l.categoria : "sin categoría", l.moneda, signo * v);
+    sum(out.porMes, l.fecha.slice(0, 7), l.moneda, signo * v);
+  }
+  out.meses = [...meses].sort();
   return out;
 }

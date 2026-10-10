@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-19
+/* estilos.css — Tiempos. Sello: estilos-20
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -308,3 +308,12 @@ table.acordado td input { width:1.25rem; height:1.25rem; margin:0; }
 small.ok { color:var(--ok); font-weight:600; }
 .tarjeta.cuenta .botones { margin-top:.4rem; align-items:center; }
 .analisis .explicacion, details .explicacion { margin:.4rem 0; line-height:1.5; }
+
+/* estilos-20 (tiempos:V12): Plata → Extractos. Una línea del banco con sus
+   selects abajo, a lo ancho; lo ya registrado, atenuado. */
+.fila.extracto { cursor:default; align-items:flex-start; }
+.fila.extracto.hecha { opacity:.6; }
+.fila.extracto .selects { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+.fila.extracto select.chico { font-size:.82rem; padding:3px 4px; max-width:100%; }
+.aviso-chico { display:block; color:var(--acento); font-size:.8rem; }
+.chica { font-size:.82rem; }
