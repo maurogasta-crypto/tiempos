@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-9
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-10
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -75,27 +75,37 @@ async function guardarActividad(f) {
 async function borrarActividad(id) {
   const a = (E.actividades || {})[id]; if (!a) return;
   if (!confirm(`¿Sacar «${a.titulo}» de tu agenda? Sale también del balance.`)) return;
-  try {
-    await F.deleteDoc(F.doc(db, "marcas", id)).catch(() => {});
-    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: F.deleteField() } }, { merge: true });
-  } catch (e) { fallo(e); }
+  try { await sacarActividad(id); } catch (e) { fallo(e); }
+}
+/** Sacar una actividad de MI agenda, con su marca. Sin preguntar: lo usa
+ *  también el plan de la IA (sugerir.js), donde ya se marcó qué va. */
+export async function sacarActividad(id) {
+  if (!(E.actividades || {})[id]) throw new Error("esa actividad ya no está en tu agenda");
+  await F.deleteDoc(F.doc(db, "marcas", id)).catch(() => {});
+  await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: F.deleteField() } }, { merge: true });
 }
 /* agenda-6 (7-oct-2026, Mauro: «hay que reprogramar»): una actividad se cambia
    de día y de hora. La marca del balance no se edita —la regla lo prohíbe: «se
    borra y se vuelve a marcar»—, así que se borra y se crea de nuevo con el
-   mismo id y las horas nuevas, igual que al guardarla. */
-async function moverActividad(id, f) {
-  const a = (E.actividades || {})[id]; if (!a) return;
-  const dia = f.dia.value, hi = f.hi.value, hf = f.hf.value;
-  if (!esISO(dia) || !hi) return aviso("Falta el día o la hora.", true);
-  if (!hf && hi < HORA_NOCHE) return aviso(`Poné hasta qué hora. Sin hora de vuelta va sólo lo que empieza desde las ${HORA_NOCHE}.`, true);
+   mismo id y las horas nuevas, igual que al guardarla.
+   agenda-10 (10-oct-2026): la cuenta vive en `reprogramarActividad`, que usa
+   también el plan de la IA; devuelve el problema en palabras, o "". */
+export async function reprogramarActividad(id, { dia, hi, hf = "" }) {
+  const a = (E.actividades || {})[id]; if (!a) return "esa actividad ya no está en tu agenda";
+  if (!esISO(dia) || !hi) return "falta el día o la hora";
+  if (!hf && hi < HORA_NOCHE) return `falta hasta qué hora (sin hora de vuelta va sólo lo que empieza desde las ${HORA_NOCHE})`;
   const desde = `${dia}T${hi}`, hasta = !hf ? `${sumarDias(dia, 1)}T07:00` : `${hf <= hi ? sumarDias(dia, 1) : dia}T${hf}`;
   const marca = { uid: E.yo.uid, clase: CLASES_ACTIVIDAD[a.tipo].clase, desde, hasta, origen: "agenda", marcadoPor: E.yo.uid };
+  await F.deleteDoc(F.doc(db, "marcas", id)).catch(() => {});
+  await F.setDoc(F.doc(db, "marcas", id), { ...marca, creadoEn: F.serverTimestamp() });
+  await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { ...a, dia, desde, hasta, hf: hf || "", claude: F.deleteField() } },
+    actualizadoEn: F.serverTimestamp() }, { merge: true });
+  return "";
+}
+async function moverActividad(id, f) {
   try {
-    await F.deleteDoc(F.doc(db, "marcas", id)).catch(() => {});
-    await F.setDoc(F.doc(db, "marcas", id), { ...marca, creadoEn: F.serverTimestamp() });
-    await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { ...a, dia, desde, hasta, hf: hf || "", claude: F.deleteField() } },
-      actualizadoEn: F.serverTimestamp() }, { merge: true });
+    const mal = await reprogramarActividad(id, { dia: f.dia.value, hi: f.hi.value, hf: f.hf.value });
+    if (mal) return aviso(mal[0].toUpperCase() + mal.slice(1) + ".", true);
     moviendoAct = null; aviso("Cambiada. Revisá sus recordatorios y alarmas en Pizarra → «Te recordás»."); repintar();
   } catch (e) { fallo(e); }
 }

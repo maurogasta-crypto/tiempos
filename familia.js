@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// familia.js — Lo de la casa que ven los dos. Sello: familia-3
+// familia.js — Lo de la casa que ven los dos. Sello: familia-4
 //
 // HOY    lo cotidiano: desayuno, almuerzo, merienda, cena, la basura, los
 //        cuartos, la ropa. Se TILDA, no se cronometra, y cada tilde puede
@@ -214,15 +214,21 @@ function proximos() {
 }
 
 /* Lo acordado: para cada día de la semana, con quién están. Es lo que se
-   repite solo; un día distinto se cambia arriba, en el calendario. */
+   repite solo; un día distinto se cambia arriba, en el calendario.
+   familia-4 (10-oct-2026, Mauro: «debería visualizarse como columnas Mauro y
+   Flor»): una tabla, los días en filas y una columna por persona; en cada
+   casilla, los chicos que están con ella ese día. */
 function acordado() {
   const ninos = E.familia.ninos || [];
   if (!ninos.length) return "";
   const orden = [1, 2, 3, 4, 5, 6, 0];
+  const ps = personas();
   return `<details class="tarjeta"><summary><b>Lo acordado cada semana</b></summary>
     <p class="gris">Esto se repite solo todas las semanas. Un día distinto se cambia tocándolo en el calendario.</p>
-    ${orden.map((w) => `<div class="fila-persona"><span class="dia-n">${DIAS[w]}</span>${personas().map((p) =>
-      `<span class="quien">${esc(p.nombre.slice(0, 1))}:${ninos.map((n) => `<label class="check"><input type="checkbox" data-patron="${w}|${esc(p.id)}|${esc(n.id)}"${(((E.familia.patron[String(w)] || {})[p.id]) || []).includes(n.id) ? " checked" : ""}>${esc(n.nombre.slice(0, 1))}</label>`).join("")}</span>`).join("")}</div>`).join("")}
+    <table class="acordado"><thead><tr><th></th>${ps.map((p) => `<th>${esc(p.nombre)}</th>`).join("")}</tr></thead><tbody>
+    ${orden.map((w) => `<tr><th scope="row">${DIAS[w]}</th>${ps.map((p) => `<td>${ninos.map((n) =>
+      `<label class="check" title="${esc(n.nombre)} con ${esc(p.nombre)}"><input type="checkbox" data-patron="${w}|${esc(p.id)}|${esc(n.id)}"${(((E.familia.patron[String(w)] || {})[p.id]) || []).includes(n.id) ? " checked" : ""}>${esc(n.nombre.slice(0, 1))}</label>`).join("")}</td>`).join("")}</tr>`).join("")}
+    </tbody></table>
   </details>`;
 }
 

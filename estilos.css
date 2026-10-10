@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-16
+/* estilos.css — Tiempos. Sello: estilos-17
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -288,3 +288,10 @@ button.pl-celda { border:1px solid var(--linea); background:transparent; color:i
 .agregar-lista { display:flex; flex-wrap:wrap; gap:8px; margin-top:1rem; }
 .agregar-lista input { flex:1 1 100%; margin-top:0; }
 .agregar-lista select { flex:1; margin-top:0; }
+/* estilos-17 (familia-4): lo acordado cada semana, una columna por persona. */
+table.acordado { width:100%; border-collapse:collapse; margin-top:.4rem; }
+table.acordado th, table.acordado td { padding:.35rem .3rem; border-bottom:1px solid var(--linea); text-align:center; }
+table.acordado thead th { color:var(--acento); font-weight:600; }
+table.acordado tbody th { text-align:left; color:var(--gris); font-weight:400; }
+table.acordado td label.check { display:inline-flex; gap:.25rem; margin:0 .35rem; }
+table.acordado td input { width:1.25rem; height:1.25rem; margin:0; }

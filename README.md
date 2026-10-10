@@ -213,6 +213,20 @@ que «pizarra» es el lugar, nunca el título.
   (abajo de la Agenda) y ahí se les pone la dirección una vez. Todo vive en
   `agendas/{uid}`, que ve sólo su dueño; las direcciones van a la IA del plan
   para estimar el viaje, y ninguna entra al código.
+- **Pedile a la IA** (sugerir-16, nucleo-22, 10-oct-2026, pedido de Mauro:
+  «que agregar a la agenda sea pedir a la IA… todo lo que puede registrar el
+  sistema en un solo lugar»). El cuadro de la Pizarra y el globo ya no dicen
+  «Para la agenda»: lo dictado se vuelve un plan que además de agenda, pizarra,
+  recordatorio, alarma, deseo, compra y pedido puede traer un **gasto** (va a
+  Plata con la sesión de quien lo marca; si falta la moneda, la fecha o la
+  categoría, el renglón sale sin poder marcarse), las **actividades de los
+  chicos** (nueva, cambiar, sacar o saltear un día) y **cambiar o sacar** algo
+  de la propia agenda (`reprogramarActividad` y `sacarActividad` de agenda.js,
+  los mismos de la pantalla). **Los nombres de los chicos no viajan a la IA**:
+  pasan a «Chico1», «Chico2» antes de mandar y vuelven a la vuelta
+  (`escudarNombres`/`devolverNombres`).
+- **Lo acordado cada semana es una tabla** (familia-4): los días en filas y una
+  columna por persona, con los chicos que están con ella ese día.
 - **Las finanzas de la familia** (app-19, 8-oct-2026, `tiempos:V9`): Plata
   tiene cuatro solapas. **Fijos** es la planilla —cada gasto que se repite, con
   los meses al lado; tocar una casilla registra el pago—. **Año** son esos
@@ -374,24 +388,24 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-21` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-22` |
 | `estado.js` | lo que comparten las vistas | `estado-3` |
-| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-22` |
-| `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-1` |
+| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-23` |
+| `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-2` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje, y el interruptor «Claude organiza mi agenda» | `lugares-2` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
 | `lista.html` + `lista.js` | la lista compartida sin cuenta (`?c=<token>`); fuera del SHELL | `lista-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-7` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
-| `sugerir.js` | el globo ✏️: anotar para la agenda (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-15` |
+| `sugerir.js` | el globo ✏️: pedirle a la IA (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-16` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y las cuatro solapas | `plata-6` |
 | `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-1` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
-| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-9` |
-| `familia.js` | Hoy y Chicos | `familia-3` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-10` |
+| `familia.js` | Hoy y Chicos | `familia-4` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
-| `estilos.css` | | `estilos-16` |
-| `sw.js` | el cascarón sin señal | `tiempos-33` |
+| `estilos.css` | | `estilos-17` |
+| `sw.js` | el cascarón sin señal | `tiempos-34` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v12 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

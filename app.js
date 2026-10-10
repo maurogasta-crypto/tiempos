@@ -1,7 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-22
+// Sello: app-23
 //
+// app-23 (10-oct-2026): sin cambios acá; suben nucleo-22, sugerir-16, agenda-10,
+// familia-4, pizarra-web-2 y estilos-17 (pedirle a la IA, lo acordado en columnas).
 // app-22 (9-oct-2026): con la lista escucha las compartidas sin cuenta
 // (compras-4, `compartidas/{token}`).
 // app-21 (9-oct-2026): ?super=<lista> abre Tareas → Compras en modo súper

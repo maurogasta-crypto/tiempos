@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// pizarra.js — La primera solapa: anotar, recordar y la pizarra. Sello: pizarra-web-1
+// pizarra.js — La primera solapa: anotar, recordar y la pizarra. Sello: pizarra-web-2
 //
 // app-16 (7-oct-2026, tiempos:V7, pedido de Mauro): «la primera corresponde a
 // las anotaciones rápidas con recordatorios, la edición de la pizarra, alarmas
@@ -33,11 +33,13 @@ export function pintarPizarra(irA) {
   const v = $("v-pizarra"); v.replaceChildren();
   const caja = (html, clase = "tarjeta") => { const d = document.createElement("div"); d.className = clase; d.innerHTML = html; v.append(d); return d; };
 
-  // 1 · Anotar rápido: se escribe (o se dicta con el micrófono del teclado) y
-  // la IA arma el plan: agenda, pizarra, recordatorio, alarma, deseo, compras.
-  const an = caja(`<label>Anotar <textarea id="anotar" rows="3" maxlength="2000" placeholder="Ej.: el jueves 18 h básquet de los chicos; recordarme llevar la pelota"></textarea></label>
-    <div class="botones"><button class="boton" data-armar>✨ Armar con la IA</button></div>
-    <small class="gris">Escribí, o dictá con el 🎤 del teclado. La IA propone y vos confirmás.</small>`, "tarjeta ficha");
+  // 1 · Pedirle a la IA (pizarra-web-2, 10-oct-2026, Mauro: «más neutro el
+  // cuadro»): lo que sea que Tiempos registra —un gasto, los chicos, mover o
+  // sacar algo de la agenda, una alarma, un deseo, compras—. La IA arma el
+  // plan y la persona marca qué va (sugerir.js).
+  const an = caja(`<label>✨ Pedile a la IA <textarea id="anotar" rows="3" maxlength="2000" placeholder="Ej.: gasté 850 en la farmacia · el básquet pasa a las 18 · mañana alarma 7:30"></textarea></label>
+    <div class="botones"><button class="boton" data-armar>✨ Armar el plan</button></div>
+    <small class="gris">Escribí, o dictá con el 🎤 del teclado: un gasto, algo de los chicos, cambiar tu agenda, una alarma, un deseo, una compra. La IA propone y vos marcás qué va.</small>`, "tarjeta ficha");
   an.querySelector("[data-armar]").onclick = () => {
     const t = an.querySelector("#anotar").value.trim();
     if (!t) return aviso("Escribí algo primero.", true);

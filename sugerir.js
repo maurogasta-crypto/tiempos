@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-15
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-16
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -16,13 +16,24 @@
 //
 // La nota de abajo dice quién contesta y cuánto tarda ANTES de mandar: quien
 // pide tiene derecho a saberlo.
+//
+// sugerir-16 (10-oct-2026, Mauro: «que agregar a la agenda sea pedir a la IA,
+// y pueda hacer cualquiera de las intervenciones… todo lo que puede registrar
+// el sistema en un solo lugar; más neutro el cuadro»). La primera solapa es
+// «✨ Pedile a la IA», y el plan suma: un GASTO (lo escribe la persona al
+// tocar «Hacer lo marcado», con su sesión, como en Plata), las ACTIVIDADES DE
+// LOS CHICOS (nueva, cambiar, sacar, saltear un día) y CAMBIAR o SACAR algo
+// de la propia agenda. Los nombres de los chicos no viajan: pasan a «Chico1»
+// antes de mandar y vuelven a la vuelta (`escudarNombres`).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, auth, F, CV } from "./firebase-init.js";
 import { textoFrecuencia } from "./nucleo.js";
 import { dondeEstoy } from "./lugares.js";
-import { esc, leerPlanIA, agendaParaIA, lugaresParaIA, CLASES_ACTIVIDAD, esISO, limpiarDictado, listasDeCompras, listaParaCompra, idNuevo } from "./nucleo.js";
+import { esc, leerPlanIA, agendaParaIA, lugaresParaIA, CLASES_ACTIVIDAD, esISO, limpiarDictado, listasDeCompras, listaParaCompra, idNuevo,
+  escudarNombres, devolverNombres, chicosParaIA, CATEGORIAS, MONEDAS } from "./nucleo.js";
 import { agendarMio } from "./propone.js";
+import { reprogramarActividad, sacarActividad } from "./agenda.js";
 import { E, $, aviso, repintar, fallo, otro } from "./estado.js";
 
 export const MODOS = {
@@ -33,9 +44,9 @@ export const MODOS = {
             esp: "¿Qué esperabas que pasara?", espPh: "Que el gasto apareciera en la lista.", campo: "gravedad",
             opciones: [["molesta", "Molesta, sigo"], ["traba", "Me traba algo"], ["no-anda", "No puedo usar la app"]] },
 };
-MODOS.agenda = { titulo: "Para la agenda", que: "Dictalo o escribilo", quePh: "El jueves de 3 a 6 llevo a los chicos a básquet.",
+MODOS.agenda = { titulo: "Pedile a la IA", que: "Lo que sea, dictado o escrito", quePh: "Gasté 850 en la farmacia · el básquet pasa a las 18 · mañana alarma 7:30 · comprar yerba",
   esp: "Algo más (opcional)", espPh: "Es para toda la familia / sólo Flor / para recordar.", campo: "urgencia",
-  opciones: [["pronto", "Para la agenda"]] };
+  opciones: [["pronto", "Para la IA"]] };
 export const NOMBRE_SOLAPA = { pizarra: "Pizarra", ahora: "Ahora", hoy: "Hoy", agenda: "Agenda", tareas: "Tareas", chicos: "Chicos", plata: "Plata", balance: "Balance" };
 
 let abierta = false, modo = "agenda", enviando = false;   // sugerir-3: lo primero es dictar
@@ -68,6 +79,10 @@ let textoDictado = "";
    puede: cruzar con el otro y preguntarle al que queda libre.
    A Gemini no le van los nombres de los chicos (no entran al código ni a un
    tercero): sólo si la actividad es con ellos. */
+/* Los chicos de la casa, de la base. Se usan SÓLO para escudar los nombres
+   antes de que algo salga hacia la IA, y para traducirlos a la vuelta. */
+const chicosDeLaCasa = () => (E.familia && E.familia.ninos) || [];
+
 async function interpretar(texto, archivo) {
   const CV2 = CV && CV.CV2;
   if (!CV2) throw new Error("sin Casa Verde no hay IA");
@@ -80,13 +95,18 @@ async function interpretar(texto, archivo) {
   const yoN = (E.miembro && E.miembro.nombre) || "quien dicta";
   // sugerir-5: MI agenda de las próximas dos semanas, para que pueda colgar un
   // recordatorio de «el gimnasio de mañana». Es la mía y la manda mi sesión.
-  const agenda = agendaParaIA(E.actividades, hoy);
+  const ninos = chicosDeLaCasa();
+  const agenda = agendaParaIA(E.actividades, hoy).map((a) => ({ ...a, titulo: escudarNombres(a.titulo, ninos) }));
+  // sugerir-16: las actividades de los chicos, para poder cambiarlas.
+  const chicos = chicosParaIA(E.eventos, ninos, hoy);
   // sugerir-15: de dónde sale. La casa del país donde está ahora (ubicación
   // aproximada, no se guarda) y sus lugares con dirección (lugares.js).
   const pais = await dondeEstoy();
   const lugares = lugaresParaIA(E.lugares, E.casas, pais);
   const listas = listasDeCompras(E.compras).map((l) => l.nombre);
   texto = limpiarDictado(texto);
+  const dictadoReal = texto;
+  texto = escudarNombres(texto, ninos);
   const contenido = [];
   if (archivo) {
     const blob = await CV2.comprimirImagen(archivo);
@@ -95,6 +115,8 @@ async function interpretar(texto, archivo) {
   }
   contenido.push({ type: "text", text: `Hoy es ${dia} ${hoy} y son las ${ahoraHM} (Uruguay/Brasil). ${yoN} vive con ${otroN} y sus hijos, y dictó algo para organizar su tiempo. ${archivo ? "Adjunta la captura de un flyer o anuncio. " : ""}Lo dictado (puede tener errores del dictado del teléfono y expresiones espontáneas): «${texto || "(nada: sólo la captura)"}».
 Su agenda de las próximas dos semanas (JSON): ${JSON.stringify(agenda)}
+Las actividades de los chicos (JSON; los chicos se llaman Chico1, Chico2…: usá esos nombres, nunca otros): ${JSON.stringify(chicos)}
+Hay ${ninos.length} chicos: ${ninos.map((n, i) => "Chico" + (i + 1)).join(", ") || "ninguno cargado"}.
 Dónde está y sus lugares conocidos (JSON; "casa" es de donde sale si no hay otra actividad antes ese día): ${JSON.stringify(lugares)}. Para el viaje usá esas direcciones; si un lugar no está, estimalo y decilo en dudas.
 Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin texto alrededor:
 {"resumen": una línea con lo que entendiste,
@@ -106,7 +128,11 @@ Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin 
    {"tipo":"deseo","titulo","detalle","para":"yo"|"chicos"|"familia","lugar","dias":["martes","jueves"] si se repite cada semana,"fecha":"AAAA-MM-DD" si es una sola vez,"hi":"HH:MM","hf":"HH:MM","cuando": en palabras si no hay días ni fecha}  — algo que quisiera hacer pero no está decidido (un flyer, una clase): va a la lista de deseos. Si el flyer dice que es semanal, poné los días; si es un evento con fecha, la fecha;
    {"tipo":"coordinar","texto"}  — una pregunta para ${otroN} si para hacerlo hay que acordar con él o ella;
    {"tipo":"compra","texto","lista"}  — algo para no olvidar comprar; va a la lista de compras de la casa. Listas que ya existen: ${JSON.stringify(listas)} (usá una de ésas si corresponde, o un nombre corto nuevo);
-   {"tipo":"pedido","titulo","detalle","dia"}  — algo que le pide a ${otroN} que haga (va a la pizarra de ${otroN}) ],
+   {"tipo":"pedido","titulo","detalle","dia"}  — algo que le pide a ${otroN} que haga (va a la pizarra de ${otroN});
+   {"tipo":"gasto","monto": número,"moneda":"BRL"|"UYU"|"USD","fecha":"AAAA-MM-DD","categoria": una de ${JSON.stringify(Object.keys(CATEGORIAS))},"comercio","detalle"}  — plata que se gastó o que entró («gasté 850 en la farmacia», «cobré los honorarios»). La moneda sólo si la dijo o es obvia (pesos en Uruguay = UYU, reales en Brasil = BRL); si no, vacía y en dudas. Nunca inventes un monto;
+   {"tipo":"chicos","accion":"nueva"|"cambiar"|"quitar"|"saltar","id": el de la lista si no es nueva,"titulo","fecha":"AAAA-MM-DD","hora","horaFin","semanal": true|false,"ninos":["Chico1"],"nota"}  — las actividades de los chicos, que ven los dos: una nueva; cambiar una que ya está (sólo los campos que cambian); quitarla del todo; o «saltar» para que no cuente UN día (en "fecha");
+   {"tipo":"mover","id": el de su agenda,"dia","hi","hf"}  — cambiar de día u hora algo que YA está en su agenda;
+   {"tipo":"quitar","id": el de su agenda}  — sacar algo de su agenda, sólo si lo pide ],
  "dudas": [lo que no quedó claro]}.
 Elegí con criterio lo que corresponde, puede ser más de una acción: algo decidido con día y hora es una actividad (si es con los chicos, "chicos": true y va también al calendario compartido de los chicos); algo que quisiera pero no está decidido es un deseo; «no olvidar comprar…» es una compra; «pedirle a ${otroN}…» o «que ${otroN} …» es un pedido; «acordarme de…» es un recordatorio (y una alarma si hay una hora en que tiene que salir); preparar algo es una tarea.
 Entre las 00:00 y las 05:00, «mañana» quiere decir HOY por fecha (${hoy}): la persona todavía no se fue a dormir.
@@ -121,7 +147,14 @@ Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sob
   });
   if (!r.ok) throw new Error("la IA contestó " + r.status);
   const j = await r.json();
-  return leerPlanIA(((j.content || [])[0] || {}).text, Date.now(), texto);
+  const plan = leerPlanIA(((j.content || [])[0] || {}).text, Date.now(), dictadoReal);
+  if (!plan) return plan;
+  // A la vuelta, «Chico1» vuelve a ser su nombre, en todo lo que se muestra o se guarda.
+  const nombres = (x) => typeof x === "string" ? devolverNombres(x, ninos) : x;
+  plan.resumen = nombres(plan.resumen);
+  plan.dudas = plan.dudas.map(nombres);
+  plan.acciones = plan.acciones.map((a) => Object.fromEntries(Object.entries(a).map(([k, v]) => [k, k === "id" || k === "sobre" ? v : nombres(v)])));
+  return plan;
 }
 
 const DIA_CORTO = (iso) => { try { return new Date(iso + "T12:00").toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }); } catch { return iso; } };
@@ -136,6 +169,26 @@ function renglonAccion(a, n) {
   if (a.tipo === "deseo") return `<label class="check accion">${ch} ⭐ <span>A deseos${a.para === "chicos" ? " de los chicos" : a.para === "familia" ? " de la familia" : ""}: <b>${esc(a.titulo)}</b>${textoFrecuencia(a) ? ` <small class="gris">${esc(textoFrecuencia(a))}</small>` : ""}</span></label>`;
   if (a.tipo === "compra") return `<label class="check accion">${ch} 🛒 <span>A la lista de compras${a.lista ? " «" + esc(a.lista) + "»" : ""}: <b>${esc(a.texto)}</b></span></label>`;
   if (a.tipo === "pedido") return `<label class="check accion">${ch} 🙋 <span>Pedido para ${esc((otro() || {}).nombre || "el otro")}, a su pizarra: <b>${esc(a.titulo)}</b>${a.dia ? ` <small class="gris">${esc(DIA_CORTO(a.dia))}</small>` : ""}</span></label>`;
+  if (a.tipo === "gasto") {
+    const c = CATEGORIAS[a.categoria];
+    return `<label class="check accion">${a.faltan.length ? `<input type="checkbox" data-accion="${n}" disabled>` : ch} 💸 <span>${c && c.tipo === "entro" ? "Entró" : "Gasto"}: <b>${esc(a.monto)} ${esc(a.moneda || "¿moneda?")}</b>${a.comercio ? " · " + esc(a.comercio) : ""}${a.detalle ? " · " + esc(a.detalle) : ""}
+      <small class="gris">${esc(c ? c.nombre : "¿categoría?")} · ${esc(a.fecha ? DIA_CORTO(a.fecha) : "¿fecha?")}${a.faltan.length ? ` · ⚠ ${esc(a.faltan.join(", "))}: cargalo en Plata` : " · a Plata, con tu nombre"}</small></span></label>`;
+  }
+  if (a.tipo === "chicos") {
+    const ev = (E.eventos || []).find((e) => e.id === a.id);
+    const nombres = (a.ninos || []).map((i) => chicosDeLaCasa()[i]).filter(Boolean).map((x) => x.nombre).join(" y ");
+    const cuando = [a.fecha && DIA_CORTO(a.fecha), a.hora && a.hora + (a.horaFin ? "–" + a.horaFin : ""), a.semanal && "cada semana"].filter(Boolean).join(" ");
+    if (a.accion !== "nueva" && !ev) return `<label class="check accion"><input type="checkbox" data-accion="${n}" disabled> 👦 <span>No encontré esa actividad de los chicos <small class="gris">cambiala en Chicos</small></span></label>`;
+    const que = { nueva: "Nueva", cambiar: "Cambiar", quitar: "Sacar", saltar: "Saltear" }[a.accion];
+    return `<label class="check accion">${ch} 👦 <span>${que}${a.accion === "nueva" ? "" : " «" + esc(ev.titulo) + "»"}: <b>${esc(a.accion === "nueva" || a.titulo ? a.titulo || "" : "")}</b> ${esc(a.accion === "saltar" ? "el " + DIA_CORTO(a.fecha) : a.accion === "quitar" ? "del todo" : cuando)}${nombres ? ` <small class="gris">${esc(nombres)}</small>` : ""}<small class="gris"> · la ven los dos</small></span></label>`;
+  }
+  if (a.tipo === "mover" || a.tipo === "quitar") {
+    const x = (E.actividades || {})[a.id];
+    if (!x) return `<label class="check accion"><input type="checkbox" data-accion="${n}" disabled> 📅 <span>No encontré eso en tu agenda <small class="gris">cambialo en Agenda</small></span></label>`;
+    return a.tipo === "mover"
+      ? `<label class="check accion">${ch} 📅 <span>Pasar <b>${esc(x.titulo)}</b> a ${esc(DIA_CORTO(a.dia))} ${esc(a.hi)}${a.hf ? "–" + esc(a.hf) : ""} <small class="gris">estaba ${esc(DIA_CORTO(x.dia))} ${esc(String(x.desde || "").slice(11, 16))}</small></span></label>`
+      : `<label class="check accion">${ch} 🗑 <span>Sacar de tu agenda: <b>${esc(x.titulo)}</b> <small class="gris">${esc(DIA_CORTO(x.dia))}</small></span></label>`;
+  }
   if (a.tipo === "coordinar") return `<label class="check accion">${ch} 💬 <span>Preguntarle a ${esc(((E.miembros || []).find((m) => m.id !== E.yo.uid) || {}).nombre || "el otro")}: <b>${esc(a.texto)}</b></span></label>`;
   return "";
 }
@@ -197,6 +250,45 @@ async function agendarPrecarga(tp) {
           items: { [idNuevo("i")]: { texto: a.texto.slice(0, 80), hecho: false, por: E.yo.uid, orden: Date.now() } } } },
           actualizadoEn: F.serverTimestamp() }, { merge: true });
         hecho.push("🛒 " + a.texto);
+      } else if (a.tipo === "gasto") {
+        if (a.faltan && a.faltan.length) { aviso(`El gasto de ${a.monto}: ${a.faltan.join(", ")}. Cargalo en Plata.`, true); continue; }
+        const c = CATEGORIAS[a.categoria];
+        await F.addDoc(F.collection(db, "movimientos"), { monto: a.monto, moneda: a.moneda, fecha: a.fecha, categoria: a.categoria,
+          comercio: a.comercio || "", detalle: a.detalle || "", uid: E.yo.uid, comprobanteUrl: imagen || null, automatico: null,
+          origen: "dictado", creadoPor: E.yo.uid, creadoEn: F.serverTimestamp(), actualizadoEn: F.serverTimestamp() });
+        hecho.push(`💸 ${a.monto} ${a.moneda}${c ? " " + c.nombre : ""}`);
+      } else if (a.tipo === "chicos") {
+        const ninosIds = (a.ninos || []).map((i) => (chicosDeLaCasa()[i] || {}).id).filter(Boolean);
+        if (a.accion === "nueva") {
+          await F.addDoc(F.collection(db, "eventos"), { titulo: a.titulo.slice(0, 120), fecha: a.fecha, hora: a.hora || "", horaFin: a.horaFin || "",
+            semanal: !!a.semanal, ninos: ninosIds, quienes: [E.yo.uid], nota: a.nota || "", excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
+          hecho.push("👦 " + a.titulo);
+        } else {
+          const ev = (E.eventos || []).find((e) => e.id === a.id);
+          if (!ev) { aviso("No encontré esa actividad de los chicos: cambiala en Chicos.", true); continue; }
+          const ref = F.doc(db, "eventos", a.id);
+          if (a.accion === "quitar") await F.deleteDoc(ref);
+          else if (a.accion === "saltar") await F.updateDoc(ref, { excepto: F.arrayUnion(a.fecha), titulo: ev.titulo || "" });
+          else {
+            // Cambiar: sólo lo que la IA trajo; lo demás queda como estaba.
+            const c = { titulo: (a.titulo || ev.titulo || "").slice(0, 120), actualizadoEn: F.serverTimestamp() };
+            if (a.fecha) c.fecha = a.fecha;
+            if (a.hora) c.hora = a.hora;
+            if (a.horaFin) c.horaFin = a.horaFin;
+            if (ninosIds.length) c.ninos = ninosIds;
+            if (a.nota) c.nota = a.nota;
+            await F.updateDoc(ref, c);
+          }
+          hecho.push(`👦 ${{ cambiar: "cambiada", quitar: "sacada", saltar: "salteada" }[a.accion]}: ${ev.titulo}`);
+        }
+      } else if (a.tipo === "mover") {
+        const mal = await reprogramarActividad(a.id, { dia: a.dia, hi: a.hi, hf: a.hf });
+        if (mal) { aviso("No la cambié: " + mal + ".", true); continue; }
+        hecho.push("📅 cambiada: " + ((E.actividades || {})[a.id] || {}).titulo);
+      } else if (a.tipo === "quitar") {
+        const t = ((E.actividades || {})[a.id] || {}).titulo || "";
+        await sacarActividad(a.id);
+        hecho.push("🗑 " + t);
       } else if (a.tipo === "pedido") {
         // Una tarea COMÚN a cargo del otro, marcada para su pizarra. Claude
         // además le avisa por WhatsApp si el otro lo encendió.
@@ -242,7 +334,7 @@ export function montarGlobo() {
   if ($("globo")) return;
   const b = Object.assign(document.createElement("button"), { id: "globo", className: "globo", title: "Sugerir algo o avisar una falla" });
   b.innerHTML = "✏️";
-  b.title = "Anotar algo para la agenda, sugerir algo o avisar una falla";
+  b.title = "Pedirle algo a la IA, sugerir algo o avisar una falla";
   b.onclick = () => { abierta = true; escucharMios(); pintarHoja(); };
   document.body.append(b);
 }
@@ -256,7 +348,7 @@ function pintarHoja() {
   const marcado = (h.querySelector(".tira button.on") || {}).dataset;
   h.innerHTML = `<div class="hoja-caja sugerir-ed${modo === "agenda" ? " modo-agenda" : ""}">
     <div class="hoja-cab"><b>${esc(m.titulo)}</b><button class="mas" data-cerrar aria-label="Cerrar">✕</button></div>
-    <nav class="solapas chicas"><button data-modo="agenda" aria-selected="${modo === "agenda"}">✏️ Anotar</button><button data-modo="pedido" aria-selected="${modo === "pedido"}">Sugerencia</button><button data-modo="falla" aria-selected="${modo === "falla"}">Algo anda mal</button></nav>
+    <nav class="solapas chicas"><button data-modo="agenda" aria-selected="${modo === "agenda"}">✨ Pedile a la IA</button><button data-modo="pedido" aria-selected="${modo === "pedido"}">Sugerencia</button><button data-modo="falla" aria-selected="${modo === "falla"}">Algo anda mal</button></nav>
     ${modo === "agenda" && precarga ? tarjetaPrecarga(precarga) : ""}
     <form ${modo === "agenda" && precarga ? "hidden" : ""}>
       ${modo === "agenda" ? `<p class="gris">Escribí, o dictá con el 🎤 del teclado, y corregí ahí mismo.</p>` : ""}

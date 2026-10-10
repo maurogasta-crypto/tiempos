@@ -92,6 +92,16 @@ la documentación diga la verdad.
   WhatsApp con el candado de «Mis avisos») y los deseos a `deseos/` (los ven
   los dos). Reglas v9. **La alarma que suena a la hora es de la APK**
   (`tiempos:V3`), no de la web.
+- **Pedirle a la IA es UN cuadro para todo** (sugerir-16, nucleo-22,
+  10-oct-2026, Mauro: «que agregar a la agenda sea pedir a la IA… todo lo que
+  puede registrar el sistema en un solo lugar; más neutro el cuadro»). El plan
+  suma `gasto`, `chicos` (nueva/cambiar/quitar/saltar), `mover` y `quitar`
+  (de la propia agenda). **El gasto lo escribe la PERSONA** al tocar «Hacer lo
+  marcado», con su sesión, como en Plata: el agente sigue sin escribir plata.
+  Un gasto al que le falta algo no se puede marcar. **Los nombres de los chicos
+  no salen hacia la IA**: lo dictado, los títulos de la agenda y los de los
+  chicos pasan por `escudarNombres` («Chico1») y vuelven con `devolverNombres`;
+  el banco lo comprueba.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

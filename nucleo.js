@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-21
+// Sello: nucleo-22
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -903,7 +903,16 @@ export const ACCIONES = {
   // compras de la casa, y «pedile a Flor que…» es una tarea en SU pizarra.
   compra:       "a la lista de compras",
   pedido:       "un pedido para el otro",
+  // nucleo-22, 10-oct-2026, Mauro: «que agregar a la agenda sea pedir a la IA,
+  // y pueda hacer cualquiera de las intervenciones: un gasto, las actividades
+  // de los chicos, actividades o deseos, notificaciones o alarmas… todo lo que
+  // puede registrar el sistema en un solo lugar».
+  gasto:        "un gasto o una entrada de plata",
+  chicos:       "las actividades de los chicos",
+  mover:        "cambiar algo de tu agenda",
+  quitar:       "sacar algo de tu agenda",
 };
+export const ACCIONES_CHICOS = ["nueva", "cambiar", "quitar", "saltar"];
 export const PARA_DESEO = ["yo", "chicos", "familia"];
 /* nucleo-13, 6-oct-2026 (tiempos:A18): «recordar traer el andamio», dictado
    a las 14:23, quedó para las 08:00 de ESE día, y una alerta pasada no suena
@@ -1027,10 +1036,72 @@ export function leerPlanIA(texto, ahoraMs, dictado = "") {
     } else if (a.tipo === "pedido") {
       const titulo = corto(a.titulo, 120); if (!titulo) continue;
       acciones.push({ tipo: "pedido", titulo, detalle: corto(a.detalle, 300), dia: dia(a.dia) });
+    } else if (a.tipo === "gasto") {
+      // nucleo-22: la plata la escribe la persona al tocar «Hacer lo marcado»,
+      // con su sesión, como en Plata. Lo que falta no se adivina: el renglón
+      // sale sin marcar y diciendo qué falta, y así no se guarda.
+      const monto = Math.round(Number(String(a.monto == null ? "" : a.monto).replace(/\s/g, "").replace(",", ".")) * 100) / 100;
+      if (!(monto > 0)) { dudas.push("el monto" + (a.detalle ? ` de «${corto(a.detalle, 30)}»` : "")); continue; }
+      const x = { tipo: "gasto", monto, moneda: MONEDAS.includes(a.moneda) ? a.moneda : "", fecha: dia(a.fecha),
+        categoria: CATEGORIAS[a.categoria] ? a.categoria : "", comercio: corto(a.comercio, 80), detalle: corto(a.detalle, 200) };
+      x.faltan = validarMovimiento({ monto: x.monto, moneda: x.moneda, fecha: x.fecha, categoria: x.categoria });
+      acciones.push(x);
+    } else if (a.tipo === "chicos") {
+      const accion = ACCIONES_CHICOS.includes(a.accion) ? a.accion : "nueva";
+      const id = corto(a.id, 40);
+      if (accion !== "nueva" && !id) { dudas.push("qué actividad de los chicos" + (a.titulo ? ` («${corto(a.titulo, 30)}»)` : "")); continue; }
+      const x = { tipo: "chicos", accion, id, titulo: corto(a.titulo, 120), fecha: dia(a.fecha), hora: hora(a.hora), horaFin: hora(a.horaFin),
+        semanal: a.semanal === true, ninos: indicesDeChicos(a.ninos), nota: corto(a.nota, 300) };
+      if (accion === "nueva" && (!x.titulo || !x.fecha)) { dudas.push(`el día de «${x.titulo || "la actividad de los chicos"}»`); continue; }
+      if (accion === "saltar" && !x.fecha) { dudas.push("qué día se saltea"); continue; }
+      acciones.push(x);
+    } else if (a.tipo === "mover") {
+      const id = corto(a.id, 40), d = dia(a.dia), hi = hora(a.hi);
+      if (!id || !d || !hi) { dudas.push("qué actividad mover, o a qué día y hora"); continue; }
+      acciones.push({ tipo: "mover", id, dia: d, hi, hf: hora(a.hf) });
+    } else if (a.tipo === "quitar") {
+      const id = corto(a.id, 40); if (!id) continue;
+      acciones.push({ tipo: "quitar", id });
     }
   }
   ordenarPlan(acciones, ahoraMs, dudas, dictado);
   return { resumen: corto(j.resumen, 200), acciones, dudas: [...new Set(dudas)] };
+}
+
+/* ── Los nombres de los chicos no viajan a la IA (nucleo-22) ─────────────────
+   Con las actividades de los chicos, la IA necesita saber de quién es cada
+   una, y lo dictado los nombra. Antes de mandar, cada nombre pasa a «Chico1»,
+   «Chico2» (en el orden de familia/config), y lo que vuelve se traduce de
+   vuelta. Los nombres no entran al código: salen de la base, como siempre. */
+const LETRAS = { a: "aáàâä", e: "eéèêë", i: "iíìîï", o: "oóòôö", u: "uúùûü", n: "nñ" };
+const patronNombre = (n) => [...sinAcento(n)].map((c) => LETRAS[c] ? `[${LETRAS[c]}]` : c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("");
+export function escudarNombres(texto, ninos) {
+  let t = String(texto || "");
+  (ninos || []).forEach((n, i) => {
+    const nom = String((n && n.nombre) || "").trim();
+    if (nom.length < 2) return;
+    t = t.replace(new RegExp(`(^|[^\\p{L}])${patronNombre(nom)}(?![\\p{L}])`, "giu"), `$1Chico${i + 1}`);
+  });
+  return t;
+}
+export function devolverNombres(texto, ninos) {
+  return String(texto || "").replace(/\bChico(\d{1,2})\b/g, (m, k) => ((ninos || [])[Number(k) - 1] || {}).nombre || m);
+}
+export function indicesDeChicos(lista) {
+  const out = [];
+  for (const x of Array.isArray(lista) ? lista : []) {
+    const m = /^\s*chico\s*(\d{1,2})\s*$/i.exec(String(x));
+    if (m && !out.includes(Number(m[1]) - 1)) out.push(Number(m[1]) - 1);
+  }
+  return out;
+}
+/** Las actividades de los chicos de las próximas semanas, para la IA: sin nombres. */
+export function chicosParaIA(eventos, ninos, hoy, dias = 21) {
+  const hasta = sumarDias(hoy, dias);
+  return (eventos || []).filter((e) => e && esISO(e.fecha) && (e.semanal ? !(esISO(e.hasta) && e.hasta < hoy) : e.fecha >= hoy && e.fecha <= hasta))
+    .slice(0, 40)
+    .map((e) => ({ id: e.id, titulo: escudarNombres(String(e.titulo || "").slice(0, 80), ninos), fecha: e.fecha, hora: e.hora || "", horaFin: e.horaFin || "",
+      semanal: !!e.semanal, ninos: (e.ninos || []).map((id) => (ninos || []).findIndex((n) => n.id === id)).filter((i) => i >= 0).map((i) => `Chico${i + 1}`) }));
 }
 
 /* ── Los deseos con frecuencia (nucleo-12, 5-oct-2026) ──────────────────────

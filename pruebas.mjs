@@ -16,7 +16,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
-         cotidianasDe, listasDeCompras, recorridoDeCompra, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
+         cotidianasDe, listasDeCompras, recorridoDeCompra, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
@@ -179,7 +179,13 @@ prueba("a Gemini no le van los nombres de los chicos", () => {
   const src = fs.readFileSync("sugerir.js", "utf8");
   const i = src.indexOf("async function interpretar"), k = src.indexOf("function tarjetaPrecarga");
   assert.ok(i > 0 && k > i);
-  assert.ok(!/familia\.ninos|ninoPorId|E\.familia/.test(src.slice(i, k)));
+  const cuerpo = src.slice(i, k);
+  assert.ok(!/familia\.ninos|ninoPorId|E\.familia/.test(cuerpo));
+  // sugerir-16: lo dictado, los títulos de la agenda y los de los chicos salen escudados.
+  assert.match(cuerpo, /texto = escudarNombres\(texto, ninos\)/);
+  assert.match(cuerpo, /titulo: escudarNombres\(a\.titulo, ninos\)/);
+  assert.match(cuerpo, /chicosParaIA\(E\.eventos, ninos, hoy\)/);
+  assert.match(cuerpo, /devolverNombres\(x, ninos\)/);
 });
 
 titulo("Un dictado es un plan (app-13)");
@@ -231,7 +237,7 @@ prueba("lo que no tiene forma se descarta o va a dudas, nunca se inventa", () =>
   assert.equal(p.acciones[1].clase, "ninos");
   assert.ok(p.dudas.length >= 2);
   assert.equal(leerPlanIA("nada"), null);
-  assert.ok(Object.keys(ACCIONES).length === 8);
+  assert.ok(Object.keys(ACCIONES).length === 12);
 });
 prueba("«no olvidar comprar» va a compras; «pedile a Flor» es un pedido; sin texto, nada", () => {
   const p = leerPlanIA('{"acciones":[{"tipo":"compra","texto":"Pilas AA","lista":"Ferretería"},{"tipo":"pedido","titulo":"Pasar a buscar el pan","dia":"2026-10-07"},{"tipo":"compra","texto":""},{"tipo":"pedido","titulo":"x","dia":"el jueves"}]}');
@@ -394,7 +400,7 @@ prueba("dictado un miércoles a la noche: «el miércoles» es el de la semana q
 });
 prueba("una actividad se cambia de día borrando y volviendo a crear su marca (la regla no deja editarla)", () => {
   const a = fs.readFileSync("agenda.js", "utf8");
-  const f = a.slice(a.indexOf("async function moverActividad"), a.indexOf("const formMover"));
+  const f = a.slice(a.indexOf("export async function reprogramarActividad"), a.indexOf("const formMover"));
   assert.ok(f.indexOf("deleteDoc(F.doc(db, \"marcas\", id))") < f.indexOf("setDoc(F.doc(db, \"marcas\", id)"));
   assert.match(f, /F\.doc\(db, "agendas", E\.yo\.uid\)/);
 });
@@ -1191,6 +1197,64 @@ prueba("Tiempos: mientras está compartida, las cosas se escriben en el document
   assert.ok(!/guardar\(\{ \[lid\]/.test(c), "tildar/sacar no van directo a familia");
   // primero se crea el compartido, después se muda: si falla, no se pierde nada
   assert.ok(c.indexOf("await F.setDoc(refC(token)") < c.indexOf("items: F.deleteField() } }"));
+});
+
+titulo("nucleo-22 · sugerir-16: pedirle a la IA cualquier cosa (10-oct)");
+const CH = [{ id: "n1", nombre: "Ána" }, { id: "n2", nombre: "Bruno" }];
+prueba("los nombres de los chicos se escudan antes de salir y vuelven a la vuelta; una palabra que los contiene no", () => {
+  const t = escudarNombres("llevo a ana y a BRUNO al básquet; la banana y Brunoso no", CH);
+  assert.equal(t, "llevo a Chico1 y a Chico2 al básquet; la banana y Brunoso no");
+  assert.equal(devolverNombres(t, CH), "llevo a Ána y a Bruno al básquet; la banana y Brunoso no");
+  assert.equal(devolverNombres("Chico9 sigue", CH), "Chico9 sigue");
+  assert.deepEqual(indicesDeChicos(["Chico2", "nadie", "chico 1", "Chico2"]), [1, 0]);
+  const ev = chicosParaIA([{ id: "e", titulo: "Básquet de Bruno", fecha: "2026-10-12", semanal: true, ninos: ["n2"] },
+    { id: "v", titulo: "Viejo", fecha: "2026-01-01" }], CH, "2026-10-10");
+  assert.deepEqual(ev.map((x) => [x.id, x.titulo, x.ninos]), [["e", "Básquet de Chico2", ["Chico2"]]]);
+});
+prueba("un gasto: el monto no se inventa, y lo que falta lo deja sin guardar y dicho", () => {
+  const p = leerPlanIA(JSON.stringify({ acciones: [
+    { tipo: "gasto", monto: "850,5", moneda: "UYU", fecha: "2026-10-10", categoria: "salud", comercio: "Farmacia" },
+    { tipo: "gasto", monto: 100 }, { tipo: "gasto", detalle: "sin monto" }, { tipo: "gasto", monto: 50, moneda: "EUR", fecha: "2026-10-10", categoria: "inventada" }] }));
+  assert.deepEqual(p.acciones.map((a) => [a.monto, a.faltan.length]), [[850.5, 0], [100, 3], [50, 2]]);
+  assert.ok(p.dudas.some((d) => /monto/.test(d)));
+});
+prueba("los chicos: nueva necesita qué y día; cambiar/sacar/saltear necesitan cuál", () => {
+  const p = leerPlanIA(JSON.stringify({ acciones: [
+    { tipo: "chicos", accion: "nueva", titulo: "Natación", fecha: "2026-10-14", hora: "17:00", semanal: true, ninos: ["Chico1"] },
+    { tipo: "chicos", accion: "cambiar", id: "e1", hora: "18:00" }, { tipo: "chicos", accion: "quitar" },
+    { tipo: "chicos", accion: "saltar", id: "e1" }, { tipo: "chicos", titulo: "sin día" }, { tipo: "chicos", accion: "borrar-todo", titulo: "X", fecha: "2026-10-14" }] }));
+  assert.deepEqual(p.acciones.map((a) => [a.accion, a.id]), [["nueva", ""], ["cambiar", "e1"], ["nueva", ""]]);
+  assert.deepEqual(p.acciones[0].ninos, [0]);
+  assert.equal(p.acciones[0].semanal, true);
+});
+prueba("mover y sacar de la agenda: con id; mover además con día y hora", () => {
+  const p = leerPlanIA(JSON.stringify({ acciones: [{ tipo: "mover", id: "a1", dia: "2026-10-12", hi: "09:00", hf: "10:00" },
+    { tipo: "mover", id: "a1", dia: "el lunes" }, { tipo: "quitar", id: "a2" }, { tipo: "quitar" }] }));
+  assert.deepEqual(p.acciones.map((a) => a.tipo), ["mover", "quitar"]);
+});
+prueba("Hacer lo marcado: el gasto va a movimientos SÓLO si no le falta nada, con la sesión de quien dicta", () => {
+  const sg = fs.readFileSync("sugerir.js", "utf8");
+  const g = sg.slice(sg.indexOf('a.tipo === "gasto") {\n        if'), sg.indexOf('a.tipo === "chicos") {\n        const ninosIds'));
+  assert.ok(g.indexOf("a.faltan.length") < g.indexOf('F.collection(db, "movimientos")'));
+  assert.match(g, /creadoPor: E\.yo\.uid/);
+  // el renglón de un gasto incompleto sale sin poder marcarse
+  assert.match(sg, /a\.faltan\.length \? `<input type="checkbox" data-accion="\$\{n\}" disabled>`/);
+  // mover y sacar usan lo mismo que la pantalla de Agenda
+  assert.match(sg, /reprogramarActividad\(a\.id/);
+  assert.match(sg, /await sacarActividad\(a\.id\)/);
+  assert.match(fs.readFileSync("agenda.js", "utf8"), /export async function sacarActividad/);
+});
+prueba("el cuadro es neutro: «Pedile a la IA», en el globo y en la Pizarra", () => {
+  const sg = fs.readFileSync("sugerir.js", "utf8"), pz = fs.readFileSync("pizarra.js", "utf8");
+  assert.match(sg, /titulo: "Pedile a la IA"/);
+  assert.ok(!/titulo: "Para la agenda"/.test(sg));
+  assert.match(pz, /✨ Pedile a la IA/);
+});
+prueba("lo acordado cada semana es una tabla con una columna por persona (familia-4)", () => {
+  const fa = fs.readFileSync("familia.js", "utf8");
+  const f = fa.slice(fa.indexOf("function acordado()"), fa.indexOf("function listaNinos()"));
+  assert.match(f, /<table class="acordado"><thead><tr><th><\/th>\$\{ps\.map\(\(p\) => `<th>\$\{esc\(p\.nombre\)\}<\/th>`/);
+  assert.match(f, /data-patron="\$\{w\}\|\$\{esc\(p\.id\)\}\|\$\{esc\(n\.id\)\}"/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
