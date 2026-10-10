@@ -293,6 +293,12 @@ que «pizarra» es el lugar, nunca el título.
   misma, así que cargar dos veces el mismo extracto no repite nada. El
   análisis de Claude cuenta, aparte, lo que todavía no se registró. Nunca se
   guarda un número de cuenta ni de tarjeta.
+  **Lo que hay cargado (10-oct-2026):** Prex de Mauro de oct-2025 a oct-2026
+  (de sus capturas), y migrado del sistema viejo de Casa Verde (el proyecto
+  Firebase anterior a `casaverde-20`) BTG de Florencia y BTG de Mauro de
+  ene a may-2026, con la clasificación que tenían allá traducida a cuentas y
+  categorías de acá. En el sistema viejo «X – Personal» era QUIÉN PAGÓ, no
+  para quién: por eso «para» queda sólo en los gastos personales.
 - **Lo acordado cada semana es una tabla** (familia-4): los días en filas y una
   columna por persona, con los chicos que están con ella ese día.
 - **Las finanzas de la familia** (app-19, 8-oct-2026, `tiempos:V9`): Plata
