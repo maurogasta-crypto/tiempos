@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-23
+// Sello: app-24
 //
+// app-24 (10-oct-2026): sin cambios acá; nucleo-23 y sugerir-17 («los chicos» son todos).
 // app-23 (10-oct-2026): sin cambios acá; suben nucleo-22, sugerir-16, agenda-10,
 // familia-4, pizarra-web-2 y estilos-17 (pedirle a la IA, lo acordado en columnas).
 // app-22 (9-oct-2026): con la lista escucha las compartidas sin cuenta

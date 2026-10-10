@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-16
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-17
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -82,6 +82,12 @@ let textoDictado = "";
 /* Los chicos de la casa, de la base. Se usan SÓLO para escudar los nombres
    antes de que algo salga hacia la IA, y para traducirlos a la vuelta. */
 const chicosDeLaCasa = () => (E.familia && E.familia.ninos) || [];
+/* sugerir-17 (10-oct-2026, Mauro): una actividad «de los chicos» es de TODOS;
+   si nombra a uno, es de ése. Sin chicos marcados, van todos. */
+const ninosDe = (indices) => {
+  const ids = (indices || []).map((i) => (chicosDeLaCasa()[i] || {}).id).filter(Boolean);
+  return ids.length ? ids : chicosDeLaCasa().map((n) => n.id).filter(Boolean);
+};
 
 async function interpretar(texto, archivo) {
   const CV2 = CV && CV.CV2;
@@ -116,12 +122,12 @@ async function interpretar(texto, archivo) {
   contenido.push({ type: "text", text: `Hoy es ${dia} ${hoy} y son las ${ahoraHM} (Uruguay/Brasil). ${yoN} vive con ${otroN} y sus hijos, y dictó algo para organizar su tiempo. ${archivo ? "Adjunta la captura de un flyer o anuncio. " : ""}Lo dictado (puede tener errores del dictado del teléfono y expresiones espontáneas): «${texto || "(nada: sólo la captura)"}».
 Su agenda de las próximas dos semanas (JSON): ${JSON.stringify(agenda)}
 Las actividades de los chicos (JSON; los chicos se llaman Chico1, Chico2…: usá esos nombres, nunca otros): ${JSON.stringify(chicos)}
-Hay ${ninos.length} chicos: ${ninos.map((n, i) => "Chico" + (i + 1)).join(", ") || "ninguno cargado"}.
+Hay ${ninos.length} chicos: ${ninos.map((n, i) => "Chico" + (i + 1)).join(", ") || "ninguno cargado"}. «Los chicos» son TODOS ellos: en "ninos" van todos. Si nombra a uno solo, va sólo ése.
 Dónde está y sus lugares conocidos (JSON; "casa" es de donde sale si no hay otra actividad antes ese día): ${JSON.stringify(lugares)}. Para el viaje usá esas direcciones; si un lugar no está, estimalo y decilo en dudas.
 Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin texto alrededor:
 {"resumen": una línea con lo que entendiste,
  "acciones": [ cada una con "tipo" y sus campos:
-   {"tipo":"actividad","titulo","dia":"AAAA-MM-DD","hi":"HH:MM","hf":"HH:MM" o "","lugar","tipo_clase":"trabajo"|"tarea"|"personal"|"ninos","quien":"yo"|"otro"|"los-dos"|"familia","chicos":true|false}  — algo nuevo que ocupa tiempo;
+   {"tipo":"actividad","titulo","dia":"AAAA-MM-DD","hi":"HH:MM","hf":"HH:MM" o "","lugar","tipo_clase":"trabajo"|"tarea"|"personal"|"ninos","quien":"yo"|"otro"|"los-dos"|"familia","chicos":true|false,"ninos":["Chico1"]}  — algo nuevo que ocupa tiempo;
    {"tipo":"tarea","titulo","detalle"}  — algo CONCRETO que la persona tiene que hacer o preparar con sus manos (llevar algo, comprar, llamar, juntar papeles); va a su pizarra. NUNCA una tarea para guardar, agendar, marcar, anotar o registrar lo que este mismo plan ya hace: eso lo hace la app sola y no ocupa lugar en la pizarra;
    {"tipo":"recordatorio","texto","dia","hora":"HH:MM" (temprano ese día, SIEMPRE antes de lo que recuerda),"sobre": id de su agenda si se refiere a algo que ya tiene}  — un aviso ese día;
    {"tipo":"alarma","texto","dia","hora","sobre","lugar": adónde va,"desde": de dónde sale,"viaje": minutos}  — la alarma de SALIR: si una actividad tiene lugar, la hora es la de la actividad menos el viaje menos 10 minutos de margen. "desde" es el lugar de la actividad anterior de ese mismo día (de la agenda o de este plan) o "casa" si no hay ninguna; "viaje" son los minutos en auto entre "desde" y "lugar", estimados con lo que sabés de las distancias reales (en Uruguay, por ejemplo, entre localidades de la Costa de Oro de Canelones). Si no sabés dónde queda alguno de los dos lugares, decilo en dudas;
@@ -220,7 +226,7 @@ async function agendarPrecarga(tp) {
         const id = await agendarMio({ titulo: a.titulo, dia: a.dia, hi: a.hi, hf: a.hf, lugar: a.lugar, tipo: a.clase, modo: a.modo, imagen }, { origen: "dictado" });
         if (id) hecho.push("📅 " + a.titulo);
         if (a.chicos && esISO(a.dia)) await F.addDoc(F.collection(db, "eventos"), { titulo: a.titulo.slice(0, 120), fecha: a.dia, hora: a.hi || "",
-          horaFin: a.hf || "", semanal: false, ninos: [], quienes: [E.yo.uid], nota: a.lugar ? "En " + a.lugar.slice(0, 280) : "",
+          horaFin: a.hf || "", semanal: false, ninos: ninosDe(a.ninos), quienes: [E.yo.uid], nota: a.lugar ? "En " + a.lugar.slice(0, 280) : "",
           excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
         if (a.quien === "los-dos" || a.quien === "familia") paraClaude.push(`Agendé «${a.titulo}» ${a.dia} ${a.hi} para ${a.quien}`);
       } else if (a.tipo === "tarea") {
@@ -258,7 +264,8 @@ async function agendarPrecarga(tp) {
           origen: "dictado", creadoPor: E.yo.uid, creadoEn: F.serverTimestamp(), actualizadoEn: F.serverTimestamp() });
         hecho.push(`💸 ${a.monto} ${a.moneda}${c ? " " + c.nombre : ""}`);
       } else if (a.tipo === "chicos") {
-        const ninosIds = (a.ninos || []).map((i) => (chicosDeLaCasa()[i] || {}).id).filter(Boolean);
+        // sugerir-17 (Mauro): «los chicos» son los dos; si nombra a uno, sólo ése.
+        const ninosIds = ninosDe(a.ninos);
         if (a.accion === "nueva") {
           await F.addDoc(F.collection(db, "eventos"), { titulo: a.titulo.slice(0, 120), fecha: a.fecha, hora: a.hora || "", horaFin: a.horaFin || "",
             semanal: !!a.semanal, ninos: ninosIds, quienes: [E.yo.uid], nota: a.nota || "", excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });

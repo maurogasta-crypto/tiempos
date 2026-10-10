@@ -1227,6 +1227,14 @@ prueba("los chicos: nueva necesita qué y día; cambiar/sacar/saltear necesitan 
   assert.deepEqual(p.acciones[0].ninos, [0]);
   assert.equal(p.acciones[0].semanal, true);
 });
+prueba("«los chicos» son todos; si nombra a uno, sólo ése (sugerir-17)", () => {
+  const sg = fs.readFileSync("sugerir.js", "utf8");
+  assert.match(sg, /return ids\.length \? ids : chicosDeLaCasa\(\)\.map\(\(n\) => n\.id\)/);
+  assert.match(sg, /semanal: false, ninos: ninosDe\(a\.ninos\)/);
+  assert.match(sg, /const ninosIds = ninosDe\(a\.ninos\)/);
+  const p = leerPlanIA(JSON.stringify({ acciones: [{ tipo: "actividad", titulo: "Natación", dia: "2026-10-14", hi: "17:00", hf: "18:00", tipo_clase: "ninos", chicos: true, ninos: ["Chico2"] }] }));
+  assert.deepEqual(p.acciones[0].ninos, [1]);
+});
 prueba("mover y sacar de la agenda: con id; mover además con día y hora", () => {
   const p = leerPlanIA(JSON.stringify({ acciones: [{ tipo: "mover", id: "a1", dia: "2026-10-12", hi: "09:00", hf: "10:00" },
     { tipo: "mover", id: "a1", dia: "el lunes" }, { tipo: "quitar", id: "a2" }, { tipo: "quitar" }] }));

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-22
+// Sello: nucleo-23
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1001,7 +1001,8 @@ export function leerPlanIA(texto, ahoraMs, dictado = "") {
       const x = leerAgendaIA(JSON.stringify({ ...a, tipo: a.tipo_clase || a.clase }));
       if (!x || !x.titulo) continue;
       dudas.push(...x.dudas.map((d) => `${d} de «${x.titulo.slice(0, 30)}»`));
-      acciones.push({ ...x, clase: x.tipo, tipo: "actividad" });
+      // nucleo-23: de qué chicos es (vacío = todos, lo decide sugerir.js).
+      acciones.push({ ...x, clase: x.tipo, tipo: "actividad", ninos: indicesDeChicos(a.ninos) });
     } else if (a.tipo === "tarea") {
       const titulo = corto(a.titulo, 120); if (!titulo) continue;
       // nucleo-15: lo que el plan YA hace (agendar, marcar, guardar) no es una
