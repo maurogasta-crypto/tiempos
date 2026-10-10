@@ -16,7 +16,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
-         cotidianasDe, listasDeCompras, recorridoDeCompra, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
+         cotidianasDe, listasDeCompras, recorridoDeCompra, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
@@ -1335,6 +1335,30 @@ prueba("un gasto lleva su cuenta y para quién; el formulario de Plata también"
   assert.match(pl, /cuenta: f\.cuenta \? f\.cuenta\.value : "", para: f\.para \? f\.para\.value : ""/);
   assert.match(pl, /F\.doc\(db, "familia", "cuentas"\)/);
   assert.ok(/match \/familia\//.test(reglas), "familia ya tiene su regla: no hizo falta otra");
+});
+
+titulo("nucleo-25 · plata-8 · sugerir-19: el cierre del mes y el análisis de Claude");
+prueba("el cierre: cerrado si los números son los mismos, «cambio» si algo entró o salió después", () => {
+  const movs = [{ monto: 1000, moneda: "UYU", fecha: "2026-09-03", categoria: "materiales", cuenta: "dgf" },
+    { monto: 500, moneda: "USD", fecha: "2026-09-10", categoria: "alquileres", cuenta: "gf" }, { monto: 9, moneda: "UYU", fecha: "2026-10-01", categoria: "materiales", cuenta: "gf" }];
+  const b = balanceDelMes(movs, CTAS, "gf", "2026-09");
+  assert.equal(b.lista.length, 2, "el lugar suma su depósito, sólo ese mes");
+  assert.equal(balanceDelMes(movs, CTAS, "dgf", "2026-09").lista.length, 1, "el depósito, solo");
+  const g = { firma: firmaBalance(b) };
+  assert.equal(estadoCierre(null, b), "abierto");
+  assert.equal(estadoCierre(g, b), "cerrado");
+  assert.equal(estadoCierre(g, balanceDelMes([...movs, { monto: 1, moneda: "UYU", fecha: "2026-09-20", categoria: "jornales", cuenta: "gf" }], CTAS, "gf", "2026-09")), "cambio");
+  assert.equal(estadoCierre(g, balanceDelMes([...movs, { monto: 1, moneda: "UYU", fecha: "2026-11-20", categoria: "jornales", cuenta: "gf" }], CTAS, "gf", "2026-09")), "cerrado", "otro mes no lo toca");
+});
+prueba("cerrar escribe familia/cierres con la firma; el análisis va a reportes con `analisis` y vuelve como propuesta «analisis»", () => {
+  const pl = fs.readFileSync("plata.js", "utf8"), sg = fs.readFileSync("sugerir.js", "utf8"), pr = fs.readFileSync("propone.js", "utf8");
+  assert.match(pl, /F\.doc\(db, "familia", "cierres"\), \{ cierres: \{ \[id\]: \{ \[mes\]: \{ firma: firmaBalance\(bal\)/);
+  assert.match(sg, /\.\.\.\(c\.analisis \? \{ analisis: c\.analisis \} : \{\}\)/);
+  assert.match(pr, /CLASES_PROPONE = \["agenda", "consulta", "analisis"\]/);
+  assert.match(pr, /decidir\(b\.dataset\.propLeido, "aprobada"\)/);
+  assert.match(app, /F\.where\("clase", "==", "analisis"\)/);
+  // la regla de propuestas deja leído = aprobada, y la de reportes no limita los campos
+  assert.match(reglas, /request\.resource\.data\.estado in \['aprobada', 'descartada'\]/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

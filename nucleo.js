@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-24
+// Sello: nucleo-25
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1216,6 +1216,27 @@ export function horasPorCuenta(sesiones, tareas, cuentas, { desde = "", hasta = 
   for (const k of Object.keys(out.porPersona)) out.porPersona[k] = r2(out.porPersona[k]);
   for (const k of Object.keys(out.porCuenta)) out.porCuenta[k] = r2(out.porCuenta[k]);
   return out;
+}
+
+/* ── El CIERRE de cada cuenta, por mes (nucleo-25, tiempos:V11) ─────────────
+   Mauro: «debe cerrar un balance económico cada proyecto». Cerrar un mes
+   guarda lo que dio —por moneda— y una FIRMA de esos números; si después
+   entra o sale algo de ese mes, la firma ya no coincide y el cierre pide
+   volver a cerrarse. Vive en `familia/cierres` (cierres.<cuenta>.<AAAA-MM>),
+   como los repartos: sin regla nueva. La cuenta suma sus partes. */
+export function balanceDelMes(movs, cuentas, cuentaId, mes) {
+  const c = (cuentas || []).find((x) => x.id === cuentaId);
+  const ids = c && c.nivel ? new Set([cuentaId]) : idsDeCuenta(cuentas, cuentaId);
+  return balanceDe(movs, { cuentas: ids, desde: mes + "-01", hasta: mes + "-31" });
+}
+export const firmaBalance = (b) => JSON.stringify(Object.keys(b.porMoneda || {}).sort().map((m) => {
+  const o = b.porMoneda[m];
+  return [m, o.entro, o.salio, Object.keys(o.porCategoria).sort().map((k) => [k, o.porCategoria[k]])];
+})) + "|" + (b.lista || []).length;
+/** "abierto" (sin cerrar), "cerrado" (coincide) o "cambio" (se movió después). */
+export function estadoCierre(guardado, actual) {
+  if (!guardado || !guardado.firma) return "abierto";
+  return guardado.firma === firmaBalance(actual) ? "cerrado" : "cambio";
 }
 
 export const CONSULTAS = { chicos: "las actividades de los chicos", agenda: "tu agenda", gastos: "gastos y entradas", balance: "un balance", horas: "horas registradas" };

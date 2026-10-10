@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-18
+/* estilos.css — Tiempos. Sello: estilos-19
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -304,3 +304,7 @@ table.acordado td input { width:1.25rem; height:1.25rem; margin:0; }
 .respuesta .barra-fila { grid-template-columns:1fr auto; }
 .explicacion { white-space:pre-line; }
 .tarjeta.cuenta.sub { margin-left:1rem; }
+/* estilos-19 (plata-8): el cierre de cada cuenta y los análisis de Claude. */
+small.ok { color:var(--ok); font-weight:600; }
+.tarjeta.cuenta .botones { margin-top:.4rem; align-items:center; }
+.analisis .explicacion, details .explicacion { margin:.4rem 0; line-height:1.5; }

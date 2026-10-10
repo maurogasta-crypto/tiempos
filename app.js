@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-25
+// Sello: app-26
 //
+// app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-25 (10-oct-2026, tiempos:V11): escucha `familia/cuentas` (E.cuentasDoc).
 // app-24 (10-oct-2026): sin cambios acá; nucleo-23 y sugerir-17 («los chicos» son todos).
 // app-23 (10-oct-2026): sin cambios acá; suben nucleo-22, sugerir-16, agenda-10,
@@ -206,6 +207,12 @@ function escucharFamilia() {
   F.onSnapshot(F.doc(db, "familia", "cuentas"), (d) => {
     E.cuentasDoc = d.exists() ? d.data() : {}; pintar();
   }, mal("las cuentas"));
+  F.onSnapshot(F.doc(db, "familia", "cierres"), (d) => {
+    E.cierresDoc = d.exists() ? d.data() : {}; pintar();
+  }, mal("los cierres"));
+  F.onSnapshot(F.query(F.collection(db, "propuestas"), F.where("clase", "==", "analisis")), (s) => {
+    E.analisis = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
+  }, mal("los análisis"));
   // app-19 (tiempos:V9): los gastos del año y los repartos de cada mes.
   F.onSnapshot(F.doc(db, "familia", "presupuesto"), (d) => {
     E.conceptos = (d.exists() && d.data().conceptos) || {}; pintar();

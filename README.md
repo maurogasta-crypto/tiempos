@@ -245,6 +245,16 @@ que «pizarra» es el lugar, nunca el título.
   convertir, con lo que falta (gastos sin boleta, meses sin nada). «✨
   Explicar» le pide a la IA un comentario de esos números, sin sumar nada.
   Las horas son las del reloj de Tiempos; las de Casa Verde, todavía no.
+  **El cierre del mes** (plata-8): en Plata → Cuentas, con el mes elegido
+  arriba, cada cuenta se cierra con un toque; queda en `familia/cierres` con la
+  firma de sus números, y si después entra o sale algo de ese mes dice que
+  cambió y pide volver a cerrar.
+  **El análisis de Claude** (sugerir-19): «📊 Análisis de Claude» en una
+  respuesta o en una cuenta manda el pedido a `reportes/` con el campo
+  `analisis`; Claude junta los números con `herramientas/analisis.mjs` de
+  `datos` (Tiempos y, si corresponde, Casa Verde y remate, por moneda), escribe
+  el análisis y lo deja como propuesta de clase «analisis»: aparece en Pizarra
+  con «✓ Leído» y queda listado en Plata → Cuentas.
 - **Lo acordado cada semana es una tabla** (familia-4): los días en filas y una
   columna por persona, con los chicos que están con ella ese día.
 - **Las finanzas de la familia** (app-19, 8-oct-2026, `tiempos:V9`): Plata
@@ -408,24 +418,24 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-24` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-25` |
 | `estado.js` | lo que comparten las vistas | `estado-3` |
-| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-25` |
+| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-26` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-2` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje, y el interruptor «Claude organiza mi agenda» | `lugares-2` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
 | `lista.html` + `lista.js` | la lista compartida sin cuenta (`?c=<token>`); fuera del SHELL | `lista-1` |
-| `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-7` |
+| `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
-| `sugerir.js` | el globo ✏️: pedirle a la IA (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-18` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y las cuatro solapas | `plata-7` |
+| `sugerir.js` | el globo ✏️: pedirle a la IA (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-19` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y las cuatro solapas | `plata-8` |
 | `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-1` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-10` |
 | `familia.js` | Hoy y Chicos | `familia-4` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
-| `estilos.css` | | `estilos-18` |
-| `sw.js` | el cascarón sin señal | `tiempos-36` |
+| `estilos.css` | | `estilos-19` |
+| `sw.js` | el cascarón sin señal | `tiempos-37` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v12 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

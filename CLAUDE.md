@@ -113,6 +113,13 @@ la documentación diga la verdad.
   convertir; la IA entiende la pregunta y, si se le pide, comenta los números
   ya hechos. Sin pesos argentinos todavía: lo de las billeteras argentinas está
   en USD.
+  **El cierre de cada cuenta por mes** (plata-8, nucleo-25) vive en
+  `familia/cierres` con la firma de los números (`firmaBalance`); si cambian,
+  `estadoCierre` dice «cambio». **El análisis de Claude** vuelve como
+  propuesta de clase «analisis» (`CLASES_PROPONE`; «Leído» = aprobada, que es
+  lo que la regla deja), la escribe `herramientas/analisis.mjs` de `datos`, y
+  la Pizarra la muestra con el mismo filtro (`CLASES_PROPONE` de su
+  `Logica.kt`): si cambia acá, cambia allá en la misma tanda.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

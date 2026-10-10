@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// propone.js — Lo que Claude propone para TU agenda, en Pizarra (desde app-16). Sello: propone-7
+// propone.js — Lo que Claude propone para TU agenda, en Pizarra (desde app-16). Sello: propone-8
 //
 // 5-oct-2026, pedido de Mauro: que lo dictado (o la captura de un flyer)
 // vuelva «en la misma interfaz, para que el usuario dé ok». Claude lo
@@ -30,7 +30,9 @@ import { mandarReporte } from "./sugerir.js";
 import { htmlPosibles, pintarDeseos, enganchar } from "./deseos.js";
 import { recordarLugar } from "./lugares.js";
 
-export const CLASES_PROPONE = ["agenda", "consulta"];
+// «analisis» (tiempos:V11, 10-oct-2026): lo que Claude analizó a pedido
+// (herramientas/analisis.mjs de datos). Se lee y se marca leído.
+export const CLASES_PROPONE = ["agenda", "consulta", "analisis"];
 const editando = {};          // id de propuesta → campos corregidos
 
 export const mias = () => (E.propuestas || []).filter((p) =>
@@ -75,12 +77,21 @@ function tarjetaConsulta(p) {
   </form>`;
 }
 
+function tarjetaAnalisis(p) {
+  return `<div class="tarjeta ficha prop propone analisis">
+    <p class="gris">📊 Claude analizó${p.reporteId ? " lo que pediste" : ""}</p>
+    <p><b>${esc(p.resumen || "Análisis")}</b></p>
+    <div class="explicacion">${esc(p.texto || "")}</div>
+    <div class="botones"><button class="boton" data-prop-leido="${esc(p.id)}">✓ Leído</button></div>
+    <p class="gris">Queda guardado en Plata → Cuentas.</p></div>`;
+}
+
 /* Lo que se agrega a Pizarra (antes, Ahora). Nada si no hay propuestas para vos. */
 export function tarjetasPropone(v) {
   const ps = mias();
   if (!ps.length) return;
   const caja = document.createElement("div");
-  caja.innerHTML = `<h2>Claude propone (${ps.length})</h2>` + ps.map((p) => p.clase === "consulta" ? tarjetaConsulta(p) : tarjetaAgenda(p)).join("");
+  caja.innerHTML = `<h2>Claude propone (${ps.length})</h2>` + ps.map((p) => p.clase === "consulta" ? tarjetaConsulta(p) : p.clase === "analisis" ? tarjetaAnalisis(p) : tarjetaAgenda(p)).join("");
   v.append(caja);
   for (const f of caja.querySelectorAll("[data-prop-agenda]")) {
     f.oninput = () => { editando[f.dataset.propAgenda] = leer(f); };
@@ -89,6 +100,7 @@ export function tarjetasPropone(v) {
   for (const f of caja.querySelectorAll("[data-prop-consulta]")) {
     f.onsubmit = (ev) => { ev.preventDefault(); responder(f.dataset.propConsulta, f.respuesta.value.trim()).catch(fallo); };
   }
+  for (const b of caja.querySelectorAll("[data-prop-leido]")) b.onclick = () => decidir(b.dataset.propLeido, "aprobada").catch(fallo);
   for (const b of caja.querySelectorAll("[data-prop-no]")) b.onclick = () => decidir(b.dataset.propNo, "descartada").then(() => aviso("Listo, no se agregó.")).catch(fallo);
 }
 

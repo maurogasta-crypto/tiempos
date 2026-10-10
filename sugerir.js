@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-18
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-19
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -33,6 +33,12 @@
 // `actividadesDeChicos`, `horasPorCuenta` de nucleo.js) y la IA, si se le
 // pide («✨ Explicar»), sólo los comenta. Y un gasto puede decir a qué CUENTA
 // fue (un lugar, un vehículo, su depósito) y para quién.
+//
+// sugerir-19 (10-oct-2026, tiempos:V11): «📊 Análisis de Claude». Una
+// respuesta se puede mandar a Claude, que lee las dos bases —Tiempos y Casa
+// Verde, y remate— y devuelve un análisis en Pizarra (propuesta de clase
+// «analisis», `herramientas/analisis.mjs` de datos). Va a reportes/ con el
+// campo `analisis` ({que, cuenta, desde, hasta, categorias}).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, auth, F, CV } from "./firebase-init.js";
@@ -258,7 +264,14 @@ function respuestaHTML(a, n) {
       <p class="gris">Cada moneda va aparte: no se suman ni se convierten.</p>`;
   }
   return `<div class="respuesta" data-resp="${n}">❓ <small class="gris">${esc(a.pregunta || CONSULTAS[a.que])}</small>${h}
-    ${a.explicacion ? `<p class="explicacion">✨ ${esc(a.explicacion)}</p>` : `<button type="button" class="mini" data-explicar="${n}">✨ Explicar</button>`}</div>`;
+    ${a.explicacion ? `<p class="explicacion">✨ ${esc(a.explicacion)}</p>` : `<button type="button" class="mini" data-explicar="${n}">✨ Explicar</button>`}
+    ${a.pedido ? `<p class="gris">📊 Pedido a Claude: el análisis te llega a Pizarra.</p>` : `<button type="button" class="mini" data-analisis="${n}">📊 Análisis de Claude</button>`}</div>`;
+}
+
+/** Pedirle a Claude el análisis de una consulta (o de una cuenta, desde Plata). */
+export async function pedirAnalisis({ pregunta, que = "balance", cuenta = "", desde = "", hasta = "", categorias = [] }) {
+  return mandarReporte({ texto: "Análisis: " + String(pregunta || "").slice(0, 300), tipo: "pedido", urgencia: "pronto",
+    analisis: { que, cuenta: String(cuenta || "").slice(0, 60), desde, hasta, categorias: (categorias || []).slice(0, 12) } });
 }
 
 const DIA_CORTO = (iso) => { try { return new Date(iso + "T12:00").toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }); } catch { return iso; } };
@@ -495,6 +508,16 @@ function pintarHoja() {
     tp.querySelector("[data-otra-vez]").onclick = () => { precarga = null; pintarHoja(); };
     const ag = tp.querySelector("[data-agendar]");
     if (ag) ag.onclick = () => agendarPrecarga(tp).catch(fallo);
+    for (const b of tp.querySelectorAll("[data-analisis]")) b.onclick = async () => {
+      const a = precarga.acciones[Number(b.dataset.analisis)]; if (!a) return;
+      b.disabled = true;
+      try {
+        await pedirAnalisis({ pregunta: a.pregunta || CONSULTAS[a.que], que: a.que, cuenta: (a.resultado || {}).cuenta || a.cuenta || "",
+          desde: a.desde, hasta: a.hasta, categorias: a.categorias });
+        a.pedido = true; aviso("Pedido. Claude lo analiza y te lo deja en Pizarra.");
+      } catch (e) { fallo(e); }
+      pintarHoja();
+    };
     for (const b of tp.querySelectorAll("[data-explicar]")) b.onclick = async () => {
       const a = precarga.acciones[Number(b.dataset.explicar)]; if (!a) return;
       b.disabled = true; b.textContent = "Pensando…";
@@ -557,6 +580,7 @@ export async function mandarReporte(c) {
     pagina: E.solapa, texto: String(c.texto || "").slice(0, 2000), esperaba: String(c.esperaba || "").slice(0, 600),
     tipo: c.tipo || "pedido", imagen: c.imagen || "", agenda: !!c.agenda,
     ...(c.respondeA ? { respondeA: String(c.respondeA).slice(0, 60) } : {}),
+    ...(c.analisis ? { analisis: c.analisis } : {}),
     ...(c.extra ? { yaAgendado: String(c.extra.yaAgendado || "").slice(0, 60), quien: String(c.extra.quien || "").slice(0, 20) } : {}),
     ...(c.gravedad ? { gravedad: c.gravedad } : { urgencia: c.urgencia || "pronto" }),
     estado: "nuevo", creadoEn: F.serverTimestamp(),

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-7
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-8
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -31,13 +31,19 @@
 // administración general y los costos salen del presupuesto general»—, la
 // cuenta sólo dice a qué fue. La solapa «Cuentas» las arma y muestra el
 // balance de cada una, por moneda. Viven en `familia/cuentas` (cuentasDe).
+//
+// plata-8 (10-oct-2026): el CIERRE de cada cuenta por mes (`familia/cierres`,
+// con la firma de los números: si algo cambia después, pide volver a cerrar)
+// y el «📊 Análisis de Claude» de una cuenta, que vuelve a Pizarra y queda
+// listado abajo de las cuentas.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, validarMovimiento, disponible, automaticosPendientes,
          leerSugerencia, esISO, MESES, TIPOS } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
-import { cuentasDe, idsDeCuenta, balanceDe, CLASES_CUENTA, idNuevo } from "./nucleo.js";
+import { cuentasDe, idsDeCuenta, balanceDe, CLASES_CUENTA, idNuevo, balanceDelMes, firmaBalance, estadoCierre } from "./nucleo.js";
+import { pedirAnalisis } from "./sugerir.js";
 import { pintarFijos, pintarAnio, pintarReparto } from "./finanzas.js";
 
 let mesVisto = null;              // "2026-09"
@@ -58,7 +64,7 @@ export function pintarPlata() {
   const nav = `<nav class="solapas chicas">${Object.entries(SUBS).map(([k, n]) => `<button data-sub="${k}" aria-selected="${sub === k}">${n}</button>`).join("")}</nav>`;
   if (sub !== "dia") {
     v.innerHTML = nav + (sub === "anio" ? "" : `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`);
-    if (sub === "cuentas") { v.innerHTML = nav; pintarCuentas(v); engancharSub(v); return; }
+    if (sub === "cuentas") { v.innerHTML = nav + `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`; pintarCuentas(v); engancharSub(v); return; }
     if (sub === "fijos") pintarFijos(v, mesVisto);
     else if (sub === "anio") pintarAnio(v);
     else pintarReparto(v, mesVisto);
@@ -70,7 +76,7 @@ export function pintarPlata() {
     .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   const total = disponible(movs);
   const mes = disponible(movs, { desde: mesVisto + "-01", hasta: mesVisto + "-31" });
-  const props = (E.propuestas || []).filter((p) => p.estado === "pendiente" && p.clase !== "agenda" && p.clase !== "consulta");   // plata-3: ésas van en Pizarra (app-16)
+  const props = (E.propuestas || []).filter((p) => p.estado === "pendiente" && p.clase !== "agenda" && p.clase !== "consulta" && p.clase !== "analisis");   // plata-3: ésas van en Pizarra (app-16)
   const autos = automaticosPendientes(E.recurrentes, movs, E.hoy);
 
   let h = nav;
@@ -144,22 +150,44 @@ const nombrePara = (id) => (personas().find((p) => p.id === id) || ((E.familia &
 let editandoCuenta = null;
 function pintarCuentas(v) {
   const cuentas = cuentasDe(E.cuentasDoc);
-  const mes = E.hoy.slice(0, 7);
+  const mes = mesVisto;
+  const cierres = (E.cierresDoc && E.cierresDoc.cierres) || {};
   const linea = (b) => Object.entries(b.porMoneda).map(([m, o]) => `${m} ${fmt(o.saldo)} <small class="gris">(entró ${fmt(o.entro)} · salió ${fmt(o.salio)})</small>`).join(" · ") || `<small class="gris">sin registros</small>`;
   let h = `<p class="gris">A qué fue cada gasto o entrada: un lugar, un vehículo, su depósito. La plata es toda de la familia; la cuenta sólo dice a qué fue. Para un balance con explicación, preguntale a la IA: «balance de General Flores de septiembre».</p>`;
   h += cuentas.length ? cuentas.map((c) => {
     const ids = idsDeCuenta(cuentas, c.id);
     const total = balanceDe(E.movs, { cuentas: c.nivel ? new Set([c.id]) : ids });
-    const delMes = balanceDe(E.movs, { cuentas: c.nivel ? new Set([c.id]) : ids, desde: mes + "-01", hasta: mes + "-31" });
+    const delMes = balanceDelMes(E.movs, cuentas, c.id, mes);
+    const guardado = (cierres[c.id] || {})[mes];
+    const est = estadoCierre(guardado, delMes);
+    const cierreH = est === "cerrado" ? `<small class="ok">✓ ${esc(nombreMes(mes))} cerrado por ${esc(nombreDe(guardado.por))}</small>`
+      : est === "cambio" ? `<small class="aviso">${esc(nombreMes(mes))} cambió después del cierre</small> <button class="mini" data-cerrar-mes="${esc(c.id)}">Volver a cerrar</button>`
+      : mes < E.hoy.slice(0, 7) || delMes.lista.length ? `<button class="mini" data-cerrar-mes="${esc(c.id)}">Cerrar ${esc(nombreMes(mes))}</button>` : "";
     return `<div class="tarjeta cuenta${c.nivel ? " sub" : ""}"><div class="fila"><span class="txt"><b>${esc(c.nombre)}</b> <small class="gris">${esc(CLASES_CUENTA[c.clase])}${c.nivel ? " · parte de " + esc(c.ruta.split(" › ")[0]) : ""}${c.pais ? " · " + esc(c.pais) : ""}</small></span>
       <button class="mini" data-editar-cuenta="${esc(c.id)}">✎</button></div>
-      <div class="gris">Este mes: ${linea(delMes)}</div><div>Total: ${linea(total)}</div>
+      <div class="gris">${esc(nombreMes(mes))}: ${linea(delMes)}</div><div>Total: ${linea(total)}</div>
+      <div class="botones">${cierreH}<button class="mini" data-analisis-cuenta="${esc(c.id)}">📊 Análisis</button></div>
       ${total.faltan.length ? `<small class="aviso">${esc(total.faltan.join("; "))}</small>` : ""}
       ${editandoCuenta === c.id ? formCuenta(c, cuentas) : ""}</div>`;
   }).join("") : `<p class="gris">Todavía no hay cuentas.</p>`;
   h += editandoCuenta === "nueva" ? formCuenta(null, cuentas) : `<div class="botones"><button class="boton sec" data-editar-cuenta="nueva">＋ Cuenta</button></div>`;
+  const an = (E.analisis || []).slice().sort((a, b) => String((b.creadoEn && b.creadoEn.seconds) || 0).localeCompare(String((a.creadoEn && a.creadoEn.seconds) || 0), undefined, { numeric: true }));
+  if (an.length) h += `<h2>📊 Análisis de Claude</h2>` + an.slice(0, 20).map((p) => `<details class="tarjeta"><summary><b>${esc(p.resumen || "Análisis")}</b>${p.estado === "pendiente" ? " <small class=\"aviso\">nuevo</small>" : ""}</summary><div class="explicacion">${esc(p.texto || "")}</div></details>`).join("");
   v.insertAdjacentHTML("beforeend", h);
   const todos = (sel, fn) => { for (const el of v.querySelectorAll(sel)) fn(el); };
+  todos("[data-cerrar-mes]", (b) => b.onclick = () => {
+    const id = b.dataset.cerrarMes, bal = balanceDelMes(E.movs, cuentas, id, mes);
+    const resumen = Object.fromEntries(Object.entries(bal.porMoneda).map(([m, o]) => [m, { entro: o.entro, salio: o.salio, saldo: o.saldo, porCategoria: o.porCategoria }]));
+    F.setDoc(F.doc(db, "familia", "cierres"), { cierres: { [id]: { [mes]: { firma: firmaBalance(bal), porMoneda: resumen, registros: bal.lista.length,
+      faltan: bal.faltan, por: E.yo.uid, en: new Date().toISOString() } } }, actualizadoEn: F.serverTimestamp() }, { merge: true })
+      .then(() => aviso(`Cerrado ${nombreMes(mes)}.`)).catch(fallo);
+  });
+  todos("[data-analisis-cuenta]", (b) => b.onclick = () => {
+    const c = cuentas.find((x) => x.id === b.dataset.analisisCuenta); if (!c) return;
+    b.disabled = true;
+    pedirAnalisis({ pregunta: `Balance y análisis de ${c.ruta}, con ${nombreMes(mes)} y lo acumulado`, que: "balance", cuenta: c.ruta })
+      .then(() => aviso("Pedido. Claude lo analiza y te lo deja en Pizarra.")).catch(fallo);
+  });
   todos("[data-editar-cuenta]", (b) => b.onclick = () => { editandoCuenta = editandoCuenta === b.dataset.editarCuenta ? null : b.dataset.editarCuenta; repintar(); });
   todos("[data-cerrar-cuenta]", (b) => b.onclick = () => { editandoCuenta = null; repintar(); });
   todos("[data-form-cuenta]", (f) => f.onsubmit = (ev) => {
