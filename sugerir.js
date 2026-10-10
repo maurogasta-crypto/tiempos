@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-17
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-18
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -25,13 +25,22 @@
 // LOS CHICOS (nueva, cambiar, sacar, saltear un día) y CAMBIAR o SACAR algo
 // de la propia agenda. Los nombres de los chicos no viajan: pasan a «Chico1»
 // antes de mandar y vuelven a la vuelta (`escudarNombres`).
+//
+// sugerir-18 (10-oct-2026, tiempos:V11): el cuadro también CONTESTA. «¿Qué
+// tienen los chicos esta semana?», «gastos de General Flores en materiales de
+// septiembre», «balance de la Hilux», «horas de octubre». La IA entiende la
+// pregunta (`consulta`); los números los saca la app (`balanceDe`,
+// `actividadesDeChicos`, `horasPorCuenta` de nucleo.js) y la IA, si se le
+// pide («✨ Explicar»), sólo los comenta. Y un gasto puede decir a qué CUENTA
+// fue (un lugar, un vehículo, su depósito) y para quién.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, auth, F, CV } from "./firebase-init.js";
 import { textoFrecuencia } from "./nucleo.js";
 import { dondeEstoy } from "./lugares.js";
 import { esc, leerPlanIA, agendaParaIA, lugaresParaIA, CLASES_ACTIVIDAD, esISO, limpiarDictado, listasDeCompras, listaParaCompra, idNuevo,
-  escudarNombres, devolverNombres, chicosParaIA, CATEGORIAS, MONEDAS } from "./nucleo.js";
+  escudarNombres, devolverNombres, chicosParaIA, CATEGORIAS, MONEDAS, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe,
+  actividadesDeChicos, horasPorCuenta, CONSULTAS, sumarDias } from "./nucleo.js";
 import { agendarMio } from "./propone.js";
 import { reprogramarActividad, sacarActividad } from "./agenda.js";
 import { E, $, aviso, repintar, fallo, otro } from "./estado.js";
@@ -84,6 +93,15 @@ let textoDictado = "";
 const chicosDeLaCasa = () => (E.familia && E.familia.ninos) || [];
 /* sugerir-17 (10-oct-2026, Mauro): una actividad «de los chicos» es de TODOS;
    si nombra a uno, es de ése. Sin chicos marcados, van todos. */
+/* sugerir-18: para quién fue un gasto: «yo», «otro» o un chico. */
+const paraDe = (p) => {
+  if (p === "yo") return E.yo.uid;
+  if (p === "otro") return (otro() || {}).id || "";
+  const i = /^chico\s*(\d{1,2})$/i.exec(String(p || "").trim());
+  if (i) return (chicosDeLaCasa()[Number(i[1]) - 1] || {}).id || "";
+  const n = (chicosDeLaCasa().find((x) => String(x.nombre).toLowerCase() === String(p || "").toLowerCase()) || {}).id;
+  return n || "";
+};
 const ninosDe = (indices) => {
   const ids = (indices || []).map((i) => (chicosDeLaCasa()[i] || {}).id).filter(Boolean);
   return ids.length ? ids : chicosDeLaCasa().map((n) => n.id).filter(Boolean);
@@ -122,6 +140,7 @@ async function interpretar(texto, archivo) {
   contenido.push({ type: "text", text: `Hoy es ${dia} ${hoy} y son las ${ahoraHM} (Uruguay/Brasil). ${yoN} vive con ${otroN} y sus hijos, y dictó algo para organizar su tiempo. ${archivo ? "Adjunta la captura de un flyer o anuncio. " : ""}Lo dictado (puede tener errores del dictado del teléfono y expresiones espontáneas): «${texto || "(nada: sólo la captura)"}».
 Su agenda de las próximas dos semanas (JSON): ${JSON.stringify(agenda)}
 Las actividades de los chicos (JSON; los chicos se llaman Chico1, Chico2…: usá esos nombres, nunca otros): ${JSON.stringify(chicos)}
+Las cuentas (lugares, vehículos y sus depósitos) para los gastos: ${JSON.stringify(cuentasDe(E.cuentasDoc).map((c) => c.ruta))}.
 Hay ${ninos.length} chicos: ${ninos.map((n, i) => "Chico" + (i + 1)).join(", ") || "ninguno cargado"}. «Los chicos» son TODOS ellos: en "ninos" van todos. Si nombra a uno solo, va sólo ése.
 Dónde está y sus lugares conocidos (JSON; "casa" es de donde sale si no hay otra actividad antes ese día): ${JSON.stringify(lugares)}. Para el viaje usá esas direcciones; si un lugar no está, estimalo y decilo en dudas.
 Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin texto alrededor:
@@ -135,10 +154,11 @@ Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin 
    {"tipo":"coordinar","texto"}  — una pregunta para ${otroN} si para hacerlo hay que acordar con él o ella;
    {"tipo":"compra","texto","lista"}  — algo para no olvidar comprar; va a la lista de compras de la casa. Listas que ya existen: ${JSON.stringify(listas)} (usá una de ésas si corresponde, o un nombre corto nuevo);
    {"tipo":"pedido","titulo","detalle","dia"}  — algo que le pide a ${otroN} que haga (va a la pizarra de ${otroN});
-   {"tipo":"gasto","monto": número,"moneda":"BRL"|"UYU"|"USD","fecha":"AAAA-MM-DD","categoria": una de ${JSON.stringify(Object.keys(CATEGORIAS))},"comercio","detalle"}  — plata que se gastó o que entró («gasté 850 en la farmacia», «cobré los honorarios»). La moneda sólo si la dijo o es obvia (pesos en Uruguay = UYU, reales en Brasil = BRL); si no, vacía y en dudas. Nunca inventes un monto;
+   {"tipo":"gasto","monto": número,"moneda":"BRL"|"UYU"|"USD","fecha":"AAAA-MM-DD","categoria": una de ${JSON.stringify(Object.keys(CATEGORIAS))},"comercio","detalle","cuenta": una de las cuentas si es de un lugar o vehículo,"para":"yo"|"otro"|"Chico1" si es para alguien en particular}  — plata que se gastó o que entró («gasté 850 en la farmacia», «cobré los honorarios»). La moneda sólo si la dijo o es obvia (pesos en Uruguay = UYU, reales en Brasil = BRL); si no, vacía y en dudas. Nunca inventes un monto;
    {"tipo":"chicos","accion":"nueva"|"cambiar"|"quitar"|"saltar","id": el de la lista si no es nueva,"titulo","fecha":"AAAA-MM-DD","hora","horaFin","semanal": true|false,"ninos":["Chico1"],"nota"}  — las actividades de los chicos, que ven los dos: una nueva; cambiar una que ya está (sólo los campos que cambian); quitarla del todo; o «saltar» para que no cuente UN día (en "fecha");
    {"tipo":"mover","id": el de su agenda,"dia","hi","hf"}  — cambiar de día u hora algo que YA está en su agenda;
-   {"tipo":"quitar","id": el de su agenda}  — sacar algo de su agenda, sólo si lo pide ],
+   {"tipo":"quitar","id": el de su agenda}  — sacar algo de su agenda, sólo si lo pide;
+   {"tipo":"consulta","que":"chicos"|"agenda"|"gastos"|"balance"|"horas","desde":"AAAA-MM-DD","hasta":"AAAA-MM-DD","ninos":["Chico1"] si pregunta por uno,"cuenta": una de las cuentas,"categorias":[de la lista de arriba],"persona":"yo"|"otro"|"","pregunta": lo que quiere saber en una línea}  — si PREGUNTA algo en vez de pedir que se registre: actividades de los chicos de un día o una semana, su agenda, los gastos o entradas de una cuenta o categoría, el balance de una cuenta, las horas trabajadas. «Esta semana» es de lunes a domingo; «septiembre» es del 1 al 30; si no dice período, «desde» y «hasta» vacíos (todo). Una pregunta no se registra: sólo se contesta ],
  "dudas": [lo que no quedó claro]}.
 Elegí con criterio lo que corresponde, puede ser más de una acción: algo decidido con día y hora es una actividad (si es con los chicos, "chicos": true y va también al calendario compartido de los chicos); algo que quisiera pero no está decidido es un deseo; «no olvidar comprar…» es una compra; «pedirle a ${otroN}…» o «que ${otroN} …» es un pedido; «acordarme de…» es un recordatorio (y una alarma si hay una hora en que tiene que salir); preparar algo es una tarea.
 Entre las 00:00 y las 05:00, «mañana» quiere decir HOY por fecha (${hoy}): la persona todavía no se fue a dormir.
@@ -160,7 +180,85 @@ Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sob
   plan.resumen = nombres(plan.resumen);
   plan.dudas = plan.dudas.map(nombres);
   plan.acciones = plan.acciones.map((a) => Object.fromEntries(Object.entries(a).map(([k, v]) => [k, k === "id" || k === "sobre" ? v : nombres(v)])));
+  for (const a of plan.acciones) if (a.tipo === "consulta") a.resultado = await contestar(a);
   return plan;
+}
+
+/* sugerir-18: la respuesta a una consulta, calculada acá con lo que ve esta
+   sesión. Las horas se piden en el momento (no se escuchan siempre). */
+async function contestar(a) {
+  const cuentas = cuentasDe(E.cuentasDoc);
+  const hoy = E.hoy;
+  const desde = a.desde || "", hasta = a.hasta || "";
+  const uidDe = (p) => p === "yo" ? E.yo.uid : p === "otro" ? (otro() || {}).id || "" : "";
+  const cuenta = a.cuenta ? cuentaPorNombre(cuentas, a.cuenta) : null;
+  if (a.cuenta && !cuenta) return { error: `No encontré la cuenta «${a.cuenta}». Las que hay: ${cuentas.map((c) => c.ruta).join(", ") || "ninguna todavía (Plata → Cuentas)"}.` };
+  const nombreCuenta = cuenta ? cuentas.find((c) => c.id === cuenta).ruta : "";
+  if (a.que === "chicos" || a.que === "agenda") {
+    const d0 = desde || hoy, d1 = hasta || sumarDias(d0, 6);
+    const nino = (a.ninos || []).length === 1 ? (chicosDeLaCasa()[a.ninos[0]] || {}).id || "" : "";
+    if (a.que === "chicos") return { tipo: "lista", desde: d0, hasta: d1, de: nino ? (chicosDeLaCasa()[a.ninos[0]] || {}).nombre : "los chicos",
+      items: actividadesDeChicos({ eventos: E.eventos, actividades: E.actividades, ninos: chicosDeLaCasa(), desde: d0, hasta: d1, nino }) };
+    const items = Object.values(E.actividades || {}).filter((x) => x && x.dia >= d0 && x.dia <= d1)
+      .map((x) => ({ dia: x.dia, hora: String(x.desde || "").slice(11, 16), horaFin: x.hf || "", titulo: x.titulo || "", de: "" }))
+      .sort((p, q) => p.dia.localeCompare(q.dia) || p.hora.localeCompare(q.hora));
+    return { tipo: "lista", desde: d0, hasta: d1, de: "tu agenda", items };
+  }
+  if (a.que === "horas") {
+    let sesiones = [];
+    try {
+      const r = await F.getDocs(F.query(F.collection(db, "sesiones"), F.where("estado", "==", "finalizada")));
+      sesiones = r.docs.map((d) => ({ id: d.id, ...d.data(), inicioMs: d.data().inicio && d.data().inicio.toMillis ? d.data().inicio.toMillis() : 0 }));
+    } catch (e) { return { error: "No pude traer las horas: " + (e.message || e) }; }
+    return { tipo: "horas", desde, hasta, cuenta: nombreCuenta, ...horasPorCuenta(sesiones, E.tareas, cuentas, { desde, hasta, cuenta: cuenta || "", uid: uidDe(a.persona) }),
+      nombresCuenta: Object.fromEntries(cuentas.map((c) => [c.id, c.ruta])) };
+  }
+  const b = balanceDe(E.movs, { cuentas: cuenta ? idsDeCuenta(cuentas, cuenta) : null, desde, hasta, categorias: a.categorias || [], uid: uidDe(a.persona) });
+  return { tipo: a.que === "balance" ? "balance" : "gastos", desde, hasta, cuenta: nombreCuenta, categorias: a.categorias || [], ...b };
+}
+
+/* «✨ Explicar»: la IA comenta los números que ya calculó la app; no suma nada. */
+async function explicar(a) {
+  const CV2 = CV && CV.CV2;
+  if (!CV2) throw new Error("sin Casa Verde no hay IA");
+  const r = a.resultado || {};
+  const datos = r.tipo === "lista" ? { periodo: [r.desde, r.hasta], de: r.de, items: (r.items || []).slice(0, 80) }
+    : r.tipo === "horas" ? { periodo: [r.desde, r.hasta], cuenta: r.cuenta, total: r.total, porCuenta: r.porCuenta, sesiones: r.n }
+    : { periodo: [r.desde || "todo", r.hasta || "hoy"], cuenta: r.cuenta || "todas", porMoneda: r.porMoneda, faltan: r.faltan, registros: (r.lista || []).length,
+        categorias: Object.fromEntries(Object.entries(CATEGORIAS).map(([k, c]) => [k, c.nombre])) };
+  const texto = escudarNombres(`Pregunta: «${a.pregunta || CONSULTAS[a.que]}». Datos YA calculados por la app (JSON): ${JSON.stringify(datos)}.
+Explicá en castellano rioplatense, en 4 a 8 renglones cortos y sin inventar números: qué muestran, qué llama la atención, y qué falta registrar para que el análisis sea completo. Cada moneda es aparte: nunca sumes reales, pesos y dólares ni conviertas. Si no hay datos, decilo y sugerí qué cargar.`, chicosDeLaCasa());
+  const res = await fetch(CV2.NETLIFY + "/claude-proxy", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "gemini-2.5-flash-lite", max_tokens: 900, messages: [{ role: "user", content: [{ type: "text", text: texto }] }] }) });
+  if (!res.ok) throw new Error("la IA contestó " + res.status);
+  const j = await res.json();
+  return devolverNombres(String(((j.content || [])[0] || {}).text || "").trim(), chicosDeLaCasa());
+}
+
+const plata = (n) => Number(n).toLocaleString("es-UY", { maximumFractionDigits: 2 });
+const periodo = (r) => r.desde || r.hasta ? `${r.desde ? DIA_CORTO(r.desde) : "el principio"} → ${r.hasta ? DIA_CORTO(r.hasta) : "hoy"}` : "todo lo registrado";
+function respuestaHTML(a, n) {
+  const r = a.resultado || {};
+  if (r.error) return `<div class="respuesta"><p class="aviso">${esc(r.error)}</p></div>`;
+  let h = "";
+  if (r.tipo === "lista") {
+    h = `<p><b>${esc(r.de)}</b> · ${esc(periodo(r))}</p>${r.items.length ? `<ul class="resp-lista">${r.items.map((x) => `<li><b>${esc(DIA_CORTO(x.dia))}</b> ${esc(x.hora)}${x.horaFin ? "–" + esc(x.horaFin) : ""} ${esc(x.titulo)}${x.de ? ` <small class="gris">${esc(x.de)}</small>` : ""}</li>`).join("")}</ul>` : `<p class="gris">No hay nada registrado en ese período.</p>`}`;
+  } else if (r.tipo === "horas") {
+    h = `<p><b>Horas registradas</b>${r.cuenta ? " · " + esc(r.cuenta) : ""} · ${esc(periodo(r))}: <b>${esc(String(r.total))} h</b> en ${r.n} registro(s)</p>
+      ${Object.entries(r.porCuenta).map(([c, v]) => `<div class="barra-fila"><span>${esc(r.nombresCuenta[c] || "sin cuenta")}</span><b>${esc(String(v))} h</b></div>`).join("")}
+      <p class="gris">Son las del reloj de Tiempos. Las horas de Casa Verde (honorarios) todavía no entran acá.</p>`;
+  } else {
+    const ms = Object.entries(r.porMoneda || {});
+    h = `<p><b>${r.tipo === "balance" ? "Balance" : "Gastos y entradas"}</b>${r.cuenta ? " · " + esc(r.cuenta) : ""}${r.categorias.length ? " · " + esc(r.categorias.map((c) => CATEGORIAS[c].nombre).join(", ")) : ""} · ${esc(periodo(r))}</p>
+      ${ms.length ? ms.map(([m, o]) => `<div class="resp-moneda"><b>${esc(m)}</b> · entró ${esc(plata(o.entro))} · salió ${esc(plata(o.salio))} · <b>saldo ${esc(plata(o.saldo))}</b>
+        ${Object.entries(o.porCategoria).map(([c, v]) => `<div class="barra-fila"><span>${esc(CATEGORIAS[c].nombre)}</span><b>${esc(plata(v))}</b></div>`).join("")}</div>`).join("")
+      : `<p class="gris">No hay registros con ese filtro.</p>`}
+      ${r.tipo === "gastos" && r.lista.length ? `<details><summary>Ver los ${r.lista.length} registros</summary><ul class="resp-lista">${r.lista.slice(0, 100).map((m) => `<li>${esc(DIA_CORTO(m.fecha))} · ${esc(plata(m.monto))} ${esc(m.moneda)} · ${esc(CATEGORIAS[m.categoria].nombre)}${m.comercio ? " · " + esc(m.comercio) : ""}${m.detalle ? ` <small class="gris">${esc(m.detalle)}</small>` : ""}</li>`).join("")}</ul></details>` : ""}
+      ${r.faltan.length ? `<p class="aviso">Falta: ${esc(r.faltan.join("; "))}.</p>` : ""}
+      <p class="gris">Cada moneda va aparte: no se suman ni se convierten.</p>`;
+  }
+  return `<div class="respuesta" data-resp="${n}">❓ <small class="gris">${esc(a.pregunta || CONSULTAS[a.que])}</small>${h}
+    ${a.explicacion ? `<p class="explicacion">✨ ${esc(a.explicacion)}</p>` : `<button type="button" class="mini" data-explicar="${n}">✨ Explicar</button>`}</div>`;
 }
 
 const DIA_CORTO = (iso) => { try { return new Date(iso + "T12:00").toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }); } catch { return iso; } };
@@ -178,7 +276,7 @@ function renglonAccion(a, n) {
   if (a.tipo === "gasto") {
     const c = CATEGORIAS[a.categoria];
     return `<label class="check accion">${a.faltan.length ? `<input type="checkbox" data-accion="${n}" disabled>` : ch} 💸 <span>${c && c.tipo === "entro" ? "Entró" : "Gasto"}: <b>${esc(a.monto)} ${esc(a.moneda || "¿moneda?")}</b>${a.comercio ? " · " + esc(a.comercio) : ""}${a.detalle ? " · " + esc(a.detalle) : ""}
-      <small class="gris">${esc(c ? c.nombre : "¿categoría?")} · ${esc(a.fecha ? DIA_CORTO(a.fecha) : "¿fecha?")}${a.faltan.length ? ` · ⚠ ${esc(a.faltan.join(", "))}: cargalo en Plata` : " · a Plata, con tu nombre"}</small></span></label>`;
+      <small class="gris">${esc(c ? c.nombre : "¿categoría?")} · ${esc(a.fecha ? DIA_CORTO(a.fecha) : "¿fecha?")}${a.cuenta ? " · " + esc(((cuentasDe(E.cuentasDoc).find((x) => x.id === cuentaPorNombre(cuentasDe(E.cuentasDoc), a.cuenta))) || {}).ruta || a.cuenta + " (no existe: queda sin cuenta)") : ""}${a.faltan.length ? ` · ⚠ ${esc(a.faltan.join(", "))}: cargalo en Plata` : " · a Plata, con tu nombre"}</small></span></label>`;
   }
   if (a.tipo === "chicos") {
     const ev = (E.eventos || []).find((e) => e.id === a.id);
@@ -195,6 +293,7 @@ function renglonAccion(a, n) {
       ? `<label class="check accion">${ch} 📅 <span>Pasar <b>${esc(x.titulo)}</b> a ${esc(DIA_CORTO(a.dia))} ${esc(a.hi)}${a.hf ? "–" + esc(a.hf) : ""} <small class="gris">estaba ${esc(DIA_CORTO(x.dia))} ${esc(String(x.desde || "").slice(11, 16))}</small></span></label>`
       : `<label class="check accion">${ch} 🗑 <span>Sacar de tu agenda: <b>${esc(x.titulo)}</b> <small class="gris">${esc(DIA_CORTO(x.dia))}</small></span></label>`;
   }
+  if (a.tipo === "consulta") return respuestaHTML(a, n);
   if (a.tipo === "coordinar") return `<label class="check accion">${ch} 💬 <span>Preguntarle a ${esc(((E.miembros || []).find((m) => m.id !== E.yo.uid) || {}).nombre || "el otro")}: <b>${esc(a.texto)}</b></span></label>`;
   return "";
 }
@@ -204,7 +303,7 @@ function tarjetaPrecarga(p) {
     <p class="gris">✨ ${p.resumen ? "Entendí: «" + esc(p.resumen) + "»" : "Esto propongo"} — destildá lo que no va</p>
     ${p.acciones.length ? p.acciones.map(renglonAccion).join("") : `<p class="aviso">No saqué nada claro. Volvé al texto y decilo de otra forma, o mandáselo a Claude.</p>`}
     ${p.dudas.length ? `<p class="aviso">No estoy seguro de: ${p.dudas.map(esc).join(", ")}. Las actividades se corrigen después en Agenda.</p>` : ""}
-    <div class="botones"><button type="button" class="boton" data-agendar ${p.acciones.length ? "" : "disabled"}>Hacer lo marcado</button><button type="button" class="mini" data-otra-vez>Volver al texto</button></div>
+    <div class="botones">${p.acciones.some((a) => a.tipo !== "consulta") ? `<button type="button" class="boton" data-agendar>Hacer lo marcado</button>` : ""}<button type="button" class="mini" data-otra-vez>Volver al texto</button></div>
     <p class="gris">Si hay que acordar con el otro, Claude le pregunta y te avisa.</p>
   </div>`;
 }
@@ -213,7 +312,8 @@ function tarjetaPrecarga(p) {
    al otro (coordinar, «lo hace el otro») va a Claude como un pedido. */
 async function agendarPrecarga(tp) {
   if (enviando) return;
-  const marcadas = [...tp.querySelectorAll("[data-accion]")].filter((c) => c.checked).map((c) => precarga.acciones[Number(c.dataset.accion)]);
+  const marcadas = [...tp.querySelectorAll("[data-accion]")].filter((c) => c.checked).map((c) => precarga.acciones[Number(c.dataset.accion)])
+    .filter((a) => a && a.tipo !== "consulta");
   if (!marcadas.length) return aviso("No marcaste nada.", true);
   enviando = true;
   const hecho = [], paraClaude = [];
@@ -261,6 +361,7 @@ async function agendarPrecarga(tp) {
         const c = CATEGORIAS[a.categoria];
         await F.addDoc(F.collection(db, "movimientos"), { monto: a.monto, moneda: a.moneda, fecha: a.fecha, categoria: a.categoria,
           comercio: a.comercio || "", detalle: a.detalle || "", uid: E.yo.uid, comprobanteUrl: imagen || null, automatico: null,
+          cuenta: a.cuenta ? cuentaPorNombre(cuentasDe(E.cuentasDoc), a.cuenta) || "" : "", para: paraDe(a.para),
           origen: "dictado", creadoPor: E.yo.uid, creadoEn: F.serverTimestamp(), actualizadoEn: F.serverTimestamp() });
         hecho.push(`💸 ${a.monto} ${a.moneda}${c ? " " + c.nombre : ""}`);
       } else if (a.tipo === "chicos") {
@@ -392,7 +493,14 @@ function pintarHoja() {
   const tp = h.querySelector("[data-precarga]");
   if (tp) {
     tp.querySelector("[data-otra-vez]").onclick = () => { precarga = null; pintarHoja(); };
-    tp.querySelector("[data-agendar]").onclick = () => agendarPrecarga(tp).catch(fallo);
+    const ag = tp.querySelector("[data-agendar]");
+    if (ag) ag.onclick = () => agendarPrecarga(tp).catch(fallo);
+    for (const b of tp.querySelectorAll("[data-explicar]")) b.onclick = async () => {
+      const a = precarga.acciones[Number(b.dataset.explicar)]; if (!a) return;
+      b.disabled = true; b.textContent = "Pensando…";
+      try { a.explicacion = await explicar(a); } catch (e) { a.explicacion = "No pude explicarlo ahora (" + (e.message || e) + ")."; }
+      pintarHoja();
+    };
   }
   for (const b of h.querySelectorAll(".tira button")) b.onclick = () => {
     for (const x of h.querySelectorAll(".tira button")) x.classList.toggle("on", x === b);

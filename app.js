@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-24
+// Sello: app-25
 //
+// app-25 (10-oct-2026, tiempos:V11): escucha `familia/cuentas` (E.cuentasDoc).
 // app-24 (10-oct-2026): sin cambios acá; nucleo-23 y sugerir-17 («los chicos» son todos).
 // app-23 (10-oct-2026): sin cambios acá; suben nucleo-22, sugerir-16, agenda-10,
 // familia-4, pizarra-web-2 y estilos-17 (pedirle a la IA, lo acordado en columnas).
@@ -201,6 +202,10 @@ function escucharFamilia() {
   F.onSnapshot(F.doc(db, "familia", "compras"), (d) => {
     E.compras = d.exists() ? d.data() : {}; escucharCompartidas(); pintar();
   }, mal("la lista de compras"));
+  // app-25 (tiempos:V11): las cuentas —lugares, vehículos y sus depósitos—.
+  F.onSnapshot(F.doc(db, "familia", "cuentas"), (d) => {
+    E.cuentasDoc = d.exists() ? d.data() : {}; pintar();
+  }, mal("las cuentas"));
   // app-19 (tiempos:V9): los gastos del año y los repartos de cada mes.
   F.onSnapshot(F.doc(db, "familia", "presupuesto"), (d) => {
     E.conceptos = (d.exists() && d.data().conceptos) || {}; pintar();

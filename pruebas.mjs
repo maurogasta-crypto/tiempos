@@ -16,7 +16,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
-         cotidianasDe, listasDeCompras, recorridoDeCompra, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
+         cotidianasDe, listasDeCompras, recorridoDeCompra, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
@@ -237,7 +237,7 @@ prueba("lo que no tiene forma se descarta o va a dudas, nunca se inventa", () =>
   assert.equal(p.acciones[1].clase, "ninos");
   assert.ok(p.dudas.length >= 2);
   assert.equal(leerPlanIA("nada"), null);
-  assert.ok(Object.keys(ACCIONES).length === 12);
+  assert.ok(Object.keys(ACCIONES).length === 13);
 });
 prueba("«no olvidar comprar» va a compras; «pedile a Flor» es un pedido; sin texto, nada", () => {
   const p = leerPlanIA('{"acciones":[{"tipo":"compra","texto":"Pilas AA","lista":"Ferretería"},{"tipo":"pedido","titulo":"Pasar a buscar el pan","dia":"2026-10-07"},{"tipo":"compra","texto":""},{"tipo":"pedido","titulo":"x","dia":"el jueves"}]}');
@@ -1263,6 +1263,78 @@ prueba("lo acordado cada semana es una tabla con una columna por persona (famili
   const f = fa.slice(fa.indexOf("function acordado()"), fa.indexOf("function listaNinos()"));
   assert.match(f, /<table class="acordado"><thead><tr><th><\/th>\$\{ps\.map\(\(p\) => `<th>\$\{esc\(p\.nombre\)\}<\/th>`/);
   assert.match(f, /data-patron="\$\{w\}\|\$\{esc\(p\.id\)\}\|\$\{esc\(n\.id\)\}"/);
+});
+
+titulo("nucleo-24 · plata-7 · sugerir-18: cuentas y consultas (tiempos:V11, 10-oct)");
+const CTAS = cuentasDe({ cuentas: { gf: { nombre: "General Flores", clase: "lugar", orden: 1 }, dgf: { nombre: "Depósito", padre: "gf" },
+  sf: { nombre: "Santa Fe", clase: "lugar", orden: 2, tareaId: "tSF" }, dsf: { nombre: "Depósito", padre: "sf" }, hx: { nombre: "Hilux", clase: "vehiculo", orden: 3 },
+  rota: { nombre: "Huérfana", padre: "nada" }, vieja: { nombre: "Vieja", baja: true }, raro: { nombre: "X", clase: "nave" } } });
+prueba("las cuentas: cada lugar con sus partes abajo; la de baja no se ofrece; padre roto = cuenta propia", () => {
+  assert.deepEqual(CTAS.filter((c) => ["gf", "dgf", "sf", "dsf", "hx"].includes(c.id)).map((c) => c.ruta),
+    ["General Flores", "General Flores › Depósito", "Santa Fe", "Santa Fe › Depósito", "Hilux"]);
+  assert.ok(!CTAS.some((c) => c.id === "vieja"));
+  assert.equal(CTAS.find((c) => c.id === "rota").nivel, 0);
+  assert.equal(CTAS.find((c) => c.id === "raro").clase, "proyecto");
+  assert.deepEqual([...idsDeCuenta(CTAS, "gf")].sort(), ["dgf", "gf"]);
+});
+prueba("una cuenta se encuentra por lo dicho; si es ambigua, ninguna", () => {
+  assert.equal(cuentaPorNombre(CTAS, "general flores"), "gf");
+  assert.equal(cuentaPorNombre(CTAS, "el depósito de General Flores"), "dgf");
+  assert.equal(cuentaPorNombre(CTAS, "santa fe deposito"), "dsf");
+  assert.equal(cuentaPorNombre(CTAS, "la Hilux"), "hx");
+  assert.equal(cuentaPorNombre(CTAS, "depósito"), null);
+  assert.equal(cuentaPorNombre(CTAS, "pisquito"), null);
+});
+prueba("el balance: por moneda y categoría, nunca mezcla monedas, y dice lo que falta", () => {
+  const movs = [{ monto: 1000, moneda: "UYU", fecha: "2026-09-03", categoria: "materiales", cuenta: "dgf" },
+    { monto: 500, moneda: "USD", fecha: "2026-09-10", categoria: "alquileres", cuenta: "gf", comprobanteUrl: "x" },
+    { monto: 200, moneda: "UYU", fecha: "2026-11-01", categoria: "jornales", cuenta: "gf" },
+    { monto: 9, moneda: "UYU", fecha: "2026-09-01", categoria: "comida" }, { monto: 7, moneda: "ARS", fecha: "2026-09-01", categoria: "materiales", cuenta: "gf" }];
+  const b = balanceDe(movs, { cuentas: idsDeCuenta(CTAS, "gf"), desde: "2026-09-01", hasta: "2026-11-30" });
+  assert.deepEqual(b.porMoneda.UYU, { entro: 0, salio: 1200, saldo: -1200, porCategoria: { materiales: -1000, jornales: -200 } });
+  assert.deepEqual(b.porMoneda.USD, { entro: 500, salio: 0, saldo: 500, porCategoria: { alquileres: 500 } });
+  assert.ok(!b.porMoneda.ARS, "una moneda que no está no entra");
+  assert.deepEqual(b.faltan, ["2 gasto(s) sin boleta", "sin ningún registro en 2026-10"]);
+  assert.equal(balanceDe(movs, { cuentas: new Set(["dgf"]) }).lista.length, 1);
+  assert.equal(balanceDe(movs, { categorias: ["comida"] }).lista.length, 1);
+});
+prueba("las actividades de un chico: las suyas y las de los dos; las de mi agenda con los chicos", () => {
+  const n = [{ id: "a", nombre: "A" }, { id: "b", nombre: "B" }];
+  const ev = [{ titulo: "Natación", fecha: "2026-10-12", semanal: true, ninos: ["a"] }, { titulo: "Cumple", fecha: "2026-10-13", ninos: [] },
+    { titulo: "Fútbol", fecha: "2026-10-14", ninos: ["b"] }, { titulo: "Plaza", fecha: "2026-10-15", ninos: ["a", "b"] }];
+  const r = actividadesDeChicos({ eventos: ev, actividades: { x: { dia: "2026-10-13", tipo: "ninos", titulo: "Parque", desde: "2026-10-13T17:00" } },
+    ninos: n, desde: "2026-10-12", hasta: "2026-10-19", nino: "a" });
+  assert.deepEqual(r.map((x) => [x.dia, x.titulo, x.de]), [["2026-10-12", "Natación", "A"], ["2026-10-13", "Cumple", "los dos"],
+    ["2026-10-13", "Parque", "con vos"], ["2026-10-15", "Plaza", "los dos"], ["2026-10-19", "Natación", "A"]]);
+});
+prueba("las horas por cuenta salen de la tarea raíz de la cuenta", () => {
+  const tareas = [{ id: "tSF" }, { id: "t1", parentId: "tSF" }, { id: "t2" }];
+  const ses = [{ uid: "u", horas: 2, tareaId: "t1", inicioMs: Date.parse("2026-10-02T12:00") }, { uid: "u", horas: 1, tareaId: "t2", inicioMs: Date.parse("2026-10-02T12:00") },
+    { uid: "v", horas: 3, tareaId: "tSF", inicioMs: Date.parse("2026-09-02T12:00") }];
+  const h = horasPorCuenta(ses, tareas, CTAS, { desde: "2026-10-01", hasta: "2026-10-31" });
+  assert.equal(h.total, 3); assert.deepEqual(h.porCuenta, { sf: 2, "": 1 });
+  assert.equal(horasPorCuenta(ses, tareas, CTAS, { cuenta: "sf" }).total, 5);
+});
+prueba("una consulta no se registra: no tiene casilla y «Hacer lo marcado» la saltea", () => {
+  const p = leerPlanIA(JSON.stringify({ acciones: [{ tipo: "consulta", que: "balance", cuenta: "General Flores", desde: "2026-09-01", hasta: "2026-09-30", categorias: ["materiales", "inventada"] }, { tipo: "consulta", que: "nada" }] }));
+  assert.equal(p.acciones.length, 1);
+  assert.deepEqual(p.acciones[0].categorias, ["materiales"]);
+  const sg = fs.readFileSync("sugerir.js", "utf8");
+  assert.match(sg, /\.filter\(\(a\) => a && a\.tipo !== "consulta"\)/);
+  assert.match(sg, /if \(a\.tipo === "consulta"\) return respuestaHTML\(a, n\)/);
+  // los números los calcula la app; la IA sólo explica, sin sumar monedas
+  assert.match(sg, /balanceDe\(E\.movs/);
+  assert.match(sg, /nunca sumes reales, pesos y dólares/);
+  assert.match(sg, /escudarNombres\(`Pregunta:/);
+});
+prueba("un gasto lleva su cuenta y para quién; el formulario de Plata también", () => {
+  const p = leerPlanIA(JSON.stringify({ acciones: [{ tipo: "gasto", monto: 3000, moneda: "UYU", fecha: "2026-10-10", categoria: "jornales", cuenta: "General Flores", para: "yo" }] }));
+  assert.equal(p.acciones[0].cuenta, "General Flores");
+  const sg = fs.readFileSync("sugerir.js", "utf8"), pl = fs.readFileSync("plata.js", "utf8");
+  assert.match(sg, /cuenta: a\.cuenta \? cuentaPorNombre\(cuentasDe\(E\.cuentasDoc\), a\.cuenta\) \|\| "" : "", para: paraDe\(a\.para\)/);
+  assert.match(pl, /cuenta: f\.cuenta \? f\.cuenta\.value : "", para: f\.para \? f\.para\.value : ""/);
+  assert.match(pl, /F\.doc\(db, "familia", "cuentas"\)/);
+  assert.ok(/match \/familia\//.test(reglas), "familia ya tiene su regla: no hizo falta otra");
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

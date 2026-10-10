@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-23
+// Sello: nucleo-24
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -464,6 +464,17 @@ export const CATEGORIAS = {
   vehiculos:     { nombre: "Vehículos (patente, seguro, arreglos)", tipo: "salio", reparto: "mantenimiento" },
   impuestos:     { nombre: "Impuestos y tasas",       tipo: "salio", reparto: "mantenimiento" },
   negocio_gasto: { nombre: "Gastos del negocio",      tipo: "salio", reparto: "negocio" },
+  // nucleo-24 (10-oct-2026, tiempos:V11): lo de las obras, los lugares y los
+  // vehículos. Mauro: «los costos de todas las infraestructuras tienen que
+  // salir del presupuesto general», y «todos los cobros entran a la
+  // administración general de la familia». Por eso son categorías comunes.
+  materiales:    { nombre: "Materiales",              tipo: "salio", reparto: "mantenimiento" },
+  jornales:      { nombre: "Jornales y mano de obra", tipo: "salio", reparto: "mantenimiento" },
+  combustible:   { nombre: "Combustible",             tipo: "salio", reparto: "mantenimiento" },
+  repuestos:     { nombre: "Repuestos y taller",      tipo: "salio", reparto: "mantenimiento" },
+  herramientas:  { nombre: "Herramientas",            tipo: "salio", reparto: "mantenimiento" },
+  alquileres:    { nombre: "Alquileres y subarriendos", tipo: "entro", reparto: "entro" },
+  trabajos:      { nombre: "Cobro por un trabajo",    tipo: "entro", reparto: "entro" },
 };
 
 export function validarMovimiento(m) {
@@ -911,6 +922,8 @@ export const ACCIONES = {
   chicos:       "las actividades de los chicos",
   mover:        "cambiar algo de tu agenda",
   quitar:       "sacar algo de tu agenda",
+  // nucleo-24 (tiempos:V11): no registra nada, CONTESTA.
+  consulta:     "una pregunta",
 };
 export const ACCIONES_CHICOS = ["nueva", "cambiar", "quitar", "saltar"];
 export const PARA_DESEO = ["yo", "chicos", "familia"];
@@ -1044,7 +1057,8 @@ export function leerPlanIA(texto, ahoraMs, dictado = "") {
       const monto = Math.round(Number(String(a.monto == null ? "" : a.monto).replace(/\s/g, "").replace(",", ".")) * 100) / 100;
       if (!(monto > 0)) { dudas.push("el monto" + (a.detalle ? ` de «${corto(a.detalle, 30)}»` : "")); continue; }
       const x = { tipo: "gasto", monto, moneda: MONEDAS.includes(a.moneda) ? a.moneda : "", fecha: dia(a.fecha),
-        categoria: CATEGORIAS[a.categoria] ? a.categoria : "", comercio: corto(a.comercio, 80), detalle: corto(a.detalle, 200) };
+        categoria: CATEGORIAS[a.categoria] ? a.categoria : "", comercio: corto(a.comercio, 80), detalle: corto(a.detalle, 200),
+        cuenta: corto(a.cuenta, 60), para: corto(a.para, 30) };
       x.faltan = validarMovimiento({ monto: x.monto, moneda: x.moneda, fecha: x.fecha, categoria: x.categoria });
       acciones.push(x);
     } else if (a.tipo === "chicos") {
@@ -1063,11 +1077,148 @@ export function leerPlanIA(texto, ahoraMs, dictado = "") {
     } else if (a.tipo === "quitar") {
       const id = corto(a.id, 40); if (!id) continue;
       acciones.push({ tipo: "quitar", id });
+    } else if (a.tipo === "consulta") {
+      if (!CONSULTAS[a.que]) { dudas.push("qué querías saber"); continue; }
+      acciones.push({ tipo: "consulta", que: a.que, desde: dia(a.desde), hasta: dia(a.hasta), ninos: indicesDeChicos(a.ninos),
+        cuenta: corto(a.cuenta, 60), categorias: (Array.isArray(a.categorias) ? a.categorias : []).filter((c) => CATEGORIAS[c]).slice(0, 12),
+        persona: ["yo", "otro"].includes(a.persona) ? a.persona : "", pregunta: corto(a.pregunta, 200) });
     }
   }
   ordenarPlan(acciones, ahoraMs, dudas, dictado);
   return { resumen: corto(j.resumen, 200), acciones, dudas: [...new Set(dudas)] };
 }
+
+/* ── Las CUENTAS: lugares, vehículos y sus partes (nucleo-24, tiempos:V11) ────
+   Mauro, 10-oct-2026: «hay que poder tener un control de los gastos de cada
+   lugar y/o vehículo y/o persona… se hace un balance a pedido por cualquiera
+   de los conceptos». Viven en `familia/cuentas` (mapa id → {nombre, clase,
+   pais, padre, tareaId, orden}), como todo lo de la casa: sin regla nueva. Un
+   depósito es una cuenta con `padre`: se mira sola o sumada a su lugar. Las
+   PERSONAS no son cuentas: son el `uid` de quien pagó y el `para` de un
+   movimiento (una persona o un chico). La plata no se separa: todo es de la
+   administración de la familia; la cuenta sólo dice A QUÉ fue. */
+export const CLASES_CUENTA = { lugar: "Lugar", vehiculo: "Vehículo", proyecto: "Proyecto" };
+export function cuentasDe(doc) {
+  const todas = Object.entries((doc && doc.cuentas) || {})
+    .filter(([, c]) => c && typeof c.nombre === "string" && c.nombre.trim() && !c.baja)
+    .map(([id, c]) => ({ id, nombre: c.nombre, clase: CLASES_CUENTA[c.clase] ? c.clase : "proyecto", pais: c.pais || "",
+      padre: typeof c.padre === "string" ? c.padre : "", tareaId: c.tareaId || "", orden: c.orden || 0 }));
+  const ids = new Set(todas.map((c) => c.id));
+  for (const c of todas) if (!ids.has(c.padre) || c.padre === c.id) c.padre = "";
+  const raices = todas.filter((c) => !c.padre).sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+  const out = [];
+  for (const r of raices) {
+    out.push({ ...r, nivel: 0, ruta: r.nombre });
+    for (const h of todas.filter((c) => c.padre === r.id).sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre)))
+      out.push({ ...h, nivel: 1, ruta: `${r.nombre} › ${h.nombre}` });
+  }
+  return out;
+}
+/** Una cuenta y sus partes (el depósito suma a su lugar). */
+export const idsDeCuenta = (cuentas, id) => new Set([id, ...(cuentas || []).filter((c) => c.padre === id).map((c) => c.id)]);
+
+/* La cuenta que se nombró, sin mayúsculas ni tildes, también por la ruta
+   («depósito de general flores»). Si dos se parecen igual, ninguna. */
+export function cuentaPorNombre(cuentas, nombre) {
+  const n = plano(nombre); if (!n) return null;
+  const exacta = (cuentas || []).filter((c) => plano(c.nombre) === n || plano(c.ruta) === n);
+  if (exacta.length) return exacta.length === 1 ? exacta[0].id : ((exacta.find((c) => plano(c.ruta) === n) || {}).id || null);
+  // Todas las palabras de la ruta están en lo dicho: gana la más específica
+  // («depósito de general flores» es el depósito, no el lugar).
+  const palabras = (t) => plano(t).split(/[^a-z0-9ñ]+/).filter((w) => w.length > 1);
+  const dichas = new Set(palabras(n));
+  const ok = (cuentas || []).map((c) => ({ c, w: palabras(c.ruta) })).filter((x) => x.w.length && x.w.every((w) => dichas.has(w)))
+    .sort((a, b) => b.w.length - a.w.length);
+  if (ok.length && (ok.length === 1 || ok[0].w.length > ok[1].w.length)) return ok[0].c.id;
+  const parte = (cuentas || []).filter((c) => plano(c.ruta).includes(n));
+  return parte.length === 1 ? parte[0].id : null;
+}
+
+/* ── Las CONSULTAS (nucleo-24): las cuentas las hace el código ────────────────
+   La IA entiende qué se pregunta; los números salen de acá, nunca de ella. Por
+   moneda, siempre: reales, pesos y dólares no se suman. */
+const enRango = (iso, desde, hasta) => esISO(iso) && (!desde || iso >= desde) && (!hasta || iso <= hasta);
+
+/** Gastos y entradas que cumplen el filtro, con los totales por moneda y categoría, y lo que falta. */
+export function balanceDe(movs, { cuentas = null, desde = "", hasta = "", categorias = [], para = "", uid = "" } = {}) {
+  const lista = (movs || []).filter((m) => m && Number(m.monto) > 0 && MONEDAS.includes(m.moneda) && CATEGORIAS[m.categoria]
+    && enRango(m.fecha, desde, hasta)
+    && (!cuentas || cuentas.has(m.cuenta))
+    && (!categorias.length || categorias.includes(m.categoria))
+    && (!para || m.para === para)
+    && (!uid || m.uid === uid))
+    .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  const porMoneda = {};
+  for (const m of lista) {
+    const c = CATEGORIAS[m.categoria], v = Number(m.monto);
+    const o = (porMoneda[m.moneda] = porMoneda[m.moneda] || { entro: 0, salio: 0, saldo: 0, porCategoria: {} });
+    if (c.tipo === "entro") { o.entro += v; o.saldo += v; } else { o.salio += v; o.saldo -= v; }
+    o.porCategoria[m.categoria] = (o.porCategoria[m.categoria] || 0) + (c.tipo === "entro" ? v : -v);
+  }
+  const r2 = (x) => Math.round(x * 100) / 100;
+  for (const o of Object.values(porMoneda)) {
+    o.entro = r2(o.entro); o.salio = r2(o.salio); o.saldo = r2(o.saldo);
+    for (const k of Object.keys(o.porCategoria)) o.porCategoria[k] = r2(o.porCategoria[k]);
+  }
+  // Lo que falta, dicho: gastos sin boleta y meses del período sin nada.
+  const faltan = [];
+  const sinBoleta = lista.filter((m) => CATEGORIAS[m.categoria].tipo === "salio" && !m.comprobanteUrl).length;
+  if (sinBoleta) faltan.push(`${sinBoleta} gasto(s) sin boleta`);
+  if (desde && hasta && lista.length) {
+    const meses = new Set(lista.map((m) => m.fecha.slice(0, 7)));
+    const vacios = [];
+    for (let m = desde.slice(0, 7); m <= hasta.slice(0, 7) && vacios.length < 24; m = sumarMeses(m, 1)) if (!meses.has(m)) vacios.push(m);
+    if (vacios.length) faltan.push(`sin ningún registro en ${vacios.join(", ")}`);
+  }
+  return { lista, porMoneda, faltan };
+}
+
+/** Las actividades de los chicos en un período: las suyas (de un chico, o de
+ *  los dos si no se nombró a uno) y las de MI agenda marcadas «con los chicos». */
+export function actividadesDeChicos({ eventos = [], actividades = {}, ninos = [], desde, hasta, nino = "" }) {
+  const out = [];
+  const nombreDe = (id) => ((ninos || []).find((n) => n.id === id) || {}).nombre || "";
+  for (let d = desde; d && d <= hasta && out.length < 400; d = sumarDias(d, 1)) {
+    for (const e of eventosDelDia(d, eventos)) {
+      const de = (e.ninos || []).length ? e.ninos : (ninos || []).map((n) => n.id);
+      if (nino && !de.includes(nino)) continue;
+      out.push({ dia: d, hora: e.hora || "", horaFin: e.horaFin || "", titulo: e.titulo || "", origen: "chicos",
+        de: de.length >= (ninos || []).length ? "los dos" : de.map(nombreDe).filter(Boolean).join(" y ") });
+    }
+    for (const a of Object.values(actividades || {})) {
+      if (!a || a.dia !== d || a.tipo !== "ninos") continue;
+      out.push({ dia: d, hora: String(a.desde || "").slice(11, 16), horaFin: a.hf || "", titulo: a.titulo || "", origen: "agenda", de: "con vos" });
+    }
+  }
+  return out.sort((a, b) => a.dia.localeCompare(b.dia) || a.hora.localeCompare(b.hora));
+}
+
+/** Horas registradas en el reloj, por persona y por cuenta (por la tarea de la cuenta). */
+export function horasPorCuenta(sesiones, tareas, cuentas, { desde = "", hasta = "", cuenta = "", uid = "" } = {}) {
+  const porId = Object.fromEntries((tareas || []).map((t) => [t.id, t]));
+  const raizDe = (id) => { let t = porId[id], n = 0; while (t && t.parentId && porId[t.parentId] && n++ < 30) t = porId[t.parentId]; return t ? t.id : ""; };
+  const cuentaDeTarea = {};
+  for (const c of cuentas || []) if (c.tareaId) cuentaDeTarea[c.tareaId] = c.id;
+  const ids = cuenta ? idsDeCuenta(cuentas, cuenta) : null;
+  const out = { total: 0, porPersona: {}, porCuenta: {}, n: 0 };
+  for (const s of sesiones || []) {
+    const h = Number(s.horas); if (!(h > 0)) continue;
+    const dia = s.inicioMs ? isoDe(s.inicioMs) : String(s.dia || "");
+    if (!enRango(dia, desde, hasta) || (uid && s.uid !== uid)) continue;
+    const c = cuentaDeTarea[raizDe(s.tareaId)] || "";
+    if (ids && !ids.has(c)) continue;
+    out.total += h; out.n++;
+    out.porPersona[s.uid] = (out.porPersona[s.uid] || 0) + h;
+    out.porCuenta[c] = (out.porCuenta[c] || 0) + h;
+  }
+  const r2 = (x) => Math.round(x * 100) / 100;
+  out.total = r2(out.total);
+  for (const k of Object.keys(out.porPersona)) out.porPersona[k] = r2(out.porPersona[k]);
+  for (const k of Object.keys(out.porCuenta)) out.porCuenta[k] = r2(out.porCuenta[k]);
+  return out;
+}
+
+export const CONSULTAS = { chicos: "las actividades de los chicos", agenda: "tu agenda", gastos: "gastos y entradas", balance: "un balance", horas: "horas registradas" };
 
 /* ── Los nombres de los chicos no viajan a la IA (nucleo-22) ─────────────────
    Con las actividades de los chicos, la IA necesita saber de quién es cada

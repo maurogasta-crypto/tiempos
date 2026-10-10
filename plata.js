@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-6
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-7
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -23,12 +23,21 @@
 //
 // plata-5 (app-19, tiempos:V9, 8-oct-2026): cuatro solapas. «Día a día» es lo
 // de siempre; «Fijos», «Año» y «Reparto» viven en finanzas.js.
+//
+// plata-7 (10-oct-2026, tiempos:V11): las CUENTAS. Mauro: «un control de los
+// gastos de cada lugar y/o vehículo y/o persona». Un gasto o una entrada dice
+// a qué cuenta fue (General Flores, su depósito, la Hilux…) y para quién;
+// la plata sigue siendo toda de la familia —«los cobros entran a la
+// administración general y los costos salen del presupuesto general»—, la
+// cuenta sólo dice a qué fue. La solapa «Cuentas» las arma y muestra el
+// balance de cada una, por moneda. Viven en `familia/cuentas` (cuentasDe).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, validarMovimiento, disponible, automaticosPendientes,
          leerSugerencia, esISO, MESES, TIPOS } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
+import { cuentasDe, idsDeCuenta, balanceDe, CLASES_CUENTA, idNuevo } from "./nucleo.js";
 import { pintarFijos, pintarAnio, pintarReparto } from "./finanzas.js";
 
 let mesVisto = null;              // "2026-09"
@@ -41,7 +50,7 @@ const sumarMes = (m, n) => { const d = new Date(Number(m.slice(0, 4)), Number(m.
 const categoriasDe = (tipo) => Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === tipo);
 
 let sub = "dia";                  // plata-5: dia | fijos | anio | reparto
-const SUBS = { dia: "Día a día", fijos: "Fijos", anio: "Año", reparto: "Reparto" };
+const SUBS = { dia: "Día a día", cuentas: "Cuentas", fijos: "Fijos", anio: "Año", reparto: "Reparto" };
 
 export function pintarPlata() {
   const v = $("v-plata");
@@ -49,6 +58,7 @@ export function pintarPlata() {
   const nav = `<nav class="solapas chicas">${Object.entries(SUBS).map(([k, n]) => `<button data-sub="${k}" aria-selected="${sub === k}">${n}</button>`).join("")}</nav>`;
   if (sub !== "dia") {
     v.innerHTML = nav + (sub === "anio" ? "" : `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`);
+    if (sub === "cuentas") { v.innerHTML = nav; pintarCuentas(v); engancharSub(v); return; }
     if (sub === "fijos") pintarFijos(v, mesVisto);
     else if (sub === "anio") pintarAnio(v);
     else pintarReparto(v, mesVisto);
@@ -85,7 +95,7 @@ export function pintarPlata() {
     return `<div class="fila mov${c.tipo === "entro" ? " entro" : ""}" data-editar-mov="${esc(m.id)}">
       <span class="fecha-chica">${Number(String(m.fecha).slice(8))}</span>
       <span class="txt"><b>${esc(m.comercio || m.detalle || c.nombre || "—")}</b>
-        <small class="gris">${esc(c.nombre || m.categoria)}${m.comercio && m.detalle ? " · " + esc(m.detalle) : ""}${m.uid ? " · " + esc(nombreDe(m.uid)) : ""}${m.automatico ? " · automático" : ""}${m.origen === "propuesta" ? " · del chat" : ""}</small></span>
+        <small class="gris">${esc(c.nombre || m.categoria)}${m.comercio && m.detalle ? " · " + esc(m.detalle) : ""}${m.cuenta && rutaCuenta(m.cuenta) ? " · 📍 " + esc(rutaCuenta(m.cuenta)) : ""}${m.para ? " · para " + esc(nombrePara(m.para)) : ""}${m.uid ? " · " + esc(nombreDe(m.uid)) : ""}${m.automatico ? " · automático" : ""}${m.origen === "propuesta" ? " · del chat" : ""}</small></span>
       ${m.comprobanteUrl ? `<a href="${esc(m.comprobanteUrl)}" target="_blank" rel="noopener" class="clip" title="Boleta">📎</a>` : ""}
       <span class="num">${c.tipo === "entro" ? "+" : "−"}${fmt(Number(m.monto))} ${esc(m.moneda)}</span></div>`;
   }).join("") : `<p class="gris">Nada en ${esc(nombreMes(mesVisto))}.</p>`;
@@ -123,7 +133,59 @@ function campos(d, tipo) {
       <label>Categoría <select name="categoria" required><option value="">—</option>${categoriasDe(tipo).map(([k, c]) => `<option value="${k}"${d.categoria === k ? " selected" : ""}>${esc(c.nombre)}</option>`).join("")}</select></label></div>
     <label>${tipo === "entro" ? "De dónde" : "Comercio"} <input name="comercio" maxlength="80" value="${esc(d.comercio || "")}"></label>
     <label>Detalle <input name="detalle" maxlength="300" value="${esc(d.detalle || "")}" placeholder="qué fue, para quién"></label>
-    <label>${tipo === "entro" ? "Lo recibió" : "Pagó"} <select name="uid">${personas().map((p) => `<option value="${esc(p.id)}"${(d.uid || E.yo.uid) === p.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label>`;
+    <label>${tipo === "entro" ? "Lo recibió" : "Pagó"} <select name="uid">${personas().map((p) => `<option value="${esc(p.id)}"${(d.uid || E.yo.uid) === p.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label>
+    <div class="dos"><label>Cuenta <select name="cuenta"><option value="">— la casa en general —</option>${cuentasDe(E.cuentasDoc).map((c) => `<option value="${esc(c.id)}"${d.cuenta === c.id ? " selected" : ""}>${c.nivel ? "   " : ""}${esc(c.ruta)}</option>`).join("")}</select></label>
+      <label>Para <select name="para"><option value="">— nadie en especial —</option>${[...personas().map((p) => [p.id, p.nombre]), ...((E.familia && E.familia.ninos) || []).map((n) => [n.id, n.nombre])].map(([id, nom]) => `<option value="${esc(id)}"${d.para === id ? " selected" : ""}>${esc(nom)}</option>`).join("")}</select></label></div>`;
+}
+const rutaCuenta = (id) => (cuentasDe(E.cuentasDoc).find((c) => c.id === id) || {}).ruta || "";
+const nombrePara = (id) => (personas().find((p) => p.id === id) || ((E.familia && E.familia.ninos) || []).find((n) => n.id === id) || {}).nombre || "—";
+
+/* ── Las cuentas (plata-7): cada una con su balance, por moneda ─────────────── */
+let editandoCuenta = null;
+function pintarCuentas(v) {
+  const cuentas = cuentasDe(E.cuentasDoc);
+  const mes = E.hoy.slice(0, 7);
+  const linea = (b) => Object.entries(b.porMoneda).map(([m, o]) => `${m} ${fmt(o.saldo)} <small class="gris">(entró ${fmt(o.entro)} · salió ${fmt(o.salio)})</small>`).join(" · ") || `<small class="gris">sin registros</small>`;
+  let h = `<p class="gris">A qué fue cada gasto o entrada: un lugar, un vehículo, su depósito. La plata es toda de la familia; la cuenta sólo dice a qué fue. Para un balance con explicación, preguntale a la IA: «balance de General Flores de septiembre».</p>`;
+  h += cuentas.length ? cuentas.map((c) => {
+    const ids = idsDeCuenta(cuentas, c.id);
+    const total = balanceDe(E.movs, { cuentas: c.nivel ? new Set([c.id]) : ids });
+    const delMes = balanceDe(E.movs, { cuentas: c.nivel ? new Set([c.id]) : ids, desde: mes + "-01", hasta: mes + "-31" });
+    return `<div class="tarjeta cuenta${c.nivel ? " sub" : ""}"><div class="fila"><span class="txt"><b>${esc(c.nombre)}</b> <small class="gris">${esc(CLASES_CUENTA[c.clase])}${c.nivel ? " · parte de " + esc(c.ruta.split(" › ")[0]) : ""}${c.pais ? " · " + esc(c.pais) : ""}</small></span>
+      <button class="mini" data-editar-cuenta="${esc(c.id)}">✎</button></div>
+      <div class="gris">Este mes: ${linea(delMes)}</div><div>Total: ${linea(total)}</div>
+      ${total.faltan.length ? `<small class="aviso">${esc(total.faltan.join("; "))}</small>` : ""}
+      ${editandoCuenta === c.id ? formCuenta(c, cuentas) : ""}</div>`;
+  }).join("") : `<p class="gris">Todavía no hay cuentas.</p>`;
+  h += editandoCuenta === "nueva" ? formCuenta(null, cuentas) : `<div class="botones"><button class="boton sec" data-editar-cuenta="nueva">＋ Cuenta</button></div>`;
+  v.insertAdjacentHTML("beforeend", h);
+  const todos = (sel, fn) => { for (const el of v.querySelectorAll(sel)) fn(el); };
+  todos("[data-editar-cuenta]", (b) => b.onclick = () => { editandoCuenta = editandoCuenta === b.dataset.editarCuenta ? null : b.dataset.editarCuenta; repintar(); });
+  todos("[data-cerrar-cuenta]", (b) => b.onclick = () => { editandoCuenta = null; repintar(); });
+  todos("[data-form-cuenta]", (f) => f.onsubmit = (ev) => {
+    ev.preventDefault();
+    const nombre = f.nombre.value.trim().slice(0, 60);
+    if (!nombre) return aviso("Falta el nombre.", true);
+    const id = f.dataset.formCuenta === "nueva" ? idNuevo("c") : f.dataset.formCuenta;
+    const datos = { nombre, clase: f.clase.value, padre: f.padre.value, pais: f.pais.value };
+    if (f.dataset.formCuenta === "nueva") datos.orden = Date.now();
+    F.setDoc(F.doc(db, "familia", "cuentas"), { cuentas: { [id]: datos }, actualizadoEn: F.serverTimestamp() }, { merge: true })
+      .then(() => { editandoCuenta = null; aviso("Guardada."); repintar(); }).catch(fallo);
+  });
+  todos("[data-baja-cuenta]", (b) => b.onclick = () => {
+    if (!confirm("¿Dar de baja esta cuenta? Lo registrado queda; deja de ofrecerse.")) return;
+    F.setDoc(F.doc(db, "familia", "cuentas"), { cuentas: { [b.dataset.bajaCuenta]: { baja: true } }, actualizadoEn: F.serverTimestamp() }, { merge: true })
+      .then(() => { editandoCuenta = null; repintar(); }).catch(fallo);
+  });
+}
+function formCuenta(c, cuentas) {
+  const d = c || { nombre: "", clase: "lugar", padre: "", pais: "UY" };
+  return `<form class="ficha" data-form-cuenta="${c ? esc(c.id) : "nueva"}">
+    <label>Nombre <input name="nombre" maxlength="60" required value="${esc(d.nombre)}" placeholder="Ej.: Depósito, Pisquito"></label>
+    <div class="dos"><label>Es <select name="clase">${Object.entries(CLASES_CUENTA).map(([k, n]) => `<option value="${k}"${d.clase === k ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label>País <select name="pais">${["UY", "BR", ""].map((x) => `<option value="${x}"${d.pais === x ? " selected" : ""}>${x || "—"}</option>`).join("")}</select></label></div>
+    <label>Parte de <select name="padre"><option value="">— nada, es una cuenta propia —</option>${cuentas.filter((x) => !x.nivel && (!c || x.id !== c.id)).map((x) => `<option value="${esc(x.id)}"${d.padre === x.id ? " selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></label>
+    <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-cerrar-cuenta>Cancelar</button>${c ? `<button type="button" class="mini" data-baja-cuenta="${esc(c.id)}">Dar de baja</button>` : ""}</div></form>`;
 }
 
 /* ── El formulario de un movimiento ───────────────────────────────────────── */
@@ -145,6 +207,7 @@ function formHTML() {
 const leerCampos = (f) => ({
   monto: Math.round(Number(f.monto.value) * 100) / 100, moneda: f.moneda.value, fecha: f.fecha.value,
   categoria: f.categoria.value, comercio: f.comercio.value.trim(), detalle: f.detalle.value.trim(), uid: f.uid.value,
+  cuenta: f.cuenta ? f.cuenta.value : "", para: f.para ? f.para.value : "",
 });
 
 /* La boleta, leída por la IA de Casa Verde. Nunca bloquea: si no anda, se

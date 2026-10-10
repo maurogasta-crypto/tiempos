@@ -102,6 +102,17 @@ la documentación diga la verdad.
   no salen hacia la IA**: lo dictado, los títulos de la agenda y los de los
   chicos pasan por `escudarNombres` («Chico1») y vuelven con `devolverNombres`;
   el banco lo comprueba.
+- **Las CUENTAS y las CONSULTAS** (plata-7, sugerir-18, nucleo-24,
+  10-oct-2026, `tiempos:V11`). Un movimiento lleva `cuenta` (un lugar, un
+  vehículo o su parte, de `familia/cuentas`) y `para` (una persona o un
+  chico). **La plata es toda de la familia** (Mauro: «los cobros entran a la
+  administración general y los costos salen del presupuesto general»): la
+  cuenta sólo dice a qué fue y NO cambia el reparto. Casa Verde (Brasil)
+  sigue siendo su propio libro: su balance se lee de su base, no se copia.
+  **En una consulta los números los calcula el código**, por moneda y sin
+  convertir; la IA entiende la pregunta y, si se le pide, comenta los números
+  ya hechos. Sin pesos argentinos todavía: lo de las billeteras argentinas está
+  en USD.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,
