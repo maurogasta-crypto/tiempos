@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-25
+// Sello: nucleo-26
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1542,6 +1542,92 @@ export function fijosDeMeses(conceptos, movs, meses) {
       return { id, ...c, celdas, deuda };
     });
 }
+
+/* ── El AJUSTE TRIMESTRAL (nucleo-26, 10-oct-2026, tiempos:V11) ────────────
+   Mauro: «resumir un neto de todos los ingresos descontando todos los gastos
+   fijos que se declaren… haciendo ajustes trimestrales además de los balances,
+   identificando los gastos que son fijos para tener un costo estimado de
+   funcionamiento». Por trimestre y por moneda: lo que entró, lo que salió en
+   fijos (pagos de un concepto del Año) y en lo demás, y el neto; el COSTO DE
+   FUNCIONAMIENTO estimado (lo del Año ÷ 4) contra lo que entró; y, concepto
+   por concepto, lo estimado contra lo pagado, para corregir el monto. Además,
+   los gastos que se repiten mes a mes y todavía no son un concepto. */
+export const trimestreDe = (mes) => `${String(mes).slice(0, 4)}-T${Math.floor((Number(String(mes).slice(5, 7)) - 1) / 3) + 1}`;
+export const esTrimestre = (t) => typeof t === "string" && /^\d{4}-T[1-4]$/.test(t);
+export const mesesDelTrimestre = (t) => {
+  const y = t.slice(0, 4), q = Number(t.slice(-1));
+  return [1, 2, 3].map((i) => `${y}-${String((q - 1) * 3 + i).padStart(2, "0")}`);
+};
+export const sumarTrimestres = (t, n) => {
+  const k = Number(t.slice(0, 4)) * 4 + Number(t.slice(-1)) - 1 + n;
+  return `${Math.floor(k / 4)}-T${(k % 4) + 1}`;
+};
+
+export function ajusteTrimestral({ conceptos = {}, movs = [], trimestre, hoyMes = "9999-12" }) {
+  const meses = mesesDelTrimestre(trimestre), desde = meses[0] + "-01", hasta = meses[2] + "-31";
+  const delTrim = (movs || []).filter((m) => m && Number(m.monto) > 0 && MONEDAS.includes(m.moneda) && CATEGORIAS[m.categoria]
+    && String(m.fecha || "") >= desde && String(m.fecha || "") <= hasta);
+  const pres = presupuestoAnual(conceptos);
+  const porMoneda = {};
+  const o = (mon) => (porMoneda[mon] = porMoneda[mon] || { entro: 0, fijos: 0, variables: 0, salio: 0, neto: 0, costoEstimado: 0, netoContraCosto: 0 });
+  for (const m of delTrim) {
+    const x = o(m.moneda), v = Number(m.monto);
+    if (CATEGORIAS[m.categoria].tipo === "entro") x.entro += v;
+    else { x.salio += v; if (m.fijo && conceptos[m.fijo]) x.fijos += v; else x.variables += v; }
+  }
+  for (const [mon, p] of Object.entries(pres)) o(mon).costoEstimado = p.enLibre / 4;
+  for (const x of Object.values(porMoneda)) {
+    for (const k of Object.keys(x)) x[k] = redondo(x[k]);
+    x.neto = redondo(x.entro - x.salio);
+    x.netoContraCosto = redondo(x.entro - x.costoEstimado);
+  }
+  // Concepto por concepto: lo estimado y lo pagado en el trimestre.
+  const conceptosT = [];
+  const faltan = [];
+  for (const [id, c] of Object.entries(conceptos || {})) {
+    if (!c || c.activo === false || !MONEDAS.includes(c.moneda)) continue;
+    const vencen = meses.filter((mes) => vence(c, mes));
+    const pagos = delTrim.filter((m) => m.fijo === id);
+    if (!vencen.length && !pagos.length) continue;
+    const estimado = redondo(Number(c.monto || 0) * vencen.length);
+    const real = redondo(pagos.reduce((t, m) => t + Number(m.monto), 0));
+    const porVez = pagos.length ? redondo(real / pagos.length) : 0;
+    const sinPagar = vencen.filter((mes) => mes <= hoyMes && !pagos.some((m) => String(m.fecha).slice(0, 7) === mes));
+    if (sinPagar.length) faltan.push(`«${c.nombre}» sin pago registrado en ${sinPagar.join(", ")}`);
+    conceptosT.push({ id, nombre: c.nombre, moneda: c.moneda, categoria: c.categoria, cada: c.cada, monto: Number(c.monto || 0),
+      vencen: vencen.length, pagos: pagos.length, estimado, real, diferencia: redondo(real - estimado), porVez,
+      sugerido: pagos.length && Math.abs(porVez - Number(c.monto || 0)) >= 0.01 ? porVez : null });
+  }
+  conceptosT.sort((a, b) => Math.abs(b.diferencia) - Math.abs(a.diferencia) || a.nombre.localeCompare(b.nombre));
+  for (const [mon, p] of Object.entries(pres)) if (p.sinEstimar) faltan.push(`${p.sinEstimar} gasto(s) del Año en ${mon} sin monto estimado`);
+  if (!Object.keys(pres).length) faltan.push("todavía no hay gastos del Año: sin ellos no hay costo de funcionamiento");
+  return { trimestre, meses, porMoneda, conceptos: conceptosT, faltan };
+}
+
+/* Los gastos que se repiten (en 3 meses distintos o más de los últimos 6) y
+   no son pagos de un concepto: candidatos a sumar al Año. Se agrupan por
+   moneda, categoría y comercio (o detalle). */
+export function posiblesFijos(movs, conceptos, hastaMes, meses = 6) {
+  const desdeMes = sumarMeses(hastaMes, -(meses - 1));
+  const yaHay = new Set(Object.values(conceptos || {}).filter(Boolean).map((c) => plano(c.nombre)));
+  const g = {};
+  for (const m of movs || []) {
+    if (!m || m.fijo || !(Number(m.monto) > 0) || !MONEDAS.includes(m.moneda) || (CATEGORIAS[m.categoria] || {}).tipo !== "salio") continue;
+    const mes = String(m.fecha || "").slice(0, 7);
+    if (!esMes(mes) || mes < desdeMes || mes > hastaMes) continue;
+    const quien = plano(m.comercio || m.detalle || "");
+    if (!quien) continue;
+    const k = [m.moneda, m.categoria, quien].join("|");
+    const x = (g[k] = g[k] || { nombre: m.comercio || m.detalle, moneda: m.moneda, categoria: m.categoria, meses: new Set(), total: 0, n: 0 });
+    x.meses.add(mes); x.total += Number(m.monto); x.n++;
+  }
+  return Object.values(g).filter((x) => x.meses.size >= 3 && !yaHay.has(plano(x.nombre)))
+    .map((x) => ({ nombre: x.nombre, moneda: x.moneda, categoria: x.categoria, meses: x.meses.size, porMes: redondo(x.total / x.meses.size) }))
+    .sort((a, b) => b.meses - a.meses || b.porMes - a.porMes);
+}
+/* La firma del trimestre, para confirmarlo los dos (como el reparto). */
+export const firmaTrimestre = (aj) => JSON.stringify(Object.keys(aj.porMoneda).sort().map((m) => [m, aj.porMoneda[m]]))
+  + "|" + aj.conceptos.map((c) => c.id + ":" + c.monto + ":" + c.real).join(",");
 
 /* El reparto de UN mes. `salidas` es lo que devuelve `saldoSalidas` para ese
    mes; `uids`, los dos. Devuelve, por moneda, todos los pasos de la cuenta:

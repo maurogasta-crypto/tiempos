@@ -120,6 +120,12 @@ la documentación diga la verdad.
   lo que la regla deja), la escribe `herramientas/analisis.mjs` de `datos`, y
   la Pizarra la muestra con el mismo filtro (`CLASES_PROPONE` de su
   `Logica.kt`): si cambia acá, cambia allá en la misma tanda.
+  **Y el AJUSTE TRIMESTRAL** (finanzas-2, nucleo-26): neto por moneda, fijos
+  contra el resto, costo de funcionamiento = lo del Año ÷ 4, lo estimado contra
+  lo pagado de cada concepto («Usar lo real» corrige el Año, con la sesión de
+  quien toca) y lo que se repite sin ser concepto (`posiblesFijos`). Lo
+  confirman los dos con `firmaTrimestre`. **Las horas no entran al reparto ni
+  a las consultas de plata**: son control interno de Casa Verde.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

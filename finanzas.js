@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-1
+// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-2
 //
 // app-19 (8-oct-2026, tiempos:V9). Mauro, con la captura de su planilla
 // «Gastos Uruguay»: «la misma idea que en Casa Verde pero para las finanzas
@@ -21,7 +21,8 @@
 
 import { db, F } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, CADAS, PAISES, MESES, validarConcepto, presupuestoAnual,
-         fijosDeMeses, repartoDelMes, sumarMeses, idNuevo, esISO } from "./nucleo.js";
+         fijosDeMeses, repartoDelMes, sumarMeses, idNuevo, esISO, ajusteTrimestral, posiblesFijos, firmaTrimestre, mesesDelTrimestre } from "./nucleo.js";
+import { pedirAnalisis } from "./sugerir.js";
 import { E, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
 import { salidasDelMes } from "./balance.js";
 
@@ -186,4 +187,68 @@ export function pintarReparto(v, mesVisto) {
       { [mesVisto]: { confirmado: { [E.yo.uid]: { firma, en: new Date().toISOString() } } } }, { merge: true })
       .then(() => aviso("Confirmado.")).catch(fallo);
   } else v.insertAdjacentHTML("beforeend", h);
+}
+
+/* ── EL TRIMESTRE (finanzas-2, 10-oct-2026, tiempos:V11) ─────────────────────
+   Mauro: «resumir un neto de todos los ingresos descontando todos los gastos
+   fijos… ajustes trimestrales, identificando los gastos que son fijos para
+   tener un costo estimado de funcionamiento». Por moneda: lo que entró, los
+   fijos y lo demás, el neto, y el costo de funcionamiento estimado (el Año ÷
+   4). Concepto por concepto, lo estimado contra lo pagado, con «Usar lo real»
+   para ajustar el monto del Año; y lo que se repite sin ser un concepto, con
+   «Sumar al Año». El ajuste lo confirman los dos, con la firma de los números
+   (como el reparto), en `familia/cierres` → trimestres. */
+const NOMBRE_T = (t) => `${["enero a marzo", "abril a junio", "julio a septiembre", "octubre a diciembre"][Number(t.slice(-1)) - 1]} ${t.slice(0, 4)}`;
+export function pintarTrimestre(v, trimestre) {
+  const aj = ajusteTrimestral({ conceptos: E.conceptos, movs: E.movs, trimestre, hoyMes: E.hoy.slice(0, 7) });
+  const posibles = posiblesFijos(E.movs, E.conceptos, E.hoy.slice(0, 7));
+  const firma = firmaTrimestre(aj);
+  const conf = ((((E.cierresDoc || {}).trimestres || {})[trimestre] || {}).confirmado) || {};
+  let h = `<p class="gris">${esc(NOMBRE_T(trimestre))}. Lo que entró menos lo que salió, separando los gastos FIJOS (los del Año) de lo demás, y el costo de funcionamiento que estima el Año. Cada moneda va aparte.</p>`;
+  const ms = Object.entries(aj.porMoneda).filter(([, x]) => x.entro || x.salio || x.costoEstimado);
+  h += ms.length ? `<div class="tarjeta rep">${ms.map(([mon, x]) => `<h3>${esc(mon)}</h3>
+      <div class="barra-fila"><span>Entró</span><b class="num">${fmt(x.entro)}</b></div>
+      <div class="barra-fila"><span>Gastos fijos</span><b class="num">${x.fijos ? "−" + fmt(x.fijos) : "0"}</b></div>
+      <div class="barra-fila"><span>Otros gastos</span><b class="num">${x.variables ? "−" + fmt(x.variables) : "0"}</b></div>
+      <div class="barra-fila"><span><b>Neto</b></span><b class="num">${fmt(x.neto)}</b></div>
+      <div class="barra-fila"><span>Costo de funcionamiento estimado</span><b class="num">${fmt(x.costoEstimado)}</b><small class="gris">${fmt(x.costoEstimado / 3)} por mes, según el Año</small></div>
+      <div class="barra-fila"><span>Lo que entró, menos ese costo</span><b class="num">${fmt(x.netoContraCosto)}</b></div>`).join("")}</div>`
+    : `<p class="gris">Nada registrado en este trimestre todavía.</p>`;
+  if (aj.conceptos.length) h += `<h3>Fijos: lo estimado y lo pagado</h3>` + aj.conceptos.map((c) => `<div class="fila"><span class="txt"><b>${esc(c.nombre)}</b>
+      <small class="gris">${esc(c.moneda)} · estimado ${fmt(c.estimado)} (${c.vencen === 1 ? "1 vez" : c.vencen + " veces"} ${fmt(c.monto)}) · pagado ${fmt(c.real)}${c.pagos ? ` en ${c.pagos === 1 ? "1 pago" : c.pagos + " pagos"}` : ""}${c.diferencia ? ` · diferencia ${c.diferencia > 0 ? "+" : ""}${fmt(c.diferencia)}` : ""}</small></span>
+      ${c.sugerido != null ? `<button class="mini" data-usar-real="${esc(c.id)}" data-monto="${c.sugerido}">Usar ${fmt(c.sugerido)}</button>` : ""}</div>`).join("");
+  if (posibles.length) h += `<h3>Se repiten y no están en el Año</h3><p class="gris">Gastos que aparecen en 3 meses o más de los últimos 6. Si son fijos, sumalos: así el costo de funcionamiento los cuenta.</p>` +
+    posibles.map((x, i) => `<div class="fila"><span class="txt"><b>${esc(x.nombre)}</b> <small class="gris">${esc((CATEGORIAS[x.categoria] || {}).nombre || "")} · ${x.meses} meses · ≈ ${fmt(x.porMes)} ${esc(x.moneda)} por mes</small></span>
+      <button class="mini" data-sumar-fijo="${i}">Sumar al Año</button></div>`).join("");
+  if (aj.faltan.length) h += `<p class="aviso">Falta: ${esc(aj.faltan.join("; "))}.</p>`;
+  const ps = personas();
+  const cambio = Object.values(conf).some((c) => c && c.firma !== firma);
+  h += `<div class="tarjeta"><h3>El ajuste del trimestre</h3>
+    ${ps.map((p) => `<p>${conf[p.id] && conf[p.id].firma === firma ? "✓" : "…"} ${esc(p.nombre)}${conf[p.id] ? (conf[p.id].firma === firma ? " lo confirmó" : " lo confirmó antes de un cambio") : " todavía no lo confirmó"}</p>`).join("")}
+    ${cambio ? `<p class="aviso">Los números cambiaron después de confirmar. Hay que volver a confirmar.</p>` : ""}
+    <div class="botones">${!conf[E.yo.uid] || conf[E.yo.uid].firma !== firma ? `<button class="boton" data-confirmar-trim>Estoy de acuerdo con este trimestre</button>` : ""}
+      <button class="mini" data-analisis-trim>📊 Análisis de Claude</button></div></div>`;
+  v.insertAdjacentHTML("beforeend", h);
+  for (const b of v.querySelectorAll("[data-usar-real]")) b.onclick = () => {
+    const id = b.dataset.usarReal, c = (E.conceptos || {})[id]; if (!c) return;
+    guardarConcepto(id, { ...c, monto: Number(b.dataset.monto), editadoPor: E.yo.uid }).then(() => aviso("Ajustado en el Año.")).catch(fallo);
+  };
+  for (const b of v.querySelectorAll("[data-sumar-fijo]")) b.onclick = () => {
+    const x = posibles[Number(b.dataset.sumarFijo)]; if (!x) return;
+    const d = { nombre: String(x.nombre).slice(0, 80), categoria: x.categoria, monto: x.porMes, moneda: x.moneda, cada: 1, mes: Number(E.hoy.slice(5, 7)), pais: "", total: null, activo: true, editadoPor: E.yo.uid };
+    const err = validarConcepto(d);
+    if (err.length) return aviso("No se pudo: " + err.join("; ") + ".", true);
+    guardarConcepto(idNuevo("g"), d).then(() => aviso(`«${d.nombre}» quedó en el Año: revisá el monto.`)).catch(fallo);
+  };
+  const ok = v.querySelector("[data-confirmar-trim]");
+  if (ok) ok.onclick = () => F.setDoc(F.doc(db, "familia", "cierres"),
+    { trimestres: { [trimestre]: { confirmado: { [E.yo.uid]: { firma, en: new Date().toISOString() } } } }, actualizadoEn: F.serverTimestamp() }, { merge: true })
+    .then(() => aviso("Confirmado.")).catch(fallo);
+  const an = v.querySelector("[data-analisis-trim]");
+  if (an) an.onclick = () => {
+    an.disabled = true;
+    const [m0, , m2] = mesesDelTrimestre(trimestre);
+    pedirAnalisis({ pregunta: `Ajuste del trimestre ${NOMBRE_T(trimestre)}: neto, gastos fijos y costo de funcionamiento`, que: "trimestre", desde: m0 + "-01", hasta: m2 + "-31" })
+      .then(() => aviso("Pedido. Claude lo analiza y te lo deja en Pizarra.")).catch(fallo);
+  };
 }

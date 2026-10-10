@@ -16,7 +16,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
-         cotidianasDe, listasDeCompras, recorridoDeCompra, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
+         cotidianasDe, listasDeCompras, recorridoDeCompra, ajusteTrimestral, posiblesFijos, trimestreDe, mesesDelTrimestre, sumarTrimestres, firmaTrimestre, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
@@ -1359,6 +1359,52 @@ prueba("cerrar escribe familia/cierres con la firma; el análisis va a reportes 
   assert.match(app, /F\.where\("clase", "==", "analisis"\)/);
   // la regla de propuestas deja leído = aprobada, y la de reportes no limita los campos
   assert.match(reglas, /request\.resource\.data\.estado in \['aprobada', 'descartada'\]/);
+});
+
+titulo("nucleo-26 · finanzas-2: el ajuste trimestral (tiempos:V11, 10-oct)");
+const CONC = { luz: { nombre: "UTE", monto: 3000, moneda: "UYU", categoria: "casa", cada: 1, mes: 1 },
+  pat: { nombre: "Patente Hilux", monto: 9000, moneda: "UYU", categoria: "vehiculos", cada: 6, mes: 11 },
+  neg: { nombre: "Contador CV", monto: 400, moneda: "USD", categoria: "negocio_gasto", cada: 1, mes: 1 },
+  seg: { nombre: "Seguro", monto: 0, moneda: "USD", categoria: "vehiculos", cada: 12, mes: 3 }, off: { nombre: "Viejo", monto: 99, moneda: "UYU", categoria: "casa", cada: 1, mes: 1, activo: false } };
+const MV = [{ monto: 3200, moneda: "UYU", fecha: "2026-10-05", categoria: "casa", fijo: "luz" }, { monto: 3400, moneda: "UYU", fecha: "2026-11-05", categoria: "casa", fijo: "luz" },
+  { monto: 50000, moneda: "UYU", fecha: "2026-10-10", categoria: "trabajos" }, { monto: 1500, moneda: "UYU", fecha: "2026-10-12", categoria: "comida", comercio: "Macro" },
+  { monto: 1600, moneda: "UYU", fecha: "2026-09-12", categoria: "comida", comercio: "macro" }, { monto: 1700, moneda: "UYU", fecha: "2026-08-12", categoria: "comida", comercio: "Macro " },
+  { monto: 7, moneda: "UYU", fecha: "2027-01-02", categoria: "comida", comercio: "Macro" }];
+prueba("los trimestres: cuál es, sus meses, y el de antes y el de después", () => {
+  assert.equal(trimestreDe("2026-10"), "2026-T4"); assert.equal(trimestreDe("2026-03"), "2026-T1");
+  assert.deepEqual(mesesDelTrimestre("2026-T2"), ["2026-04", "2026-05", "2026-06"]);
+  assert.equal(sumarTrimestres("2026-T4", 1), "2027-T1"); assert.equal(sumarTrimestres("2026-T1", -1), "2025-T4");
+});
+prueba("el ajuste: neto, fijos y otros por moneda; costo de funcionamiento = el Año ÷ 4, sin los gastos del negocio", () => {
+  const a = ajusteTrimestral({ conceptos: CONC, movs: MV, trimestre: "2026-T4", hoyMes: "2026-12" });
+  assert.deepEqual(a.porMoneda.UYU, { entro: 50000, fijos: 6600, variables: 1500, salio: 8100, neto: 41900, costoEstimado: 13500, netoContraCosto: 36500 });
+  assert.equal(a.porMoneda.USD.costoEstimado, 0, "el contador del negocio ya sale del neto de Casa Verde");
+  const ute = a.conceptos.find((c) => c.id === "luz");
+  assert.deepEqual([ute.vencen, ute.pagos, ute.estimado, ute.real, ute.porVez, ute.sugerido], [3, 2, 9000, 6600, 3300, 3300]);
+  assert.ok(!a.conceptos.some((c) => c.id === "off"), "lo pausado no cuenta");
+  assert.ok(a.faltan.some((f) => /UTE.*2026-12/.test(f)) && a.faltan.some((f) => /Patente Hilux.*2026-11/.test(f)));
+  assert.ok(a.faltan.some((f) => /sin monto estimado/.test(f)));
+  // lo que todavía no venció no falta
+  assert.ok(!ajusteTrimestral({ conceptos: CONC, movs: MV, trimestre: "2026-T4", hoyMes: "2026-11" }).faltan.some((f) => /2026-12/.test(f)));
+});
+prueba("se repite y no es fijo: 3 meses de los últimos 6, sin mayúsculas ni espacios; lo que ya es concepto no", () => {
+  assert.deepEqual(posiblesFijos(MV, CONC, "2026-12").map((x) => [x.nombre, x.meses, x.porMes]), [["Macro", 3, 1600]]);
+  assert.deepEqual(posiblesFijos(MV, { ...CONC, m: { nombre: "MACRO" } }, "2026-12"), []);
+  assert.deepEqual(posiblesFijos(MV, CONC, "2026-09"), [], "antes de octubre son sólo 2 meses");
+});
+prueba("la firma del trimestre cambia si cambia un pago o el monto de un fijo", () => {
+  const f = (c, m) => firmaTrimestre(ajusteTrimestral({ conceptos: c, movs: m, trimestre: "2026-T4" }));
+  const base = f(CONC, MV);
+  assert.equal(base, f(CONC, MV));
+  assert.notEqual(base, f({ ...CONC, luz: { ...CONC.luz, monto: 3300 } }, MV));
+  assert.notEqual(base, f(CONC, [...MV, { monto: 1, moneda: "UYU", fecha: "2026-12-01", categoria: "comida" }]));
+});
+prueba("la pantalla del trimestre ajusta el Año con la sesión de quien toca, y confirma en familia/cierres", () => {
+  const fi = fs.readFileSync("finanzas.js", "utf8"), pl = fs.readFileSync("plata.js", "utf8");
+  assert.match(fi, /guardarConcepto\(id, \{ \.\.\.c, monto: Number\(b\.dataset\.monto\)/);
+  assert.match(fi, /trimestres: \{ \[trimestre\]: \{ confirmado: \{ \[E\.yo\.uid\]: \{ firma/);
+  assert.match(fi, /que: "trimestre"/);
+  assert.match(pl, /trimestre: "Trimestre"/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

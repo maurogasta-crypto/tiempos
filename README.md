@@ -255,6 +255,17 @@ que «pizarra» es el lugar, nunca el título.
   `datos` (Tiempos y, si corresponde, Casa Verde y remate, por moneda), escribe
   el análisis y lo deja como propuesta de clase «analisis»: aparece en Pizarra
   con «✓ Leído» y queda listado en Plata → Cuentas.
+  **El trimestre** (finanzas-2, nucleo-26, Mauro: «resumir un neto de todos
+  los ingresos descontando todos los gastos fijos… ajustes trimestrales,
+  identificando los gastos que son fijos para tener un costo estimado de
+  funcionamiento»). Plata → **Trimestre**, por moneda: lo que entró, los gastos
+  fijos (los pagos de un concepto del Año) y los demás, el neto, y el costo de
+  funcionamiento que estima el Año (÷ 4). Concepto por concepto, lo estimado
+  contra lo pagado, con «Usar lo real» para ajustar el Año; lo que se repite
+  en 3 de los últimos 6 meses sin ser un concepto, con «Sumar al Año»; y el
+  ajuste lo confirman los dos con la firma de los números (`familia/cierres`
+  → `trimestres`). Las horas NO entran: son un control interno de Casa Verde
+  (Mauro: el reparto de la familia va por las salidas y lo personal).
 - **Lo acordado cada semana es una tabla** (familia-4): los días en filas y una
   columna por persona, con los chicos que están con ella ese día.
 - **Las finanzas de la familia** (app-19, 8-oct-2026, `tiempos:V9`): Plata
@@ -418,7 +429,7 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-25` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-26` |
 | `estado.js` | lo que comparten las vistas | `estado-3` |
 | `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-26` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-2` |
@@ -428,14 +439,14 @@ Florencia la acuerden.
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
 | `sugerir.js` | el globo ✏️: pedirle a la IA (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-19` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y las cuatro solapas | `plata-8` |
-| `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-1` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y las cuatro solapas | `plata-9` |
+| `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-2` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-10` |
 | `familia.js` | Hoy y Chicos | `familia-4` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
 | `estilos.css` | | `estilos-19` |
-| `sw.js` | el cascarón sin señal | `tiempos-37` |
+| `sw.js` | el cascarón sin señal | `tiempos-38` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v12 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

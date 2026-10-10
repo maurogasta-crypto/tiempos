@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-8
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-9
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -36,15 +36,18 @@
 // con la firma de los números: si algo cambia después, pide volver a cerrar)
 // y el «📊 Análisis de Claude» de una cuenta, que vuelve a Pizarra y queda
 // listado abajo de las cuentas.
+//
+// plata-9 (10-oct-2026): la solapa «Trimestre» (finanzas.js, pintarTrimestre):
+// el neto contra los fijos, el costo de funcionamiento y el ajuste del Año.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, validarMovimiento, disponible, automaticosPendientes,
          leerSugerencia, esISO, MESES, TIPOS } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
-import { cuentasDe, idsDeCuenta, balanceDe, CLASES_CUENTA, idNuevo, balanceDelMes, firmaBalance, estadoCierre } from "./nucleo.js";
+import { cuentasDe, idsDeCuenta, balanceDe, CLASES_CUENTA, idNuevo, balanceDelMes, firmaBalance, estadoCierre, trimestreDe } from "./nucleo.js";
 import { pedirAnalisis } from "./sugerir.js";
-import { pintarFijos, pintarAnio, pintarReparto } from "./finanzas.js";
+import { pintarFijos, pintarAnio, pintarReparto, pintarTrimestre } from "./finanzas.js";
 
 let mesVisto = null;              // "2026-09"
 let form = null;                  // null | { id?, tipo, datos, archivo?, leyendo? }
@@ -56,7 +59,7 @@ const sumarMes = (m, n) => { const d = new Date(Number(m.slice(0, 4)), Number(m.
 const categoriasDe = (tipo) => Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === tipo);
 
 let sub = "dia";                  // plata-5: dia | fijos | anio | reparto
-const SUBS = { dia: "Día a día", cuentas: "Cuentas", fijos: "Fijos", anio: "Año", reparto: "Reparto" };
+const SUBS = { dia: "Día a día", cuentas: "Cuentas", fijos: "Fijos", anio: "Año", trimestre: "Trimestre", reparto: "Reparto" };
 
 export function pintarPlata() {
   const v = $("v-plata");
@@ -64,6 +67,11 @@ export function pintarPlata() {
   const nav = `<nav class="solapas chicas">${Object.entries(SUBS).map(([k, n]) => `<button data-sub="${k}" aria-selected="${sub === k}">${n}</button>`).join("")}</nav>`;
   if (sub !== "dia") {
     v.innerHTML = nav + (sub === "anio" ? "" : `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`);
+    if (sub === "trimestre") {
+      const t = trimestreDe(mesVisto);
+      v.innerHTML = nav + `<div class="nav-semana"><button class="mini" data-mes="-3">‹</button><b>${esc(t.replace("-T", " · T"))}</b><button class="mini" data-mes="3">›</button></div>`;
+      pintarTrimestre(v, t); engancharSub(v); return;
+    }
     if (sub === "cuentas") { v.innerHTML = nav + `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`; pintarCuentas(v); engancharSub(v); return; }
     if (sub === "fijos") pintarFijos(v, mesVisto);
     else if (sub === "anio") pintarAnio(v);
