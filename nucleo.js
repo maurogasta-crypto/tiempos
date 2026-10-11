@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-28
+// Sello: nucleo-29
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1843,6 +1843,46 @@ export function libroDeNegocio(movs, { desde = "", hasta = "" } = {}) {
     o.neto = r2(o.entro - o.salio);
     const k = String(m.categoria || "otros");
     o.porCategoria[k] = r2((o.porCategoria[k] || 0) + (m.tipo === "entro" ? 1 : -1) * Number(m.monto));
+  }
+  return out;
+}
+
+/* ── La BASE DE COSTO ANUAL (nucleo-29, 11-oct-2026, tiempos:V12) ────────────
+   Mauro: «todos esos gastos son nuestros… aunque no estén bien diferenciados
+   sirven para cifrar nuestro presupuesto anual… una base de costo anual…
+   no quiero hacer un trabajo manual».
+
+   Lo que de verdad costó vivir un año, sacado de lo que hay —movimientos y
+   líneas de extractos, registradas o no—, por moneda y categoría, sin
+   convertir. Como cada cuenta cubre meses distintos (Prex un año, BTG cinco
+   meses), cada moneda se lleva a 12 meses con SUS meses: los que tienen al
+   menos `minLineas` gastos en esa moneda. Un mes con dos movimientos sueltos
+   no es un mes medido, y contarlo bajaría el promedio. */
+export function baseAnual(movs, { hasta = "", meses = 12, minLineas = 3 } = {}) {
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const fin = esISO(hasta) ? hasta.slice(0, 7) : "9999-12";
+  const ini = fin === "9999-12" ? "0000-01" : sumarMeses(fin, -(meses - 1));
+  const porMes = {}, out = {};
+  const dentro = (movs || []).filter((m) => m && CATEGORIAS[m.categoria] && Number(m.monto) > 0 && MONEDAS.includes(m.moneda)
+    && esISO(m.fecha) && m.fecha.slice(0, 7) >= ini && m.fecha.slice(0, 7) <= fin);
+  for (const m of dentro) if (CATEGORIAS[m.categoria].tipo === "salio") {
+    const k = m.moneda + "|" + m.fecha.slice(0, 7); porMes[k] = (porMes[k] || 0) + 1;
+  }
+  for (const m of dentro) {
+    const o = (out[m.moneda] = out[m.moneda] || { meses: 0, desde: "", hasta: "", gastado: 0, entro: 0, porCategoria: {} });
+    if (CATEGORIAS[m.categoria].tipo === "entro") { o.entro = r2(o.entro + Number(m.monto)); continue; }
+    if ((porMes[m.moneda + "|" + m.fecha.slice(0, 7)] || 0) < minLineas) continue;
+    o.gastado = r2(o.gastado + Number(m.monto));
+    o.porCategoria[m.categoria] = r2((o.porCategoria[m.categoria] || 0) + Number(m.monto));
+  }
+  for (const [mon, o] of Object.entries(out)) {
+    const ms = Object.entries(porMes).filter(([k, n]) => k.startsWith(mon + "|") && n >= minLineas).map(([k]) => k.slice(4)).sort();
+    o.meses = ms.length; o.desde = ms[0] || ""; o.hasta = ms[ms.length - 1] || "";
+    o.porMes = o.meses ? r2(o.gastado / o.meses) : 0;
+    o.anual = r2(o.porMes * 12);
+    o.categorias = Object.entries(o.porCategoria).map(([k, v]) => ({ categoria: k, total: v, porMes: r2(v / (o.meses || 1)), anual: r2((v / (o.meses || 1)) * 12) }))
+      .sort((a, b) => b.total - a.total);
+    if (!o.meses && !o.entro) delete out[mon];
   }
   return out;
 }

@@ -22,7 +22,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
          paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas,
-         CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
+         CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
          CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
@@ -1541,6 +1541,24 @@ prueba("Plata tiene Proyectos y lee el libro de Casa Verde SÓLO leyendo, con la
   assert.ok(!/setDoc|addDoc|updateDoc|deleteDoc/.test(p), "proyectos.js no escribe");
   assert.match(fs.readFileSync("sw.js", "utf8"), /"proyectos\.js"/);
   assert.match(fs.readFileSync("extractos.js", "utf8"), /sel\("para"/);
+});
+
+titulo("La base de costo anual (nucleo-29)");
+prueba("cada moneda se lleva a 12 meses con SUS meses medidos; un mes con pocas líneas no cuenta; las entradas aparte", () => {
+  const M = [];
+  for (const mes of ["2026-01", "2026-02", "2026-03"]) for (let i = 0; i < 3; i++) M.push({ monto: 100, moneda: "BRL", fecha: mes + "-1" + i, categoria: "comida" });
+  M.push({ monto: 50, moneda: "BRL", fecha: "2025-06-10", categoria: "otros" });   // mes suelto: no es un mes medido
+  for (let i = 0; i < 4; i++) M.push({ monto: 1000, moneda: "UYU", fecha: "2026-0" + (i + 1) + "-05", categoria: "casa" }, { monto: 10, moneda: "UYU", fecha: "2026-0" + (i + 1) + "-06", categoria: "casa" }, { monto: 10, moneda: "UYU", fecha: "2026-0" + (i + 1) + "-07", categoria: "comida" });
+  M.push({ monto: 5000, moneda: "UYU", fecha: "2026-02-01", categoria: "ingreso" });
+  const b = baseAnual(M, { hasta: "2026-05-31" });
+  assert.equal(b.BRL.meses, 3); assert.equal(b.BRL.gastado, 900); assert.equal(b.BRL.porMes, 300); assert.equal(b.BRL.anual, 3600);
+  assert.equal(b.UYU.meses, 4); assert.equal(b.UYU.anual, 12240); assert.equal(b.UYU.entro, 5000);
+  assert.deepEqual(b.UYU.categorias.map((c) => c.categoria), ["casa", "comida"]);
+  assert.equal(baseAnual(M, { hasta: "2026-02-28" }).BRL.meses, 2, "la ventana termina donde se pide");
+});
+prueba("el Año muestra lo que costó vivir un año, de lo registrado y de los extractos", () => {
+  const f = fs.readFileSync("finanzas.js", "utf8");
+  assert.match(f, /baseAnual\(\[\.\.\.\(E\.movs \|\| \[\]\), \.\.\.pendientesComoMovs\(E\.extractos\)\]/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

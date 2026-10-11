@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-2
+// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-3
 //
 // app-19 (8-oct-2026, tiempos:V9). Mauro, con la captura de su planilla
 // «Gastos Uruguay»: «la misma idea que en Casa Verde pero para las finanzas
@@ -21,7 +21,7 @@
 
 import { db, F } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, CADAS, PAISES, MESES, validarConcepto, presupuestoAnual,
-         fijosDeMeses, repartoDelMes, sumarMeses, idNuevo, esISO, ajusteTrimestral, posiblesFijos, firmaTrimestre, mesesDelTrimestre } from "./nucleo.js";
+         fijosDeMeses, repartoDelMes, sumarMeses, idNuevo, esISO, ajusteTrimestral, posiblesFijos, firmaTrimestre, mesesDelTrimestre , baseAnual, pendientesComoMovs } from "./nucleo.js";
 import { pedirAnalisis } from "./sugerir.js";
 import { E, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
 import { salidasDelMes } from "./balance.js";
@@ -96,7 +96,18 @@ export function pintarAnio(v) {
   const pres = presupuestoAnual(E.conceptos);
   const lista = Object.entries(E.conceptos || {}).filter(([, c]) => c)
     .sort((a, b) => String(a[1].categoria).localeCompare(String(b[1].categoria)) || String(a[1].nombre).localeCompare(String(b[1].nombre)));
-  let h = `<p class="gris">Todo lo que se paga en el año —la casa, los vehículos, los servicios, los chicos, los impuestos, el negocio—, con cada cuánto vence. Lo que cuesta el año dividido 12 es lo que hay que apartar <b>todos</b> los meses: así se sabe qué parte de lo que entra en la temporada es libre de verdad.</p>`;
+  // finanzas-3 (11-oct-2026, tiempos:V12): lo que de verdad costó el año, de
+  // lo que hay —movimientos y extractos, registrados o no—, por moneda y
+  // categoría. Mauro: «sirven para cifrar nuestro presupuesto anual… no
+  // quiero hacer un trabajo manual». Las cuentas, en baseAnual de nucleo.js.
+  const base = baseAnual([...(E.movs || []), ...pendientesComoMovs(E.extractos)], { hasta: E.hoy });
+  let h = Object.keys(base).length ? `<div class="tarjeta disp"><h3>Lo que costó vivir un año</h3>
+    <p class="gris chica">De todo lo cargado —lo registrado y las líneas de los extractos de Prex y BTG—, llevado a 12 meses con los meses que cada moneda tiene medidos. Cada moneda aparte.</p>
+    ${Object.entries(base).filter(([, o]) => o.meses).map(([mon, o]) => `<div class="barra-fila"><span>${esc(mon)}</span>
+      <b class="num">${fmt(o.anual)}</b><small class="gris">al año · ${fmt(o.porMes)} por mes · medido en ${o.meses} mes${o.meses === 1 ? "" : "es"}${o.desde ? ` (${esc(o.desde)} a ${esc(o.hasta)})` : ""}</small></div>
+      <details><summary class="gris chica">por categoría</summary>${o.categorias.map((c) => `<div class="barra-fila"><span class="txt chica">${esc((CATEGORIAS[c.categoria] || {}).nombre || c.categoria)}</span><small class="gris">${fmt(c.porMes)}/mes · <b>${fmt(c.anual)}</b>/año</small></div>`).join("")}</details>`).join("")}
+  </div>` : "";
+  h += `<p class="gris">Todo lo que se paga en el año —la casa, los vehículos, los servicios, los chicos, los impuestos, el negocio—, con cada cuánto vence. Lo que cuesta el año dividido 12 es lo que hay que apartar <b>todos</b> los meses: así se sabe qué parte de lo que entra en la temporada es libre de verdad.</p>`;
   h += Object.keys(pres).length ? `<div class="tarjeta rep">${Object.entries(pres).map(([mon, p]) => `<div class="barra-fila"><span>${esc(mon)}</span>
       <b class="num">${fmt(p.total)}</b><small class="gris">al año · apartar ${fmt(p.reservaMes)} por mes${p.total !== p.enLibre ? ` (sin los gastos del negocio, que ya salen de su neto)` : ""}${p.sinEstimar ? ` · ${p.sinEstimar} sin estimar` : ""}</small></div>`).join("")}</div>` : "";
   h += editando === "nuevo" ? formConcepto("nuevo", {}) : `<button class="boton" data-concepto-nuevo>＋ Gasto del año</button>`;

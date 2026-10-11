@@ -148,6 +148,11 @@ la documentación diga la verdad.
   suma su libro propio, que se LEE con la sesión de Casa Verde (`CV.mod`,
   permiso de finanzas) y no se copia. `proyectos.js` no escribe, y el banco
   lo comprueba.
+- **La base de costo anual sale SOLA** (finanzas-3, nucleo-29, 11-oct-2026):
+  `baseAnual` de lo registrado y los extractos sin registrar, por moneda y
+  categoría, a 12 meses con los meses medidos de cada moneda. Mauro no
+  clasifica a mano: lo dudoso lo despeja el agente al cargar (gasto «otros»,
+  ingreso o interno), con la razón en la nota de la línea.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

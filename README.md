@@ -299,6 +299,19 @@ que «pizarra» es el lugar, nunca el título.
   ene a may-2026, con la clasificación que tenían allá traducida a cuentas y
   categorías de acá. En el sistema viejo «X – Personal» era QUIÉN PAGÓ, no
   para quién: por eso «para» queda sólo en los gastos personales.
+  **Y nada queda para clasificar a mano** (11-oct, Mauro: «todos esos gastos
+  son nuestros… sirven para cifrar nuestro presupuesto anual… no quiero hacer
+  un trabajo manual»): lo dudoso lo despejó Claude —una transferencia o un
+  pago sin detalle es un gasto «otros» de la familia; una entrada sin detalle,
+  un ingreso; lo que el sistema viejo marcaba entre cuentas propias, interno—
+  y lo «Personal / Varios» del sistema viejo pasó a la familia. Cada línea
+  dice en su nota por qué.
+- **Lo que costó vivir un año** (finanzas-3, nucleo-29): arriba de Plata →
+  **Año**, de todo lo cargado —lo registrado y los extractos, sin registrar
+  nada—, por moneda y categoría, llevado a 12 meses con los meses que cada
+  moneda tiene medidos (un mes con menos de tres gastos en esa moneda no
+  cuenta como medido). Es la base para el presupuesto anual, y también va en
+  el análisis de Claude.
 - **Lo acordado cada semana es una tabla** (familia-4): los días en filas y una
   columna por persona, con los chicos que están con ella ese día.
 - **Las finanzas de la familia** (app-19, 8-oct-2026, `tiempos:V9`): Plata
@@ -462,7 +475,7 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-28` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-29` |
 | `estado.js` | lo que comparten las vistas | `estado-3` |
 | `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-27` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-2` |
@@ -475,7 +488,7 @@ Florencia la acuerden.
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-11` |
 | `extractos.js` | Plata → Extractos: las líneas de cada banco, para clasificarlas y registrarlas de a muchas, con cuenta y para quién | `extractos-2` |
 | `proyectos.js` | Plata → Proyectos: la economía centralizada, cada destino con lo que se le dedica y su neto, y el libro propio de Casa Verde | `proyectos-1` |
-| `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-2` |
+| `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-3` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-10` |
 | `familia.js` | Hoy y Chicos | `familia-4` |
