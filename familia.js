@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// familia.js — Lo de la casa que ven los dos. Sello: familia-4
+// familia.js — Lo de la casa que ven los dos. Sello: familia-5
 //
 // HOY    lo cotidiano: desayuno, almuerzo, merienda, cena, la basura, los
 //        cuartos, la ropa. Se TILDA, no se cronometra, y cada tilde puede
@@ -14,6 +14,12 @@
 //
 // Los nombres de los chicos viven en la base (`familia/config.ninos`), nunca
 // en el código: este repositorio es público.
+//
+// familia-5 (11-oct-2026, Mauro): «en el acuerdo semanal de los chicos, cada
+// checkbox que se activa cierra el menú». Cada tilde guarda y la pantalla se
+// redibuja; el desplegable nacía cerrado. Ahora se recuerda cuál está abierto
+// (`abiertos`). Y el formulario de una actividad de los chicos se exporta
+// (`formEvento`, `engancharEvento`) para editarla tocándola en la Agenda.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F } from "./firebase-init.js";
@@ -118,6 +124,7 @@ let mesVisto = null;               // [año, mes0]
 let lunesVisto = null;
 let diaElegido = null;
 let editandoEvento = null;         // id, "nuevo" o null
+const abiertos = new Set();        // familia-5: los desplegables abiertos sobreviven al redibujado
 
 export function pintarChicos() {
   const v = $("v-chicos");
@@ -133,8 +140,10 @@ export function pintarChicos() {
   h += acordado();
   h += listaNinos();
   v.innerHTML = h;
+  for (const d of v.querySelectorAll("details[data-recordar]")) d.addEventListener("toggle", () => { d.open ? abiertos.add(d.dataset.recordar) : abiertos.delete(d.dataset.recordar); });
   enganchar(v);
 }
+const abierto = (clave, porDefecto = false) => (abiertos.has(clave) || (porDefecto && !abiertos.has("!" + clave)) ? " open" : "");
 
 const marcas = (iso) => Object.entries(chicosDelDia(iso, E.familia.patron, E.turnos)).map(([u, ns]) =>
   `<span class="marca-p">${esc(nombreDe(u).slice(0, 1))}${ns.map((id) => `<i class="punto" style="--c:${esc((ninoPorId(id) || {}).color || COLORES[0])}"></i>`).join("")}</span>`).join("");
@@ -188,12 +197,12 @@ function filaEvento(e, iso) {
     ${e.semanal && iso ? `<button class="mini" data-no-hubo="${esc(e.id)}|${iso}">Este día no</button>` : ""}</div>`;
 }
 
-function formEvento(e) {
+export function formEvento(e, diaPorDefecto = null) {
   const ninos = E.familia.ninos || [];
   const x = e || {};
   return `<form class="tarjeta evento-form" data-form-ev="${esc(x.id || "nuevo")}">
     <label>Qué <input name="titulo" maxlength="120" required value="${esc(x.titulo || "")}" placeholder="Básquet, kung fu, psicóloga…"></label>
-    <div class="dos"><label>Día <input type="date" name="fecha" required value="${esc(x.fecha || diaElegido || E.hoy)}"></label>
+    <div class="dos"><label>Día <input type="date" name="fecha" required value="${esc(x.fecha || diaPorDefecto || diaElegido || E.hoy)}"></label>
       <label>Desde <input type="time" name="hora" value="${esc(x.hora || "")}"></label>
       <label>Hasta <input type="time" name="horaFin" value="${esc(x.horaFin || "")}"></label></div>
     <label class="check"><input type="checkbox" name="semanal"${x.semanal ? " checked" : ""}> Se repite todas las semanas</label>
@@ -223,7 +232,7 @@ function acordado() {
   if (!ninos.length) return "";
   const orden = [1, 2, 3, 4, 5, 6, 0];
   const ps = personas();
-  return `<details class="tarjeta"><summary><b>Lo acordado cada semana</b></summary>
+  return `<details class="tarjeta" data-recordar="acordado"${abierto("acordado")}><summary><b>Lo acordado cada semana</b></summary>
     <p class="gris">Esto se repite solo todas las semanas. Un día distinto se cambia tocándolo en el calendario.</p>
     <table class="acordado"><thead><tr><th></th>${ps.map((p) => `<th>${esc(p.nombre)}</th>`).join("")}</tr></thead><tbody>
     ${orden.map((w) => `<tr><th scope="row">${DIAS[w]}</th>${ps.map((p) => `<td>${ninos.map((n) =>
@@ -234,7 +243,7 @@ function acordado() {
 
 function listaNinos() {
   const ninos = E.familia.ninos || [];
-  return `<details class="tarjeta"${ninos.length ? "" : " open"}><summary><b>Los chicos</b></summary>
+  return `<details class="tarjeta" data-recordar="ninos"${ninos.length ? abierto("ninos") : " open"}><summary><b>Los chicos</b></summary>
     ${ninos.map((n) => `<div class="fila"><i class="punto grande" style="--c:${esc(n.color)}"></i><span class="txt">${esc(n.nombre)}</span></div>`).join("")}
     <p class="gris">Son los que son: acá no se agregan chicos (pedido de Mauro, 30-sep).</p></details>`;
 }
@@ -264,15 +273,21 @@ function enganchar(v) {
   todos("[data-nuevo-ev]", (b) => b.onclick = () => { editandoEvento = "nuevo"; if (b.dataset.nuevoEv !== E.hoy) diaElegido = b.dataset.nuevoEv; repintar(); });
   todos("[data-ed-ev]", (b) => b.onclick = () => { editandoEvento = b.dataset.edEv; repintar(); });
   todos("[data-cancelar-ev]", (b) => b.onclick = () => { editandoEvento = null; repintar(); });
-  todos("[data-borrar-ev]", (b) => b.onclick = () => {
-    if (!confirm("¿Borrar esta actividad? Si se repite, se borra entera.")) return;
-    editandoEvento = null; F.deleteDoc(F.doc(db, "eventos", b.dataset.borrarEv)).catch(fallo);
-  });
   todos("[data-no-hubo]", (b) => b.onclick = () => {
     const [id, iso] = b.dataset.noHubo.split("|");
     F.updateDoc(F.doc(db, "eventos", id), { excepto: F.arrayUnion(iso), titulo: (E.eventos.find((e) => e.id === id) || {}).titulo || "" }).catch(fallo);
   });
-  todos("[data-form-ev]", (f) => f.onsubmit = async (ev) => {
+  engancharEvento(v, () => { editandoEvento = null; });
+}
+
+/* El guardar y el borrar de una actividad de los chicos, para Chicos y para
+   la Agenda (familia-5): la misma forma de dato desde los dos lugares. */
+export function engancharEvento(v, alTerminar = () => {}) {
+  for (const b of v.querySelectorAll("[data-borrar-ev]")) b.onclick = () => {
+    if (!confirm("¿Borrar esta actividad? Si se repite, se borra entera.")) return;
+    alTerminar(); F.deleteDoc(F.doc(db, "eventos", b.dataset.borrarEv)).catch(fallo);
+  };
+  for (const f of v.querySelectorAll("[data-form-ev]")) f.onsubmit = async (ev) => {
     ev.preventDefault();
     const id = f.dataset.formEv;
     const datos = {
@@ -286,7 +301,7 @@ function enganchar(v) {
     try {
       if (id === "nuevo") await F.addDoc(F.collection(db, "eventos"), { ...datos, creadoPor: E.yo.uid, excepto: [], creadoEn: F.serverTimestamp() });
       else await F.updateDoc(F.doc(db, "eventos", id), datos);
-      editandoEvento = null; aviso("Guardada. La ven los dos."); repintar();
+      alTerminar(); aviso("Guardada. La ven los dos."); repintar();
     } catch (e) { fallo(e); }
-  });
+  };
 }

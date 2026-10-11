@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-23
+/* estilos.css — Tiempos. Sello: estilos-24
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -333,3 +333,8 @@ details.cifra summary::-webkit-details-marker { display:none; }
 .agendar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:6px; margin:6px 0; }
 .agendar label { flex:1 1 180px; }
 .agendar small { flex-basis:100%; }
+
+/* estilos-24 (agenda-12): lo que se toca para editar en la agenda. */
+.tocable { cursor:pointer; }
+.tocable:active { filter:brightness(1.15); }
+.pas-txt { cursor:pointer; }

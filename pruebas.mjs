@@ -1714,5 +1714,21 @@ prueba("A28: Fijos muestra los totales, dice cómo vence cada uno, y la foto se 
   assert.match(pl, /escudarNombres\(String\(texto \|\| ""\)/, "a la IA no le van los nombres de los chicos");
 });
 
+// ── familia-5 y agenda-12 (Mauro, 11-oct) ──
+prueba("Chicos: un desplegable abierto sigue abierto después de tildar (se recuerda)", () => {
+  const f = fs.readFileSync("familia.js", "utf8");
+  assert.match(f, /data-recordar="acordado"\$\{abierto\("acordado"\)\}/);
+  assert.match(f, /addEventListener\("toggle"/);
+});
+prueba("Agenda: tocar una actividad de los chicos, una propia o una tarea abre su editor", () => {
+  const g = fs.readFileSync("agenda.js", "utf8");
+  assert.match(g, /data-tocar-ev="\$\{esc\(e\.id\)\}"/);
+  assert.match(g, /editandoEv === e\.id \? formEvento\(e\)/, "el mismo formulario que en Chicos");
+  assert.match(g, /data-tocar-act=/);
+  assert.match(g, /querySelectorAll\("\.pas-txt"\)/);
+  const f = fs.readFileSync("familia.js", "utf8");
+  assert.match(f, /export function formEvento\(/); assert.match(f, /export function engancharEvento\(/);
+});
+
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);

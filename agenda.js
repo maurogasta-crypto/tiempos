@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-11
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-12
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -28,6 +28,12 @@
 // si llega un cambio de la base y la pantalla se redibuja, lo escrito vuelve
 // igual. Antes se perdía, y el toque en Guardar caía sobre un botón que ya no
 // existía. Lo mismo para una actividad nueva.
+//
+// agenda-12 (11-oct-2026, Mauro: «en las actividades que se marcan en la
+// agenda semanal, al hacer clic encima debería poder editarla»): un toque
+// sobre cualquier cosa del día abre su editor ahí mismo — la actividad propia
+// (🗓), la tarea (pastilla) y también la de los chicos (👦), con el MISMO
+// formulario que en Chicos (`formEvento` de familia.js).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
@@ -37,11 +43,13 @@ import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, event
 import { E, $, aviso, repintar, nombreDe, ninoPorId, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
 import { pintarLugares, pintarAgente, recordarLugar } from "./lugares.js";
+import { formEvento, engancharEvento } from "./familia.js";
 
 const NOMBRE_FRANJA = { manana: "mañana", tarde: "tarde", noche: "noche" };
 let lunes = null;
 let editando = null;
 let moviendoAct = null;         // agenda-6: la actividad que se está cambiando de día
+let editandoEv = null;          // agenda-12: la actividad de los chicos que se está editando desde acá
 // agenda-5 (app-16, tiempos:V7): «en la agenda semanal tiene que haber una
 // opción de visualizar el mes». El mes es para mirar: cada día dice cuántas
 // cosas tiene, y tocarlo abre esa semana, donde se edita.
@@ -315,9 +323,9 @@ export function pintarAgenda() {
     // Los acuerdos de tiempo que tocan el día («Mauro trabaja afuera»): los
     // ven los dos, y no se arrastran.
     h += bloquesDelDia(d).map((b) => `<div class="evento bloque-dia">⏱ <b>${esc(nombreDe(b.uid))}</b> ${esc(b.titulo || ({ productivo: "trabaja", chicos: "con los chicos", libre: "tiempo personal" })[b.clase] || "")}</div>`).join("");
-    h += actividadesDelDia(d).map(([id, a]) => `<div class="evento actividad" style="--c:${COLOR_ACT[a.tipo] || "#888"}">🗓 <b>${esc(String(a.desde).slice(11))}${a.hf === "" ? "" : "–" + esc(String(a.hasta).slice(11))}</b> ${esc(a.titulo)}
+    h += actividadesDelDia(d).map(([id, a]) => `<div class="evento actividad tocable" data-tocar-act="${esc(id)}" style="--c:${COLOR_ACT[a.tipo] || "#888"}">🗓 <b>${esc(String(a.desde).slice(11))}${a.hf === "" ? "" : "–" + esc(String(a.hasta).slice(11))}</b> ${esc(a.titulo)}
       <small class="gris">· ${esc((CLASES_ACTIVIDAD[a.tipo] || {}).nombre || a.tipo)}</small>${a.claude && a.claude.porque ? ` <small class="gris" title="${esc(a.claude.en || "")}">✨ ${esc(String(a.claude.porque).slice(0, 120))}</small>` : ""} <button class="mini nota" data-mover-act="${esc(id)}" title="Editar: qué, día, horario, dónde y qué es">✎ Editar</button> <button class="mini nota" data-borrar-act="${esc(id)}" title="Sacar">✕</button></div>${moviendoAct === id ? formMover(id, a) : ""}`).join("");
-    h += evs.map((e) => `<div class="evento">👦 <b>${esc(e.hora || "")}</b> ${esc(e.titulo)}${(e.ninos || []).length ? ` <small>${e.ninos.map((id) => esc((ninoPorId(id) || {}).nombre || "")).join(", ")}</small>` : ""}${(e.quienes || []).length ? ` <small class="gris">· ${e.quienes.map((u) => esc(nombreDe(u))).join(" y ")}</small>` : ""}</div>`).join("");
+    h += evs.map((e) => `<div class="evento tocable" data-tocar-ev="${esc(e.id)}" title="Tocá para editarla">👦 <b>${esc(e.hora || "")}</b> ${esc(e.titulo)}${(e.ninos || []).length ? ` <small>${e.ninos.map((id) => esc((ninoPorId(id) || {}).nombre || "")).join(", ")}</small>` : ""}${(e.quienes || []).length ? ` <small class="gris">· ${e.quienes.map((u) => esc(nombreDe(u))).join(" y ")}</small>` : ""}</div>${editandoEv === e.id ? formEvento(e) : ""}`).join("");
     for (const f of FRANJAS) {
       const items = ub[d][f];
       h += `<div class="franja" data-zona="${d}|${f}"><div class="rot">${NOMBRE_FRANJA[f]}</div>
@@ -339,8 +347,17 @@ export function pintarAgenda() {
   for (const b of v.querySelectorAll("[data-va]")) b.onclick = () => { vistaAg = b.dataset.va; if (vistaAg === "mes") { const d = new Date(lunes + "T12:00"); mesAg = [d.getFullYear(), d.getMonth()]; } repintar(); };
   for (const b of v.querySelectorAll("[data-nueva-act]")) b.onclick = () => { formActividad = true; repintar(); };
   for (const b of v.querySelectorAll("[data-cerrar-act]")) b.onclick = () => { formActividad = false; delete borrador.nueva; repintar(); };
-  for (const b of v.querySelectorAll("[data-borrar-act]")) b.onclick = () => borrarActividad(b.dataset.borrarAct);
-  for (const b of v.querySelectorAll("[data-mover-act]")) b.onclick = () => { moviendoAct = moviendoAct === b.dataset.moverAct ? null : b.dataset.moverAct; repintar(); };
+  for (const b of v.querySelectorAll("[data-borrar-act]")) b.onclick = (ev) => { ev.stopPropagation(); borrarActividad(b.dataset.borrarAct); };
+  for (const b of v.querySelectorAll("[data-mover-act]")) b.onclick = (ev) => { ev.stopPropagation(); moviendoAct = moviendoAct === b.dataset.moverAct ? null : b.dataset.moverAct; repintar(); };
+  // agenda-12: tocar la fila entera abre su editor (los botones ✎ y ✕ siguen).
+  for (const el of v.querySelectorAll("[data-tocar-act]")) el.onclick = (ev) => {
+    if (ev.target.closest("button")) return;
+    moviendoAct = moviendoAct === el.dataset.tocarAct ? null : el.dataset.tocarAct; repintar();
+  };
+  for (const el of v.querySelectorAll("[data-tocar-ev]")) el.onclick = () => { editandoEv = editandoEv === el.dataset.tocarEv ? null : el.dataset.tocarEv; repintar(); };
+  for (const b of v.querySelectorAll("[data-cancelar-ev]")) b.onclick = () => { editandoEv = null; repintar(); };
+  engancharEvento(v, () => { editandoEv = null; });
+  for (const el of v.querySelectorAll(".pas-txt")) el.onclick = () => { const c = el.closest("[data-pas]").dataset.pas; editando = editando === c ? null : c; repintar(); };
   for (const b of v.querySelectorAll("[data-mover-no]")) b.onclick = () => { delete borrador[moviendoAct]; moviendoAct = null; repintar(); };
   for (const f of v.querySelectorAll("[data-mover-form]")) { seguirBorrador(f, f.dataset.moverForm); f.onsubmit = (ev) => { ev.preventDefault(); moverActividad(f.dataset.moverForm, f); }; }
   const fa = v.querySelector("#form-actividad");

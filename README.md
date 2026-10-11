@@ -524,11 +524,11 @@ Florencia la acuerden.
 | `cifras.js` | Plata → Análisis: lo estimado en el Año contra lo real, por categoría, de la familia o de un proyecto | `cifras-1` |
 | `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-6` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
-| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-11` |
-| `familia.js` | Hoy y Chicos | `familia-4` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-12` |
+| `familia.js` | Hoy y Chicos | `familia-5` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
-| `estilos.css` | | `estilos-23` |
-| `sw.js` | el cascarón sin señal | `tiempos-47` |
+| `estilos.css` | | `estilos-24` |
+| `sw.js` | el cascarón sin señal | `tiempos-48` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
