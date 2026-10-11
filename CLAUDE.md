@@ -165,6 +165,13 @@ la documentación diga la verdad.
   **La cuenta de una boleta se PROPONE sola** (`cuentaSugerida`, nucleo-32):
   historial del comercio → concepto del Año que lo nombra → la IA (sólo una
   cuenta que exista). Nunca pisa una cuenta ya elegida.
+- **Todo lo que llega de plata se evalúa e incorpora SIN REPETIR y
+  COMPLETANDO lo que había** (11-oct-2026, Mauro). Antes de cargar un
+  extracto, una boleta o un dato de plata dicho en el chat se lee
+  `protocolos/PROTOCOLO-PLATA.md` de `datos`: los seis controles de lo
+  repetido (§ 4), qué manda cuando dos fuentes no coinciden y qué se completa
+  (§ 5), y el paso a paso (§ 7). Las reglas que se pueden comprobar viven en
+  este código y su banco (§ 8 del protocolo); el protocolo es el criterio.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

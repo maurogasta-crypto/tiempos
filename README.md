@@ -279,6 +279,11 @@ que «pizarra» es el lugar, nunca el título.
   registrar que ya tienen categoría. Casa Verde muestra además **su libro
   propio** (lo que cobra y gasta el negocio), leído con la sesión de Casa
   Verde de quien mira y sólo si tiene el permiso de finanzas allá.
+- **Cómo entra la plata y cómo se va afinando** está escrito en
+  `protocolos/PROTOCOLO-PLATA.md` del repositorio `datos`: todo lo que llega
+  —capturas, archivos de bancos, boletas, lo que se dicta o se dice en un
+  chat— se evalúa y se incorpora sin repetir, completando lo que había, y cada
+  estimación queda marcada hasta que un dato real la reemplace.
 - **Lo estimado contra lo real** (cifras-1, nucleo-31, `tiempos:V14`, Mauro:
   «ir depurando estos gastos estimativos anuales y corregir el costo anual
   total y particular por cada proyecto… una visualización que permita el
