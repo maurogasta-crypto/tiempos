@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-12
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-13
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -50,6 +50,10 @@
 // plata-12 (11-oct-2026, tiempos:V14): la solapa «Análisis» (cifras.js): lo
 // estimado en el Año contra lo real, por categoría, de la familia o de un
 // proyecto, para ir depurando el costo anual.
+//
+// plata-13 (11-oct-2026, tiempos:V14): al leer una boleta se PROPONE la cuenta
+// (cuentaSugerida de nucleo.js: lo ya hecho, el Año, y lo que dijo la IA), y el
+// formulario dice por qué. Mauro: «que la IA proponga la cuenta sola».
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
@@ -62,6 +66,7 @@ import { pintarFijos, pintarAnio, pintarReparto, pintarTrimestre } from "./finan
 import { pintarExtractos } from "./extractos.js";
 import { pintarProyectos } from "./proyectos.js";
 import { pintarCifras } from "./cifras.js";
+import { cuentaSugerida, pendientesComoMovs } from "./nucleo.js";
 
 let mesVisto = null;              // "2026-09"
 let form = null;                  // null | { id?, tipo, datos, archivo?, leyendo? }
@@ -249,7 +254,7 @@ function formHTML() {
     ${tipo === "salio" ? `<div class="boleta">${hayCV2 ? `
       <label class="mini boton-archivo">📷 Sacar foto<input type="file" accept="image/*" capture="environment" data-foto hidden></label>
       <label class="mini boton-archivo">🖼 Elegir archivo<input type="file" accept="image/*" data-foto hidden></label>` : `<small class="gris">Sin Casa Verde no se pueden subir boletas.</small>`}
-      ${form.archivo ? `<small>${esc(form.archivo.name)} ${form.leyendo ? "· leyendo con IA…" : form.leida ? "· leída: revisá los datos" : ""}</small>` : d.comprobanteUrl ? `<a href="${esc(d.comprobanteUrl)}" target="_blank" rel="noopener">📎 boleta</a>` : ""}
+      ${form.archivo ? `<small>${esc(form.archivo.name)} ${form.leyendo ? "· leyendo con IA…" : form.leida ? "· leída: revisá los datos" : ""}</small>${d.cuentaPorque ? `<small class="gris">📍 Cuenta propuesta: ${esc(rutaCuenta(d.cuenta))} — ${esc(d.cuentaPorque)}. Cambiala si no es.</small>` : ""}` : d.comprobanteUrl ? `<a href="${esc(d.comprobanteUrl)}" target="_blank" rel="noopener">📎 boleta</a>` : ""}
     </div>` : ""}
     ${campos(d, tipo)}
     ${!form.id && tipo === "salio" ? `<label class="check"><input type="checkbox" name="auto"> Es un pago automático: se repite todos los meses</label>` : ""}
@@ -273,6 +278,8 @@ async function leerBoleta(file) {
   const blob = await CV2.comprimirImagen(file);
   const data = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = mal; r.readAsDataURL(blob); });
   const cats = Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === "salio").map(([k, c]) => `${k} (${c.nombre})`).join(", ");
+  const cuentas = cuentasDe(E.cuentasDoc);
+  const lista = cuentas.map((c) => `${c.id} (${c.ruta}${c.pais ? ", " + c.pais : ""})`).join(", ");
   const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
     method: "POST", headers: { "Content-Type": "application/json" },
     // plata-2 (tiempos:A10): flash-lite y 2000 tokens. «gemini-2.5-flash»
@@ -281,12 +288,12 @@ async function leerBoleta(file) {
     body: JSON.stringify({ model: MODELO_BOLETA, max_tokens: TOKENS_BOLETA, messages: [{ role: "user", content: [
       { type: "image", source: { type: "base64", media_type: "image/jpeg", data } },
       { type: "text", text: `Es una boleta o comprobante de un gasto de una familia en Brasil o Uruguay. Devolvé SOLO un JSON, sin texto alrededor:
-{"monto": número total pagado, "moneda": "BRL" | "UYU" | "USD", "fecha": "AAAA-MM-DD", "comercio": nombre del comercio, "categoria": una de [${cats}], "detalle": qué se compró, en pocas palabras}.
+{"monto": número total pagado, "moneda": "BRL" | "UYU" | "USD", "fecha": "AAAA-MM-DD", "comercio": nombre del comercio, "categoria": una de [${cats}], "detalle": qué se compró, en pocas palabras, "cuenta": a qué lugar o vehículo va, una de [${lista}], o "" si la boleta no lo deja claro}.
 Si un dato no se lee con seguridad, dejalo vacío (""). No inventes.` }] }] }),
   });
   if (!r.ok) throw new Error("la IA contestó " + r.status);
   const j = await r.json();
-  return leerSugerencia(((j.content || [])[0] || {}).text);
+  return leerSugerencia(((j.content || [])[0] || {}).text, new Set(cuentas.map((c) => c.id)));
 }
 
 async function guardarMovimiento(f) {
@@ -346,7 +353,13 @@ function enganchar(v, autos) {
     form.archivo = file; form.leyendo = true; form.leida = false; repintar();
     try {
       const s = await leerBoleta(file);
-      if (s) for (const [k, val] of Object.entries(s)) if (val !== "" && !form.datos[k]) form.datos[k] = val;
+      const cuentaIA = s ? s.cuenta : "";
+      if (s) { delete s.cuenta; for (const [k, val] of Object.entries(s)) if (val !== "" && !form.datos[k]) form.datos[k] = val; }
+      if (s && !form.datos.cuenta) {
+        const c = cuentaSugerida({ comercio: form.datos.comercio, cuentaIA },
+          { conceptos: E.conceptos, movs: [...(E.movs || []), ...pendientesComoMovs(E.extractos)], cuentas: cuentasDe(E.cuentasDoc) });
+        if (c) { form.datos.cuenta = c.cuenta; form.datos.cuentaPorque = c.porque; }
+      }
       form.leida = !!s;
       if (!s) aviso("La IA no pudo leer la boleta: completala a mano.", true);
     } catch (e) { aviso("No se pudo leer con IA (" + e.message + "): completala a mano.", true); }

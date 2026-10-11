@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-31
+// Sello: nucleo-32
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -522,7 +522,7 @@ export function automaticosPendientes(recurrentes, movs, hoy) {
 /* Lo que devuelve la IA al leer una boleta: texto que DEBERÍA ser JSON. Se
    lee con desconfianza: lo que no se entiende queda vacío para que lo
    complete una persona, nunca inventado. */
-export function leerSugerencia(texto) {
+export function leerSugerencia(texto, cuentasValidas = null) {
   let j = null;
   const t = String(texto || "").replace(/```(?:json)?/gi, "");
   const i = t.indexOf("{"), k = t.lastIndexOf("}");
@@ -537,6 +537,8 @@ export function leerSugerencia(texto) {
     comercio: String(j.comercio || "").slice(0, 80),
     categoria: CATEGORIAS[j.categoria] ? j.categoria : "",
     detalle: String(j.detalle || "").slice(0, 300),
+    // nucleo-32: la cuenta que propone la IA, sólo si es una que existe.
+    cuenta: cuentasValidas && cuentasValidas.has(String(j.cuenta || "")) ? String(j.cuenta) : "",
   };
 }
 
@@ -1968,4 +1970,36 @@ export function medidosDe(movs, hasta = "", minLineas = 3) {
   const out = {};
   for (const [k, n] of Object.entries(c)) if (n >= minLineas) (out[k.slice(0, 3)] = out[k.slice(0, 3)] || []).push(k.slice(4));
   return out;
+}
+
+/* ── La CUENTA que se propone sola (nucleo-32, 11-oct-2026, tiempos:V14) ──────
+   Mauro: «que la IA proponga la cuenta sola». Al leer una boleta se propone
+   a qué proyecto va, en este orden —de lo más seguro a lo menos—:
+   1. lo que ya se hizo: el mismo comercio en movimientos y extractos que ya
+      tienen cuenta (la más usada);
+   2. un concepto del Año con proyecto cuyo nombre nombra ese comercio
+      («Luz Casa Verde (Celesc)» → Celesc va a Casa Verde);
+   3. lo que dijo la IA al leer la foto.
+   Es una PROPUESTA: llena el campo si está vacío y dice por qué. */
+const planoC = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+const VACIAS_C = new Set(["sucursal", "super", "supermercado", "merpago", "handy", "ltda", "sociedad", "comercio", "servicos", "servicios", "pix", "enviado", "recebido", "para", "del", "los", "las", "sur", "san", "uno"]);
+const palabrasC = (t) => planoC(t).split(" ").filter((w) => w.length >= 3 && !/^\d+$/.test(w) && !VACIAS_C.has(w));
+export function cuentaSugerida({ comercio = "", cuentaIA = "" } = {}, { conceptos = {}, movs = [], cuentas = [] } = {}) {
+  const ids = new Set(cuentas.map((c) => c.id));
+  const nombre = (id) => (cuentas.find((c) => c.id === id) || {}).ruta || id;
+  const clave = palabrasC(comercio)[0] || "";
+  if (clave) {
+    const cuenta = {};
+    for (const m of movs || []) if (m && ids.has(m.cuenta) && palabrasC(m.comercio || m.desc || "")[0] === clave) cuenta[m.cuenta] = (cuenta[m.cuenta] || 0) + 1;
+    const [mejor, n] = Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0] || [];
+    if (mejor) return { cuenta: mejor, porque: `${n} gasto(s) anteriores de «${comercio}» fueron a ${nombre(mejor)}` };
+  }
+  const ws = palabrasC(comercio);
+  if (ws.length) for (const [, c] of Object.entries(conceptos || {})) {
+    if (!c || !ids.has(c.cuenta)) continue;
+    const nom = new Set(palabrasC(c.nombre));
+    if (ws.some((w) => nom.has(w))) return { cuenta: c.cuenta, porque: `el concepto «${c.nombre}» del Año es de ${nombre(c.cuenta)}` };
+  }
+  if (ids.has(cuentaIA)) return { cuenta: cuentaIA, porque: "la IA lo dedujo de la boleta" };
+  return null;
 }

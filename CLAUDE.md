@@ -162,6 +162,9 @@ la documentación diga la verdad.
   `temporada` (monto distinto en dic–feb, `montoDelMes`/`anualDe`) y `cuenta`
   (su proyecto). «Usar lo real» toca SÓLO un concepto base y lo deja
   `estimado: false`; los propios se corrigen en el Año o en el Trimestre.
+  **La cuenta de una boleta se PROPONE sola** (`cuentaSugerida`, nucleo-32):
+  historial del comercio → concepto del Año que lo nombra → la IA (sólo una
+  cuenta que exista). Nunca pisa una cuenta ya elegida.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

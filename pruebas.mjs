@@ -22,7 +22,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
          paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas,
-         CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
+         CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, cuentaSugerida, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
          CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
@@ -1612,6 +1612,35 @@ prueba("Plata tiene Análisis; usar lo real sólo toca un concepto base y lo dej
   assert.match(x, /estimado: false/);
   assert.match(fs.readFileSync("sw.js", "utf8"), /"cifras\.js"/);
   assert.match(fs.readFileSync("finanzas.js", "utf8"), /temporada: f\.temporada\.value === ""/);
+});
+
+titulo("La cuenta que se propone sola (nucleo-32, tiempos:V14)");
+const CU3 = cuentasDe({ cuentas: { sf: { nombre: "Santa Fe", orden: 1 }, cv: { nombre: "Casa Verde", pais: "BR", orden: 2 }, hx: { nombre: "Hilux", clase: "vehiculo", orden: 3 } } });
+prueba("primero lo ya hecho: el mismo comercio con cuenta, la más usada", () => {
+  const movs = [{ comercio: "UTE", cuenta: "sf" }, { comercio: "UTE", cuenta: "sf" }, { comercio: "ute", cuenta: "cv" }, { desc: "ANCAP PIEDRA DEL TORO", cuenta: "hx" }];
+  const ute = cuentaSugerida({ comercio: "UTE" }, { movs, cuentas: CU3 });
+  assert.equal(ute.cuenta, "sf", "dos a Santa Fe contra uno a Casa Verde"); assert.match(ute.porque, /2 gasto/);
+  assert.equal(cuentaSugerida({ comercio: "TA TA 403" }, { movs: [{ comercio: "TA TA 318", cuenta: "sf" }], cuentas: CU3 }), null, "sin palabras que alcancen, no se adivina");
+  const r = cuentaSugerida({ comercio: "Ancap Piedra del Toro" }, { movs, cuentas: CU3 });
+  assert.equal(r.cuenta, "hx"); assert.match(r.porque, /1 gasto/);
+});
+prueba("después el Año: un concepto con proyecto que nombra al comercio", () => {
+  const conceptos = { l: { nombre: "Luz Casa Verde (Celesc)", cuenta: "cv" }, x: { nombre: "Otra cosa", cuenta: "sf" } };
+  const r = cuentaSugerida({ comercio: "CELESC DISTRIBUICAO S.A." }, { conceptos, cuentas: CU3 });
+  assert.equal(r.cuenta, "cv"); assert.match(r.porque, /Celesc/);
+});
+prueba("por último lo que dijo la IA, sólo si la cuenta existe; si no, nada", () => {
+  assert.equal(cuentaSugerida({ comercio: "Ferretería X", cuentaIA: "sf" }, { cuentas: CU3 }).cuenta, "sf");
+  assert.equal(cuentaSugerida({ comercio: "Ferretería X", cuentaIA: "inventada" }, { cuentas: CU3 }), null);
+  assert.equal(leerSugerencia('{"monto":"10","moneda":"UYU","cuenta":"hx"}', new Set(["hx"])).cuenta, "hx");
+  assert.equal(leerSugerencia('{"monto":"10","moneda":"UYU","cuenta":"zz"}', new Set(["hx"])).cuenta, "");
+});
+prueba("la boleta pide la cuenta a la IA con la lista real, y el formulario dice por qué la propuso", () => {
+  const p = fs.readFileSync("plata.js", "utf8");
+  assert.match(p, /"cuenta": a qué lugar o vehículo va, una de \[\$\{lista\}\]/);
+  assert.match(p, /cuentaSugerida\(\{ comercio: form\.datos\.comercio, cuentaIA \}/);
+  assert.match(p, /Cuenta propuesta:/);
+  assert.match(p, /if \(s && !form\.datos\.cuenta\)/, "no pisa una cuenta ya elegida");
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
