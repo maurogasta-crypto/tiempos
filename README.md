@@ -495,13 +495,13 @@ Florencia la acuerden.
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-11` |
 | `extractos.js` | Plata → Extractos: las líneas de cada banco, para clasificarlas y registrarlas de a muchas, con cuenta y para quién | `extractos-2` |
 | `proyectos.js` | Plata → Proyectos: la economía centralizada, cada destino con lo que se le dedica y su neto, y el libro propio de Casa Verde | `proyectos-1` |
-| `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-3` |
+| `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-4` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-10` |
 | `familia.js` | Hoy y Chicos | `familia-4` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
 | `estilos.css` | | `estilos-21` |
-| `sw.js` | el cascarón sin señal | `tiempos-42` |
+| `sw.js` | el cascarón sin señal | `tiempos-43` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

@@ -1571,5 +1571,11 @@ prueba("un concepto base (una categoría entera, de los extractos) cuenta en el 
   assert.ok(a.faltan.some((f) => /Luz/.test(f)));
 });
 
+prueba("el Año dice cuál es una estimación y desde cuándo rige", () => {
+  const f = fs.readFileSync("finanzas.js", "utf8");
+  assert.match(f, /c\.estimado \? " · ≈ estimado, a corregir"/);
+  assert.match(f, /c\.desde \? " · desde "/);
+});
+
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-3
+// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-4
 //
 // app-19 (8-oct-2026, tiempos:V9). Mauro, con la captura de su planilla
 // «Gastos Uruguay»: «la misma idea que en Casa Verde pero para las finanzas
@@ -116,7 +116,7 @@ export function pintarAnio(v) {
     if (c.categoria !== cat) { cat = c.categoria; h += `<h3>${esc((CATEGORIAS[cat] || {}).nombre || cat)}</h3>`; }
     if (editando === id) { h += formConcepto(id, c); continue; }
     h += `<div class="fila${c.activo === false ? " apagada" : ""}" data-concepto="${esc(id)}"><span class="txt"><b>${esc(c.nombre)}</b>
-      <small class="gris">${Number(c.monto) > 0 ? fmt(c.monto) + " " + esc(c.moneda) : "sin estimar"} · ${esc(CADAS[c.cada] || "")}${c.cada > 1 ? " (desde " + esc(MESES[Number(c.mes) - 1]) + ")" : ""}${c.pais ? " · " + esc(PAISES[c.pais] || c.pais) : ""}${Number(c.total) > 0 ? " · deuda de " + fmt(c.total) : ""}${c.activo === false ? " · pausado" : ""}</small></span>
+      <small class="gris">${Number(c.monto) > 0 ? fmt(c.monto) + " " + esc(c.moneda) : "sin estimar"} · ${esc(CADAS[c.cada] || "")}${c.cada > 1 ? " (desde " + esc(MESES[Number(c.mes) - 1]) + ")" : ""}${c.pais ? " · " + esc(PAISES[c.pais] || c.pais) : ""}${Number(c.total) > 0 ? " · deuda de " + fmt(c.total) : ""}${c.activo === false ? " · pausado" : ""}${c.estimado ? " · ≈ estimado, a corregir" : ""}${c.desde ? " · desde " + esc(c.desde) : ""}</small></span>
       <span class="num">${fmt(Number(c.monto || 0) * 12 / (c.cada || 1))}<small class="gris">/año</small></span></div>`;
   }
   v.insertAdjacentHTML("beforeend", h);
