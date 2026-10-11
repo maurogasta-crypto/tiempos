@@ -501,7 +501,7 @@ Florencia la acuerden.
 | `familia.js` | Hoy y Chicos | `familia-4` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
 | `estilos.css` | | `estilos-21` |
-| `sw.js` | el cascarón sin señal | `tiempos-40` |
+| `sw.js` | el cascarón sin señal | `tiempos-42` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
