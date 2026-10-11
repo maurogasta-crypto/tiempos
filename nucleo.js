@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-29
+// Sello: nucleo-30
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1529,8 +1529,12 @@ export function presupuestoAnual(conceptos) {
 const redondo = (n) => Math.round(n * 100) / 100;
 
 /* La grilla de la planilla: cada concepto, qué pasa en cada mes. */
+/* nucleo-30 (11-oct-2026): un concepto `base: true` es lo que cuesta una
+   CATEGORÍA entera (el súper, el combustible), sacado de los extractos —
+   no una boleta que se paga. Cuenta en el Año y en el costo de funcionamiento,
+   pero no va a la planilla de Fijos ni se reclama como «sin pago». */
 export function fijosDeMeses(conceptos, movs, meses) {
-  return Object.entries(conceptos || {}).filter(([, c]) => c && c.activo !== false)
+  return Object.entries(conceptos || {}).filter(([, c]) => c && c.activo !== false && !c.base)
     .sort((a, b) => String(a[1].pais || "").localeCompare(String(b[1].pais || "")) || String(a[1].nombre).localeCompare(String(b[1].nombre)))
     .map(([id, c]) => {
       const pagos = (movs || []).filter((m) => m && m.fijo === id && Number(m.monto) > 0);
@@ -1585,7 +1589,7 @@ export function ajusteTrimestral({ conceptos = {}, movs = [], trimestre, hoyMes 
   const conceptosT = [];
   const faltan = [];
   for (const [id, c] of Object.entries(conceptos || {})) {
-    if (!c || c.activo === false || !MONEDAS.includes(c.moneda)) continue;
+    if (!c || c.activo === false || !MONEDAS.includes(c.moneda) || c.base) continue;
     const vencen = meses.filter((mes) => vence(c, mes));
     const pagos = delTrim.filter((m) => m.fijo === id);
     if (!vencen.length && !pagos.length) continue;

@@ -312,6 +312,13 @@ que «pizarra» es el lugar, nunca el título.
   moneda tiene medidos (un mes con menos de tres gastos en esa moneda no
   cuenta como medido). Es la base para el presupuesto anual, y también va en
   el análisis de Claude.
+  **Y está cargada en el Año** (11-oct, pedido de Mauro): Luz, Agua, los
+  teléfonos y la patente de la camioneta con su promedio real, y por cada
+  categoría y moneda un concepto «(base de los extractos)» con el resto. Un
+  concepto `base` es lo que cuesta una categoría entera, no una boleta: cuenta
+  en el Año y en el costo de funcionamiento, pero no aparece en Fijos ni se
+  reclama como «sin pago» en el Trimestre (nucleo-30). Lo personal queda
+  afuera: el Año es lo que cuesta funcionar.
 - **Lo acordado cada semana es una tabla** (familia-4): los días en filas y una
   columna por persona, con los chicos que están con ella ese día.
 - **Las finanzas de la familia** (app-19, 8-oct-2026, `tiempos:V9`): Plata
@@ -475,7 +482,7 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-29` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-30` |
 | `estado.js` | lo que comparten las vistas | `estado-3` |
 | `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-27` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-2` |

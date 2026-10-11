@@ -153,6 +153,9 @@ la documentación diga la verdad.
   categoría, a 12 meses con los meses medidos de cada moneda. Mauro no
   clasifica a mano: lo dudoso lo despeja el agente al cargar (gasto «otros»,
   ingreso o interno), con la razón en la nota de la línea.
+  **Y va al Año como conceptos `base: true`** (nucleo-30): uno por categoría
+  y moneda, con lo que no cubren los conceptos propios. Cuentan en el Año y el
+  costo de funcionamiento, NO en Fijos ni en los «sin pago» del Trimestre.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

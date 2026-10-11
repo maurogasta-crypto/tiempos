@@ -1561,5 +1561,15 @@ prueba("el Año muestra lo que costó vivir un año, de lo registrado y de los e
   assert.match(f, /baseAnual\(\[\.\.\.\(E\.movs \|\| \[\]\), \.\.\.pendientesComoMovs\(E\.extractos\)\]/);
 });
 
+prueba("un concepto base (una categoría entera, de los extractos) cuenta en el Año pero no va a Fijos ni se reclama sin pago", () => {
+  const C = { luz: { nombre: "Luz", categoria: "casa", moneda: "UYU", monto: 1000, cada: 1, mes: 1 },
+    b: { nombre: "Súper (base)", categoria: "comida", moneda: "UYU", monto: 4000, cada: 1, mes: 10, base: true } };
+  assert.equal(presupuestoAnual(C).UYU.total, 60000);
+  assert.deepEqual(fijosDeMeses(C, [], ["2026-10"]).map((x) => x.id), ["luz"]);
+  const a = ajusteTrimestral({ conceptos: C, movs: [], trimestre: "2026-T4", hoyMes: "2026-12" });
+  assert.ok(!a.faltan.some((f) => /Súper/.test(f)), a.faltan.join());
+  assert.ok(a.faltan.some((f) => /Luz/.test(f)));
+});
+
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);
