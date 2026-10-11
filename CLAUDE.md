@@ -38,6 +38,10 @@ verificación previa no es opcional: que parsee como módulo
 que suban los sellos (y `VERSION` de `sw.js` si cambia algo del `SHELL`), y que
 la documentación diga la verdad.
 
+- **Toda contraseña tiene su ojo 👁** (app-28, 11-oct-2026, Mauro: «en todos
+  los sitios»): `ojosEnClaves()` al final de `app.js`. Es el mismo código que
+  en Casa Verde, CasaYourte, remate y el panel, y en la Pizarra va en Kotlin:
+  si cambia en uno, cambia en todos en la misma tanda.
 - **Casa Verde se usa, no se copia.** Arrancar, frenar y tildar son
   `Core.iniciar`, `Core.finalizar` y `Core.tildar` de `actividades-core.js`,
   importado de su sitio. La app no escribe en Casa Verde por su cuenta, **salvo

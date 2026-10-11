@@ -1,8 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-27
+// Sello: app-28
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
+// app-28 (11-oct-2026): el ojo 👁 en las dos contraseñas (la de Tiempos y la de
+// Casa Verde), para verlas mientras se tipean. Mismo código que en los otros sitios.
 // app-27 (10-oct-2026, tiempos:V12): escucha `extractos` (Plata → Extractos).
 // app-25 (10-oct-2026, tiempos:V11): escucha `familia/cuentas` (E.cuentasDoc).
 // app-24 (10-oct-2026): sin cambios acá; nucleo-23 y sugerir-17 («los chicos» son todos).
@@ -835,5 +837,51 @@ $("form-tarea").onsubmit = async (ev) => {
     $("nueva-titulo").value = "";
   } catch (e) { fallo(e); }
 };
+
+/* El ojo de las contraseñas (11-oct-2026). Mauro: «un ojo para poder ver la
+   contraseña cuando se tipea, en todos los sitios». Pone un botón 👁 adentro de
+   cada campo de contraseña de la página —también de los que aparecen después,
+   por eso el MutationObserver— que alterna entre ver y ocultar. Corre solo al
+   cargar este archivo: ninguna página tiene que acordarse de llamarlo.
+   Es el MISMO código en Tiempos, Casa Verde, CasaYourte, remate y el panel:
+   si cambia en uno, cambia en los cinco en la misma tanda.
+   Los estilos van en línea a propósito: así no depende de la hoja de cada
+   sitio, y le gana a las reglas generales de «button» (ancho, fondo, borde). */
+function ojosEnClaves(raiz) {
+  raiz = raiz || document;
+  const poner = (inp) => {
+    if (inp.dataset.ojo) return;
+    inp.dataset.ojo = "1";
+    // La caja ocupa el renglón y el campo la llena: en un teléfono los campos
+    // de entrada van a lo ancho, y con una caja «en línea» el de la
+    // contraseña quedaba más angosto que el del mail.
+    const caja = document.createElement("span");
+    caja.style.cssText = "position:relative;display:block";
+    inp.parentNode.insertBefore(caja, inp);
+    caja.appendChild(inp);
+    inp.style.width = "100%";
+    inp.style.boxSizing = "border-box";
+    inp.style.paddingRight = "2.6em";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ojo-clave";
+    b.style.cssText = "position:absolute;right:.25em;top:50%;transform:translateY(-50%);"
+      + "background:none;border:0;box-shadow:none;padding:.2em .35em;margin:0;width:auto;"
+      + "min-width:0;height:auto;cursor:pointer;font-size:1.1em;line-height:1;color:inherit;opacity:.75";
+    const pintar = () => {
+      const viendo = inp.type === "text";
+      b.textContent = viendo ? "🙈" : "👁";
+      b.setAttribute("aria-label", viendo ? "Ocultar la contraseña" : "Mostrar la contraseña");
+      b.title = b.getAttribute("aria-label");
+    };
+    b.onclick = () => { inp.type = inp.type === "password" ? "text" : "password"; pintar(); inp.focus(); };
+    pintar();
+    caja.appendChild(b);
+  };
+  const todos = () => raiz.querySelectorAll('input[type="password"]:not([data-ojo])').forEach(poner);
+  todos();
+  new MutationObserver(todos).observe(raiz.body || raiz, { childList: true, subtree: true });
+}
+if (typeof document !== "undefined" && typeof MutationObserver !== "undefined") ojosEnClaves();
 
 arrancar();
