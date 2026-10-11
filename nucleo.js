@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-30
+// Sello: nucleo-31
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1507,7 +1507,23 @@ export function vence(c, mes) {
 }
 
 /* Lo que cuesta un concepto en un año. */
-export const anualDe = (c) => (c && c.activo !== false && CADAS[c.cada] ? Number(c.monto || 0) * 12 / c.cada : 0);
+/* nucleo-31 (11-oct-2026): un concepto puede tener TEMPORADA — Mauro: «el
+   agua de Casan anda en unos 150 por mes fuera de temporada y llega a 1.500 a
+   2.000 en temporada; la luz, 800 en temporada y 150 fuera». `temporada` =
+   { meses: [12, 1, 2], monto }: en esos meses vale ese monto; el resto, `monto`. */
+export const TEMPORADA = [12, 1, 2];
+export const montoDelMes = (c, mesNro) => {
+  const t = c && c.temporada;
+  const enTemp = t && Number(t.monto) >= 0 && (Array.isArray(t.meses) && t.meses.length ? t.meses : TEMPORADA).map(Number).includes(Number(mesNro));
+  return Number(enTemp ? t.monto : (c && c.monto) || 0);
+};
+export const anualDe = (c) => {
+  if (!c || c.activo === false || !CADAS[c.cada]) return 0;
+  if (!c.temporada) return Number(c.monto || 0) * 12 / c.cada;
+  let t = 0;
+  for (let m = 1; m <= 12; m++) if ((((m - Number(c.mes || 1)) % c.cada) + c.cada) % c.cada === 0) t += montoDelMes(c, m);
+  return Math.round(t * 100) / 100;
+};
 
 /* El presupuesto del año, por moneda: total, lo que cuenta para el libre
    (todo menos los gastos del negocio, que ya vienen descontados de su neto),
@@ -1593,7 +1609,7 @@ export function ajusteTrimestral({ conceptos = {}, movs = [], trimestre, hoyMes 
     const vencen = meses.filter((mes) => vence(c, mes));
     const pagos = delTrim.filter((m) => m.fijo === id);
     if (!vencen.length && !pagos.length) continue;
-    const estimado = redondo(Number(c.monto || 0) * vencen.length);
+    const estimado = redondo(vencen.reduce((t, mes) => t + montoDelMes(c, Number(mes.slice(5, 7))), 0));
     const real = redondo(pagos.reduce((t, m) => t + Number(m.monto), 0));
     const porVez = pagos.length ? redondo(real / pagos.length) : 0;
     const sinPagar = vencen.filter((mes) => mes <= hoyMes && !pagos.some((m) => String(m.fecha).slice(0, 7) === mes));
@@ -1862,7 +1878,7 @@ export function libroDeNegocio(movs, { desde = "", hasta = "" } = {}) {
    meses), cada moneda se lleva a 12 meses con SUS meses: los que tienen al
    menos `minLineas` gastos en esa moneda. Un mes con dos movimientos sueltos
    no es un mes medido, y contarlo bajaría el promedio. */
-export function baseAnual(movs, { hasta = "", meses = 12, minLineas = 3 } = {}) {
+export function baseAnual(movs, { hasta = "", meses = 12, minLineas = 3, medidos = null } = {}) {
   const r2 = (x) => Math.round(x * 100) / 100;
   const fin = esISO(hasta) ? hasta.slice(0, 7) : "9999-12";
   const ini = fin === "9999-12" ? "0000-01" : sumarMeses(fin, -(meses - 1));
@@ -1872,15 +1888,20 @@ export function baseAnual(movs, { hasta = "", meses = 12, minLineas = 3 } = {}) 
   for (const m of dentro) if (CATEGORIAS[m.categoria].tipo === "salio") {
     const k = m.moneda + "|" + m.fecha.slice(0, 7); porMes[k] = (porMes[k] || 0) + 1;
   }
+  // `medidos` (moneda → meses) deja medir un PEDAZO de los datos —un proyecto—
+  // con los meses de todos: un lugar con dos boletas por mes no tiene meses
+  // «medidos» propios, pero esos meses sí se midieron.
+  const medido = (mon, mes) => medidos ? (medidos[mon] || []).includes(mes) : (porMes[mon + "|" + mes] || 0) >= minLineas;
   for (const m of dentro) {
     const o = (out[m.moneda] = out[m.moneda] || { meses: 0, desde: "", hasta: "", gastado: 0, entro: 0, porCategoria: {} });
     if (CATEGORIAS[m.categoria].tipo === "entro") { o.entro = r2(o.entro + Number(m.monto)); continue; }
-    if ((porMes[m.moneda + "|" + m.fecha.slice(0, 7)] || 0) < minLineas) continue;
+    if (!medido(m.moneda, m.fecha.slice(0, 7))) continue;
     o.gastado = r2(o.gastado + Number(m.monto));
     o.porCategoria[m.categoria] = r2((o.porCategoria[m.categoria] || 0) + Number(m.monto));
   }
   for (const [mon, o] of Object.entries(out)) {
-    const ms = Object.entries(porMes).filter(([k, n]) => k.startsWith(mon + "|") && n >= minLineas).map(([k]) => k.slice(4)).sort();
+    const ms = medidos ? [...(medidos[mon] || [])].filter((x) => x >= ini && x <= fin).sort()
+      : Object.entries(porMes).filter(([k, n]) => k.startsWith(mon + "|") && n >= minLineas).map(([k]) => k.slice(4)).sort();
     o.meses = ms.length; o.desde = ms[0] || ""; o.hasta = ms[ms.length - 1] || "";
     o.porMes = o.meses ? r2(o.gastado / o.meses) : 0;
     o.anual = r2(o.porMes * 12);
@@ -1888,5 +1909,63 @@ export function baseAnual(movs, { hasta = "", meses = 12, minLineas = 3 } = {}) 
       .sort((a, b) => b.total - a.total);
     if (!o.meses && !o.entro) delete out[mon];
   }
+  return out;
+}
+
+/* ── ESTIMADO contra REAL (nucleo-31, 11-oct-2026, tiempos:V14) ──────────────
+   Mauro: «todos los gastos deberán ser ordenados para ir depurando estos
+   gastos estimativos anuales y corregir el costo anual total y particular
+   por cada proyecto… tener esa visualización que permita el análisis de
+   cifras y gastos».
+
+   Por moneda y categoría: lo que dice el Año (sus conceptos) contra lo que
+   dicen los datos (movimientos, boletas con foto y extractos, llevados a 12
+   meses con baseAnual). `proyecto` acota a un destino: el id de una cuenta
+   raíz, o "casa" para lo que no tiene cuenta. Lo personal no va: el Año es
+   lo que cuesta funcionar. Ordenado por lo que más pesa, para depurar
+   primero lo grande. */
+export function estimadoVsReal({ conceptos = {}, movs = [], cuentas = [], hasta = "", proyecto = "" } = {}) {
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const raiz = {};
+  for (const c of cuentas) raiz[c.id] = c.nivel ? c.padre : c.id;
+  const de = (cuenta) => (cuenta && raiz[cuenta]) || "casa";
+  const fuera = (cat) => !CATEGORIAS[cat] || CATEGORIAS[cat].tipo !== "salio" || cat === "personal";
+  const out = {};
+  const fila = (mon, cat) => {
+    const o = (out[mon] = out[mon] || { estimado: 0, real: 0, meses: 0, filas: {} });
+    return (o.filas[cat] = o.filas[cat] || { categoria: cat, estimado: 0, real: 0, conceptos: [] });
+  };
+  for (const [id, c] of Object.entries(conceptos || {})) {
+    if (!c || c.activo === false || !MONEDAS.includes(c.moneda) || fuera(c.categoria)) continue;
+    if (proyecto && de(c.cuenta) !== proyecto) continue;
+    const f = fila(c.moneda, c.categoria), a = anualDe(c);
+    f.estimado = r2(f.estimado + a);
+    f.conceptos.push({ id, nombre: c.nombre, anual: r2(a), estimado: !!c.estimado || !!c.base || !(Number(c.monto) > 0), base: !!c.base, cuenta: c.cuenta || "" });
+  }
+  // Los meses medidos salen de TODOS los datos; después se mide sólo lo propio.
+  const propios = (movs || []).filter((m) => m && !fuera(m.categoria) && (!proyecto || de(m.cuenta) === proyecto));
+  const base = baseAnual(propios, { hasta, medidos: medidosDe(movs, hasta) });
+  for (const [mon, b] of Object.entries(base)) {
+    for (const c of b.categorias) fila(mon, c.categoria).real = c.anual;
+    out[mon].meses = b.meses; out[mon].desde = b.desde; out[mon].hasta = b.hasta;
+  }
+  for (const o of Object.values(out)) {
+    const filas = Object.values(o.filas);
+    for (const f of filas) f.diferencia = r2(f.real - f.estimado);
+    o.estimado = r2(filas.reduce((t, f) => t + f.estimado, 0));
+    o.real = r2(filas.reduce((t, f) => t + f.real, 0));
+    o.filas = filas.sort((a, b) => Math.max(b.estimado, b.real) - Math.max(a.estimado, a.real));
+    o.porVerificar = filas.reduce((t, f) => t + f.conceptos.filter((c) => c.estimado).length, 0);
+  }
+  return out;
+}
+
+/** Los meses medidos de cada moneda (los que tienen al menos `minLineas` gastos), de todos los datos. */
+export function medidosDe(movs, hasta = "", minLineas = 3) {
+  const c = {};
+  for (const m of movs || []) if (m && CATEGORIAS[m.categoria] && CATEGORIAS[m.categoria].tipo === "salio" && Number(m.monto) > 0 && esISO(m.fecha) && (!hasta || m.fecha <= hasta))
+    c[m.moneda + "|" + m.fecha.slice(0, 7)] = (c[m.moneda + "|" + m.fecha.slice(0, 7)] || 0) + 1;
+  const out = {};
+  for (const [k, n] of Object.entries(c)) if (n >= minLineas) (out[k.slice(0, 3)] = out[k.slice(0, 3)] || []).push(k.slice(4));
   return out;
 }

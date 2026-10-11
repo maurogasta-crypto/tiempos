@@ -156,6 +156,12 @@ la documentación diga la verdad.
   **Y va al Año como conceptos `base: true`** (nucleo-30): uno por categoría
   y moneda, con lo que no cubren los conceptos propios. Cuentan en el Año y el
   costo de funcionamiento, NO en Fijos ni en los «sin pago» del Trimestre.
+- **Lo estimado contra lo real se mira en Plata → Análisis** (cifras-1,
+  nucleo-31, 11-oct-2026, `tiempos:V14`): `estimadoVsReal` por moneda y
+  categoría, de la familia o de un proyecto. Un concepto del Año puede llevar
+  `temporada` (monto distinto en dic–feb, `montoDelMes`/`anualDe`) y `cuenta`
+  (su proyecto). «Usar lo real» toca SÓLO un concepto base y lo deja
+  `estimado: false`; los propios se corrigen en el Año o en el Trimestre.
 - **Un deseo puede ser SEMANAL (`dias`, 0 = domingo) o de una FECHA**
   (deseos-1, reglas v10), y de ahí sale «⭐ Hoy se puede» en Ahora y en Hoy
   (`posiblesDelDia` de nucleo.js). La lista se edita en Ahora —días, horas,

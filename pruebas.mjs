@@ -22,7 +22,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
          paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas,
-         CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
+         CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
          CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
@@ -1575,6 +1575,43 @@ prueba("el Año dice cuál es una estimación y desde cuándo rige", () => {
   const f = fs.readFileSync("finanzas.js", "utf8");
   assert.match(f, /c\.estimado \? " · ≈ estimado, a corregir"/);
   assert.match(f, /c\.desde \? " · desde "/);
+});
+
+titulo("La temporada y lo estimado contra lo real (nucleo-31, tiempos:V14)");
+prueba("un concepto con temporada vale su monto de temporada en dic–feb y el otro el resto del año", () => {
+  const agua = { nombre: "Agua", categoria: "casa", moneda: "BRL", monto: 150, cada: 1, mes: 10, temporada: { meses: [12, 1, 2], monto: 1750 } };
+  assert.equal(montoDelMes(agua, 1), 1750); assert.equal(montoDelMes(agua, 6), 150);
+  assert.equal(anualDe(agua), 1750 * 3 + 150 * 9);
+  assert.equal(anualDe({ ...agua, temporada: null }), 1800);
+  const t = ajusteTrimestral({ conceptos: { a: agua }, movs: [], trimestre: "2027-T1", hoyMes: "2027-01" });
+  assert.equal(t.conceptos.find((c) => c.id === "a").estimado, 1750 * 2 + 150, "enero y febrero de temporada, marzo no");
+});
+prueba("estimado contra real: por categoría, lo más grande arriba, sin lo personal, y por proyecto", () => {
+  const CU2 = cuentasDe({ cuentas: { sf: { nombre: "Santa Fe", orden: 1 }, hx: { nombre: "Hilux", clase: "vehiculo", orden: 2 } } });
+  const C = { luz: { nombre: "Luz", categoria: "casa", moneda: "UYU", monto: 1000, cada: 1, mes: 1, cuenta: "sf" },
+    pat: { nombre: "Patente", categoria: "vehiculos", moneda: "UYU", monto: 28000, cada: 12, mes: 1, cuenta: "hx", estimado: true },
+    sup: { nombre: "Súper (base)", categoria: "comida", moneda: "UYU", monto: 4000, cada: 1, mes: 10, base: true },
+    yo: { nombre: "Gustos", categoria: "personal", moneda: "UYU", monto: 999, cada: 1, mes: 1 } };
+  const M = [];
+  for (const mes of ["2026-07", "2026-08", "2026-09"]) M.push(
+    { monto: 1200, moneda: "UYU", fecha: mes + "-05", categoria: "casa", cuenta: "sf" },
+    { monto: 5000, moneda: "UYU", fecha: mes + "-06", categoria: "comida" },
+    { monto: 300, moneda: "UYU", fecha: mes + "-07", categoria: "personal" });
+  const e = estimadoVsReal({ conceptos: C, movs: M, cuentas: CU2, hasta: "2026-09-30" }).UYU;
+  assert.deepEqual(e.filas.map((f) => f.categoria), ["comida", "vehiculos", "casa"], "sin personal, lo grande arriba");
+  assert.equal(e.filas[0].estimado, 48000); assert.equal(e.filas[0].real, 60000); assert.equal(e.filas[0].diferencia, 12000);
+  assert.equal(e.porVerificar, 2, "la patente estimada y la base del súper");
+  const sf = estimadoVsReal({ conceptos: C, movs: M, cuentas: CU2, hasta: "2026-09-30", proyecto: "sf" }).UYU;
+  assert.deepEqual(sf.filas.map((f) => [f.categoria, f.estimado, f.real]), [["casa", 12000, 14400]]);
+});
+prueba("Plata tiene Análisis; usar lo real sólo toca un concepto base y lo deja revisado", () => {
+  const x = fs.readFileSync("cifras.js", "utf8");
+  assert.match(fs.readFileSync("plata.js", "utf8"), /analisis: "Análisis"/);
+  assert.match(x, /const puede = !proyecto && f\.real > 0/);
+  assert.match(x, /c\.base && !c\.cuenta/);
+  assert.match(x, /estimado: false/);
+  assert.match(fs.readFileSync("sw.js", "utf8"), /"cifras\.js"/);
+  assert.match(fs.readFileSync("finanzas.js", "utf8"), /temporada: f\.temporada\.value === ""/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

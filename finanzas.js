@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-4
+// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-5
 //
 // app-19 (8-oct-2026, tiempos:V9). Mauro, con la captura de su planilla
 // «Gastos Uruguay»: «la misma idea que en Casa Verde pero para las finanzas
@@ -21,7 +21,7 @@
 
 import { db, F } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, CADAS, PAISES, MESES, validarConcepto, presupuestoAnual,
-         fijosDeMeses, repartoDelMes, sumarMeses, idNuevo, esISO, ajusteTrimestral, posiblesFijos, firmaTrimestre, mesesDelTrimestre , baseAnual, pendientesComoMovs } from "./nucleo.js";
+         fijosDeMeses, repartoDelMes, sumarMeses, idNuevo, esISO, ajusteTrimestral, posiblesFijos, firmaTrimestre, mesesDelTrimestre , baseAnual, pendientesComoMovs , anualDe, cuentasDe } from "./nucleo.js";
 import { pedirAnalisis } from "./sugerir.js";
 import { E, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
 import { salidasDelMes } from "./balance.js";
@@ -116,8 +116,8 @@ export function pintarAnio(v) {
     if (c.categoria !== cat) { cat = c.categoria; h += `<h3>${esc((CATEGORIAS[cat] || {}).nombre || cat)}</h3>`; }
     if (editando === id) { h += formConcepto(id, c); continue; }
     h += `<div class="fila${c.activo === false ? " apagada" : ""}" data-concepto="${esc(id)}"><span class="txt"><b>${esc(c.nombre)}</b>
-      <small class="gris">${Number(c.monto) > 0 ? fmt(c.monto) + " " + esc(c.moneda) : "sin estimar"} · ${esc(CADAS[c.cada] || "")}${c.cada > 1 ? " (desde " + esc(MESES[Number(c.mes) - 1]) + ")" : ""}${c.pais ? " · " + esc(PAISES[c.pais] || c.pais) : ""}${Number(c.total) > 0 ? " · deuda de " + fmt(c.total) : ""}${c.activo === false ? " · pausado" : ""}${c.estimado ? " · ≈ estimado, a corregir" : ""}${c.desde ? " · desde " + esc(c.desde) : ""}</small></span>
-      <span class="num">${fmt(Number(c.monto || 0) * 12 / (c.cada || 1))}<small class="gris">/año</small></span></div>`;
+      <small class="gris">${Number(c.monto) > 0 ? fmt(c.monto) + " " + esc(c.moneda) : "sin estimar"} · ${esc(CADAS[c.cada] || "")}${c.cada > 1 ? " (desde " + esc(MESES[Number(c.mes) - 1]) + ")" : ""}${c.pais ? " · " + esc(PAISES[c.pais] || c.pais) : ""}${Number(c.total) > 0 ? " · deuda de " + fmt(c.total) : ""}${c.activo === false ? " · pausado" : ""}${c.temporada ? " · en temporada (dic–feb) " + fmt(c.temporada.monto) : ""}${c.cuenta && rutaDe(c.cuenta) ? " · 📍 " + esc(rutaDe(c.cuenta)) : ""}${c.estimado ? " · ≈ estimado, a corregir" : ""}${c.desde ? " · desde " + esc(c.desde) : ""}</small></span>
+      <span class="num">${fmt(anualDe(c))}<small class="gris">/año</small></span></div>`;
   }
   v.insertAdjacentHTML("beforeend", h);
   const nuevo = v.querySelector("[data-concepto-nuevo]");
@@ -136,7 +136,9 @@ export function pintarAnio(v) {
       ev.preventDefault();
       const d = { nombre: f.nombre.value.trim().slice(0, 80), categoria: f.categoria.value, monto: f.monto.value === "" ? 0 : Math.round(Number(f.monto.value) * 100) / 100,
         moneda: f.moneda.value, cada: Number(f.cada.value), mes: Number(f.mes.value), pais: f.pais.value,
-        total: f.total.value === "" ? null : Number(f.total.value), activo: !f.pausado.checked };
+        total: f.total.value === "" ? null : Number(f.total.value), activo: !f.pausado.checked,
+        // finanzas-5: el proyecto, la temporada, y que una persona lo revisó (deja de ser «estimado»).
+        cuenta: f.cuenta.value, temporada: f.temporada.value === "" ? null : { meses: [12, 1, 2], monto: Math.round(Number(f.temporada.value) * 100) / 100 }, estimado: false };
       const err = validarConcepto(d);
       if (err.length) return aviso("Falta: " + err.join("; ") + ".", true);
       try {
@@ -146,6 +148,8 @@ export function pintarAnio(v) {
     };
   }
 }
+
+const rutaDe = (id) => (cuentasDe(E.cuentasDoc).find((x) => x.id === id) || {}).ruta || "";
 
 function formConcepto(id, c) {
   return `<form class="tarjeta ficha" id="form-concepto"><h3>${id === "nuevo" ? "Gasto del año" : "Editar"}</h3>
@@ -157,6 +161,8 @@ function formConcepto(id, c) {
       <label>Vence en <select name="mes">${MESES.map((n, i) => `<option value="${i + 1}"${Number(c.mes || Number(E.hoy.slice(5, 7))) === i + 1 ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label></div>
     <div class="dos"><label>País <select name="pais"><option value="">—</option>${Object.entries(PAISES).map(([k, n]) => `<option value="${k}"${c.pais === k ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
       <label>Si es una deuda, el total <input name="total" type="number" step="0.01" min="0" value="${esc(c.total ?? "")}"></label></div>
+    <div class="dos"><label>Proyecto <select name="cuenta"><option value="">— la casa —</option>${cuentasDe(E.cuentasDoc).map((x) => `<option value="${esc(x.id)}"${c.cuenta === x.id ? " selected" : ""}>${esc(x.ruta)}</option>`).join("")}</select></label>
+      <label>En temporada (dic–feb), cada vez <input name="temporada" type="number" step="0.01" min="0" value="${esc(c.temporada ? c.temporada.monto : "")}" placeholder="vacío = igual todo el año"></label></div>
     <label class="check"><input type="checkbox" name="pausado"${c.activo === false ? " checked" : ""}> Pausado (no cuenta para el año)</label>
     <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-cancelar>Cancelar</button>
       ${id !== "nuevo" ? `<button type="button" class="mini" data-borrar>Sacar</button>` : ""}</div></form>`;

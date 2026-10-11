@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-11
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-12
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -46,6 +46,10 @@
 // plata-11 (10-oct-2026, tiempos:V13): la solapa «Proyectos» (proyectos.js),
 // la primera después de Día a día: la economía centralizada, a qué destino va
 // cada gasto y si cada proyecto es rentable.
+//
+// plata-12 (11-oct-2026, tiempos:V14): la solapa «Análisis» (cifras.js): lo
+// estimado en el Año contra lo real, por categoría, de la familia o de un
+// proyecto, para ir depurando el costo anual.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
@@ -57,6 +61,7 @@ import { pedirAnalisis } from "./sugerir.js";
 import { pintarFijos, pintarAnio, pintarReparto, pintarTrimestre } from "./finanzas.js";
 import { pintarExtractos } from "./extractos.js";
 import { pintarProyectos } from "./proyectos.js";
+import { pintarCifras } from "./cifras.js";
 
 let mesVisto = null;              // "2026-09"
 let form = null;                  // null | { id?, tipo, datos, archivo?, leyendo? }
@@ -68,7 +73,7 @@ const sumarMes = (m, n) => { const d = new Date(Number(m.slice(0, 4)), Number(m.
 const categoriasDe = (tipo) => Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === tipo);
 
 let sub = "dia";                  // plata-5: dia | fijos | anio | reparto
-const SUBS = { dia: "Día a día", proyectos: "Proyectos", cuentas: "Cuentas", extractos: "Extractos", fijos: "Fijos", anio: "Año", trimestre: "Trimestre", reparto: "Reparto" };
+const SUBS = { dia: "Día a día", proyectos: "Proyectos", analisis: "Análisis", cuentas: "Cuentas", extractos: "Extractos", fijos: "Fijos", anio: "Año", trimestre: "Trimestre", reparto: "Reparto" };
 
 export function pintarPlata() {
   const v = $("v-plata");
@@ -82,6 +87,7 @@ export function pintarPlata() {
       pintarTrimestre(v, t); engancharSub(v); return;
     }
     if (sub === "proyectos") { v.innerHTML = nav + `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`; pintarProyectos(v, mesVisto); engancharSub(v); return; }
+    if (sub === "analisis") { v.innerHTML = nav; pintarCifras(v); engancharSub(v); return; }
     if (sub === "extractos") { v.innerHTML = nav + `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`; pintarExtractos(v, mesVisto); engancharSub(v); return; }
     if (sub === "cuentas") { v.innerHTML = nav + `<div class="nav-semana"><button class="mini" data-mes="-1">‹</button><b>${esc(nombreMes(mesVisto))}</b><button class="mini" data-mes="1">›</button></div>`; pintarCuentas(v); engancharSub(v); return; }
     if (sub === "fijos") pintarFijos(v, mesVisto);
