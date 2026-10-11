@@ -508,9 +508,9 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-32` |
-| `estado.js` | lo que comparten las vistas | `estado-3` |
-| `app.js` | entrar, los relojes, Tareas (con lo que era Ahora arriba) | `app-28` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-33` |
+| `estado.js` | lo que comparten las vistas | `estado-4` |
+| `app.js` | entrar, los relojes, Tareas (el cuadro para agregar arriba y todo por categoría) | `app-29` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-2` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje, y el interruptor «Claude organiza mi agenda» | `lugares-2` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
@@ -518,17 +518,17 @@ Florencia la acuerden.
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
 | `sugerir.js` | el globo ✏️: pedirle a la IA (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-19` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-13` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-14` |
 | `extractos.js` | Plata → Extractos: las líneas de cada banco, para clasificarlas y registrarlas de a muchas, con cuenta y para quién | `extractos-2` |
 | `proyectos.js` | Plata → Proyectos: la economía centralizada, cada destino con lo que se le dedica y su neto, y el libro propio de Casa Verde | `proyectos-1` |
 | `cifras.js` | Plata → Análisis: lo estimado en el Año contra lo real, por categoría, de la familia o de un proyecto | `cifras-1` |
-| `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-5` |
+| `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-6` |
 | `balance.js` | el balance del tiempo, las salidas, los acuerdos, la auditoría | `balance-4` |
-| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-10` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-11` |
 | `familia.js` | Hoy y Chicos | `familia-4` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
-| `estilos.css` | | `estilos-22` |
-| `sw.js` | el cascarón sin señal | `tiempos-46` |
+| `estilos.css` | | `estilos-23` |
+| `sw.js` | el cascarón sin señal | `tiempos-47` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

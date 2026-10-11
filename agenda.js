@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-10
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-11
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -20,6 +20,14 @@
 //
 // Las actividades con los chicos (`eventos`) y los acuerdos de tiempo
 // (`bloques`) aparecen en la agenda de los DOS, siempre, y no se arrastran.
+//
+// agenda-11 (11-oct-2026, tiempos:A25, Florencia: «la actividad, cuando se
+// tiene que editar, no permite cambiar el horario… esperaría poder editar
+// todo el contenido»). El ✎ abre el editor ENTERO —qué, día, horario, dónde y
+// qué es—, y lo que se va escribiendo vive en `borrador`, no en el formulario:
+// si llega un cambio de la base y la pantalla se redibuja, lo escrito vuelve
+// igual. Antes se perdía, y el toque en Guardar caía sobre un botón que ya no
+// existía. Lo mismo para una actividad nueva.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
@@ -40,6 +48,12 @@ let moviendoAct = null;         // agenda-6: la actividad que se está cambiando
 let vistaAg = "semana";         // "semana" | "mes"
 let mesAg = null;               // [año, mes0]
 let formActividad = false;
+let borrador = {};              // agenda-11: { [id | "nueva"]: { campo: valor } } lo escrito y no guardado
+const valorDe = (id, campo, porDefecto) => (borrador[id] && borrador[id][campo] !== undefined ? borrador[id][campo] : porDefecto);
+function seguirBorrador(f, id) {
+  const anotar = (el) => { if (!el.name) return; borrador[id] = { ...(borrador[id] || {}), [el.name]: el.type === "radio" ? (el.checked ? el.value : (borrador[id] || {})[el.name]) : el.value }; };
+  for (const el of f.querySelectorAll("input, select, textarea")) { el.addEventListener("input", () => anotar(el)); el.addEventListener("change", () => anotar(el)); }
+}
 
 /* ── Las actividades propias de la agenda (agenda-3, 30-sep-2026) ────────────
    «En la agenda, cuando marco una actividad, tengo que tener marcado sí o sí
@@ -69,7 +83,7 @@ async function guardarActividad(f) {
     await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { titulo: titulo.slice(0, 120), dia, desde, hasta, tipo, hf: hf || "", lugar } },
       actualizadoEn: F.serverTimestamp() }, { merge: true });
     if (lugar) recordarLugar(lugar);
-    formActividad = false; aviso("Anotada. Al balance va sólo el horario y la clase, no el título."); repintar();
+    formActividad = false; delete borrador.nueva; aviso("Anotada. Al balance va sólo el horario y la clase, no el título."); repintar();
   } catch (e) { fallo(e); }
 }
 async function borrarActividad(id) {
@@ -90,42 +104,59 @@ export async function sacarActividad(id) {
    mismo id y las horas nuevas, igual que al guardarla.
    agenda-10 (10-oct-2026): la cuenta vive en `reprogramarActividad`, que usa
    también el plan de la IA; devuelve el problema en palabras, o "". */
-export async function reprogramarActividad(id, { dia, hi, hf = "" }) {
+export async function reprogramarActividad(id, { dia, hi, hf = "", titulo, lugar, tipo } = {}) {
   const a = (E.actividades || {})[id]; if (!a) return "esa actividad ya no está en tu agenda";
   if (!esISO(dia) || !hi) return "falta el día o la hora";
   if (!hf && hi < HORA_NOCHE) return `falta hasta qué hora (sin hora de vuelta va sólo lo que empieza desde las ${HORA_NOCHE})`;
+  // agenda-11: también el título, el lugar y qué es. Lo que no viene, queda.
+  const t = titulo === undefined ? a.titulo : String(titulo).trim().slice(0, 120);
+  if (!t) return "falta qué es";
+  const clase = tipo === undefined ? a.tipo : tipo;
+  if (!CLASES_ACTIVIDAD[clase]) return "falta si es trabajo, tarea, personal o con los chicos";
   const desde = `${dia}T${hi}`, hasta = !hf ? `${sumarDias(dia, 1)}T07:00` : `${hf <= hi ? sumarDias(dia, 1) : dia}T${hf}`;
-  const marca = { uid: E.yo.uid, clase: CLASES_ACTIVIDAD[a.tipo].clase, desde, hasta, origen: "agenda", marcadoPor: E.yo.uid };
+  const marca = { uid: E.yo.uid, clase: CLASES_ACTIVIDAD[clase].clase, desde, hasta, origen: "agenda", marcadoPor: E.yo.uid };
   await F.deleteDoc(F.doc(db, "marcas", id)).catch(() => {});
   await F.setDoc(F.doc(db, "marcas", id), { ...marca, creadoEn: F.serverTimestamp() });
-  await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { ...a, dia, desde, hasta, hf: hf || "", claude: F.deleteField() } },
+  const lug = lugar === undefined ? (a.lugar || "") : String(lugar).trim().slice(0, 80);
+  await F.setDoc(F.doc(db, "agendas", E.yo.uid), { actividades: { [id]: { ...a, titulo: t, tipo: clase, lugar: lug, dia, desde, hasta, hf: hf || "", claude: F.deleteField() } },
     actualizadoEn: F.serverTimestamp() }, { merge: true });
+  if (lug && lug !== (a.lugar || "")) recordarLugar(lug);
   return "";
 }
 async function moverActividad(id, f) {
   try {
-    const mal = await reprogramarActividad(id, { dia: f.dia.value, hi: f.hi.value, hf: f.hf.value });
+    const tipo = (f.querySelector('[name="tipo"]:checked') || {}).value;
+    const mal = await reprogramarActividad(id, { dia: f.dia.value, hi: f.hi.value, hf: f.hf.value, titulo: f.titulo.value, lugar: f.lugar.value, tipo });
     if (mal) return aviso(mal[0].toUpperCase() + mal.slice(1) + ".", true);
-    moviendoAct = null; aviso("Cambiada. Revisá sus recordatorios y alarmas en Pizarra → «Te recordás»."); repintar();
+    moviendoAct = null; delete borrador[id]; aviso("Cambiada. Revisá sus recordatorios y alarmas en Pizarra → «Te recordás»."); repintar();
   } catch (e) { fallo(e); }
 }
-const formMover = (id, a) => `<form class="evento-form mover-act" data-mover-form="${esc(id)}">
-  <label>Día <input type="date" name="dia" value="${esc(a.dia || "")}" required></label>
-  <label>Desde <input type="time" name="hi" value="${esc(String(a.desde || "").slice(11, 16))}" required></label>
-  <label>Hasta <input type="time" name="hf" value="${esc(a.hf === "" ? "" : String(a.hasta || "").slice(11, 16))}"></label>
+const formMover = (id, a) => {
+  const v = (campo, x) => valorDe(id, campo, x);
+  const tipo = v("tipo", a.tipo);
+  return `<form class="evento-form mover-act" data-mover-form="${esc(id)}">
+  <label>Qué <input name="titulo" maxlength="120" value="${esc(v("titulo", a.titulo || ""))}" required></label>
+  <label>Día <input type="date" name="dia" value="${esc(v("dia", a.dia || ""))}" required></label>
+  <div class="dos"><label>Desde <input type="time" name="hi" value="${esc(v("hi", String(a.desde || "").slice(11, 16)))}" required></label>
+  <label>Hasta <input type="time" name="hf" value="${esc(v("hf", a.hf === "" ? "" : String(a.hasta || "").slice(11, 16)))}"></label></div>
+  <label>Dónde <input name="lugar" maxlength="80" value="${esc(v("lugar", a.lugar || ""))}" placeholder="Opcional"></label>
+  <fieldset class="clases"><legend>Es…</legend>
+    ${Object.entries(CLASES_ACTIVIDAD).map(([k, c]) => `<label class="check"><input type="radio" name="tipo" value="${k}"${tipo === k ? " checked" : ""}> ${esc(c.nombre)}</label>`).join("")}</fieldset>
   <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-mover-no>Cancelar</button></div></form>`;
+};
 
 const actividadesDelDia = (d) => Object.entries(E.actividades || {}).filter(([, a]) => a && a.dia === d)
   .sort((x, y) => String(x[1].desde).localeCompare(String(y[1].desde)));
 function formActividadHTML() {
+  const v = (campo, x) => valorDe("nueva", campo, x);
   return `<form class="tarjeta ficha" id="form-actividad">
-    <label>Qué <input name="titulo" maxlength="120" required placeholder="Ej.: salida con amigos, gimnasio, reunión"></label>
-    <div class="dos"><label>Día <input type="date" name="dia" required value="${E.hoy}"></label>
-      <label>Desde <input type="time" name="hi" required></label><label>Hasta <input type="time" name="hf"></label></div>
-    <label>Dónde <input name="lugar" maxlength="80" placeholder="Opcional: queda en Mis lugares"></label>
+    <label>Qué <input name="titulo" maxlength="120" required placeholder="Ej.: salida con amigos, gimnasio, reunión" value="${esc(v("titulo", ""))}"></label>
+    <div class="dos"><label>Día <input type="date" name="dia" required value="${esc(v("dia", E.hoy))}"></label>
+      <label>Desde <input type="time" name="hi" required value="${esc(v("hi", ""))}"></label><label>Hasta <input type="time" name="hf" value="${esc(v("hf", ""))}"></label></div>
+    <label>Dónde <input name="lugar" maxlength="80" placeholder="Opcional: queda en Mis lugares" value="${esc(v("lugar", ""))}"></label>
     <p class="gris">Desde las 20 no hace falta la hora de vuelta: es una noche.</p>
     <fieldset class="clases"><legend>Es… <small class="gris">(obligatorio)</small></legend>
-      ${Object.entries(CLASES_ACTIVIDAD).map(([k, c]) => `<label class="check"><input type="radio" name="tipo" value="${k}" required> ${esc(c.nombre)}</label>`).join("")}</fieldset>
+      ${Object.entries(CLASES_ACTIVIDAD).map(([k, c]) => `<label class="check"><input type="radio" name="tipo" value="${k}" required${v("tipo", "") === k ? " checked" : ""}> ${esc(c.nombre)}</label>`).join("")}</fieldset>
     <p class="gris">El título queda en tu agenda, que ves sólo vos. Al balance va sólo el horario y qué es.</p>
     <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-cerrar-act>Cancelar</button></div></form>`;
 }
@@ -285,7 +316,7 @@ export function pintarAgenda() {
     // ven los dos, y no se arrastran.
     h += bloquesDelDia(d).map((b) => `<div class="evento bloque-dia">⏱ <b>${esc(nombreDe(b.uid))}</b> ${esc(b.titulo || ({ productivo: "trabaja", chicos: "con los chicos", libre: "tiempo personal" })[b.clase] || "")}</div>`).join("");
     h += actividadesDelDia(d).map(([id, a]) => `<div class="evento actividad" style="--c:${COLOR_ACT[a.tipo] || "#888"}">🗓 <b>${esc(String(a.desde).slice(11))}${a.hf === "" ? "" : "–" + esc(String(a.hasta).slice(11))}</b> ${esc(a.titulo)}
-      <small class="gris">· ${esc((CLASES_ACTIVIDAD[a.tipo] || {}).nombre || a.tipo)}</small>${a.claude && a.claude.porque ? ` <small class="gris" title="${esc(a.claude.en || "")}">✨ ${esc(String(a.claude.porque).slice(0, 120))}</small>` : ""} <button class="mini nota" data-mover-act="${esc(id)}" title="Cambiar día u hora">✎</button> <button class="mini nota" data-borrar-act="${esc(id)}" title="Sacar">✕</button></div>${moviendoAct === id ? formMover(id, a) : ""}`).join("");
+      <small class="gris">· ${esc((CLASES_ACTIVIDAD[a.tipo] || {}).nombre || a.tipo)}</small>${a.claude && a.claude.porque ? ` <small class="gris" title="${esc(a.claude.en || "")}">✨ ${esc(String(a.claude.porque).slice(0, 120))}</small>` : ""} <button class="mini nota" data-mover-act="${esc(id)}" title="Editar: qué, día, horario, dónde y qué es">✎ Editar</button> <button class="mini nota" data-borrar-act="${esc(id)}" title="Sacar">✕</button></div>${moviendoAct === id ? formMover(id, a) : ""}`).join("");
     h += evs.map((e) => `<div class="evento">👦 <b>${esc(e.hora || "")}</b> ${esc(e.titulo)}${(e.ninos || []).length ? ` <small>${e.ninos.map((id) => esc((ninoPorId(id) || {}).nombre || "")).join(", ")}</small>` : ""}${(e.quienes || []).length ? ` <small class="gris">· ${e.quienes.map((u) => esc(nombreDe(u))).join(" y ")}</small>` : ""}</div>`).join("");
     for (const f of FRANJAS) {
       const items = ub[d][f];
@@ -307,13 +338,13 @@ export function pintarAgenda() {
   };
   for (const b of v.querySelectorAll("[data-va]")) b.onclick = () => { vistaAg = b.dataset.va; if (vistaAg === "mes") { const d = new Date(lunes + "T12:00"); mesAg = [d.getFullYear(), d.getMonth()]; } repintar(); };
   for (const b of v.querySelectorAll("[data-nueva-act]")) b.onclick = () => { formActividad = true; repintar(); };
-  for (const b of v.querySelectorAll("[data-cerrar-act]")) b.onclick = () => { formActividad = false; repintar(); };
+  for (const b of v.querySelectorAll("[data-cerrar-act]")) b.onclick = () => { formActividad = false; delete borrador.nueva; repintar(); };
   for (const b of v.querySelectorAll("[data-borrar-act]")) b.onclick = () => borrarActividad(b.dataset.borrarAct);
   for (const b of v.querySelectorAll("[data-mover-act]")) b.onclick = () => { moviendoAct = moviendoAct === b.dataset.moverAct ? null : b.dataset.moverAct; repintar(); };
-  for (const b of v.querySelectorAll("[data-mover-no]")) b.onclick = () => { moviendoAct = null; repintar(); };
-  for (const f of v.querySelectorAll("[data-mover-form]")) f.onsubmit = (ev) => { ev.preventDefault(); moverActividad(f.dataset.moverForm, f); };
+  for (const b of v.querySelectorAll("[data-mover-no]")) b.onclick = () => { delete borrador[moviendoAct]; moviendoAct = null; repintar(); };
+  for (const f of v.querySelectorAll("[data-mover-form]")) { seguirBorrador(f, f.dataset.moverForm); f.onsubmit = (ev) => { ev.preventDefault(); moverActividad(f.dataset.moverForm, f); }; }
   const fa = v.querySelector("#form-actividad");
-  if (fa) fa.onsubmit = (ev) => { ev.preventDefault(); guardarActividad(fa); };
+  if (fa) { seguirBorrador(fa, "nueva"); fa.onsubmit = (ev) => { ev.preventDefault(); guardarActividad(fa); }; }
   for (const b of v.querySelectorAll("[data-agregar-dia]")) b.onclick = () => { hoja = { dia: b.dataset.agregarDia, texto: "", cat: "personal", dudas: null }; pintarHoja(); };
   if (hoja) pintarHoja();
   for (const b of v.querySelectorAll("[data-editar]")) b.onclick = () => { editando = editando === b.dataset.editar ? null : b.dataset.editar; repintar(); };

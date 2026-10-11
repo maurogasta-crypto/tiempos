@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-13
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-14
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -66,7 +66,7 @@ import { pintarFijos, pintarAnio, pintarReparto, pintarTrimestre } from "./finan
 import { pintarExtractos } from "./extractos.js";
 import { pintarProyectos } from "./proyectos.js";
 import { pintarCifras } from "./cifras.js";
-import { cuentaSugerida, pendientesComoMovs } from "./nucleo.js";
+import { cuentaSugerida, pendientesComoMovs, escudarNombres } from "./nucleo.js";
 
 let mesVisto = null;              // "2026-09"
 let form = null;                  // null | { id?, tipo, datos, archivo?, leyendo? }
@@ -273,10 +273,28 @@ const leerCampos = (f) => ({
 const MODELO_BOLETA = "gemini-2.5-flash-lite";
 const TOKENS_BOLETA = 2000;
 
-async function leerBoleta(file) {
+/* plata-14 (11-oct-2026, Florencia: «poder editar cada pago a partir de un
+   gasto por foto o por un texto, como las facturas de Casa Verde»): la misma
+   lectura sirve con una foto, con un texto escrito, o con los dos. La usa
+   también Fijos (finanzas.js) para pagar una casilla. */
+export async function leerGasto({ file = null, texto = "" } = {}) {
+  const CV2 = CV && CV.CV2;
+  if (!CV2) throw new Error("hace falta la sesión de Casa Verde para la IA");
+  const contenido = [];
+  if (file) {
+    const blob = await CV2.comprimirImagen(file);
+    const data = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = mal; r.readAsDataURL(blob); });
+    contenido.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } });
+  }
+  // Lo escrito pasa por el escudo de los nombres de los chicos, como el dictado:
+  // a la IA no le van (regla de Tiempos), y en lo que vuelve no hace falta.
+  const escrito = escudarNombres(String(texto || "").trim().slice(0, 600), (E.familia && E.familia.ninos) || []);
+  return leerBoletaCon(contenido, escrito);
+}
+async function leerBoleta(file) { return leerGasto({ file }); }
+
+async function leerBoletaCon(contenido, escrito) {
   const CV2 = CV.CV2;
-  const blob = await CV2.comprimirImagen(file);
-  const data = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = mal; r.readAsDataURL(blob); });
   const cats = Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === "salio").map(([k, c]) => `${k} (${c.nombre})`).join(", ");
   const cuentas = cuentasDe(E.cuentasDoc);
   const lista = cuentas.map((c) => `${c.id} (${c.ruta}${c.pais ? ", " + c.pais : ""})`).join(", ");
@@ -286,8 +304,8 @@ async function leerBoleta(file) {
     // piensa antes de contestar, el pensamiento se come el límite y el JSON
     // llega cortado — pasó igual en el inventario de remate.
     body: JSON.stringify({ model: MODELO_BOLETA, max_tokens: TOKENS_BOLETA, messages: [{ role: "user", content: [
-      { type: "image", source: { type: "base64", media_type: "image/jpeg", data } },
-      { type: "text", text: `Es una boleta o comprobante de un gasto de una familia en Brasil o Uruguay. Devolvé SOLO un JSON, sin texto alrededor:
+      ...contenido,
+      { type: "text", text: `${contenido.length ? "Es una boleta o comprobante" : "Es lo que alguien escribió sobre un pago"} de un gasto de una familia en Brasil o Uruguay.${escrito ? ` Lo que escribió: «${escrito}».` : ""} Hoy es ${E.hoy}. Devolvé SOLO un JSON, sin texto alrededor:
 {"monto": número total pagado, "moneda": "BRL" | "UYU" | "USD", "fecha": "AAAA-MM-DD", "comercio": nombre del comercio, "categoria": una de [${cats}], "detalle": qué se compró, en pocas palabras, "cuenta": a qué lugar o vehículo va, una de [${lista}], o "" si la boleta no lo deja claro}.
 Si un dato no se lee con seguridad, dejalo vacío (""). No inventes.` }] }] }),
   });

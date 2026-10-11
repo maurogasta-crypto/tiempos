@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex">
 <title>Tiempos</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilos.css?v=22">
+<link rel="stylesheet" href="estilos.css?v=23">
 </head>
 <body>
 <header id="barra"><span class="marca">Tiempos</span><span id="quien" class="gris"></span></header>
@@ -56,14 +56,13 @@
     </form>
 
     <div id="v-pizarra"></div>
-    <div id="v-ahora" hidden></div>
-    <div id="v-hoy" hidden></div>
-    <div id="v-agenda" hidden></div>
-
-    <div id="v-tareas" hidden>
+    <!-- app-29 (tiempos:A27, Florencia): en Tareas lo primero es el cuadro para
+         agregar —a la semana o a un día de la agenda—, y abajo todo por
+         categoría. Por eso el cuadro vive acá, arriba de lo demás. -->
+    <div id="t-arriba" hidden>
       <nav class="solapas chicas">
-        <button data-vt="pizarra" aria-selected="true">Pizarra de la semana</button>
-        <button data-vt="todas" aria-selected="false">Todas</button>
+        <button data-vt="todas" aria-selected="true">Por categoría</button>
+        <button data-vt="pizarra" aria-selected="false">Pizarra de la semana</button>
         <button data-vt="compras" aria-selected="false">Compras</button>
       </nav>
       <form id="form-tarea" class="tarjeta ficha">
@@ -76,11 +75,18 @@
           <option value="casa">Casa y comida</option>
           <option value="personal">Personal</option>
         </select></label>
-        <label class="check"><input type="checkbox" id="nueva-meta" checked> Meta de esta semana (va a la pizarra)</label>
+        <label class="check"><input type="checkbox" id="nueva-meta"> Meta de esta semana (va a la pizarra)</label>
+        <label>A mi agenda el día <input type="date" id="nueva-dia"> <small class="gris">opcional</small></label>
         <label class="check"><input type="checkbox" id="nueva-mia"> Me ocupo yo</label>
         <label class="check"><input type="checkbox" id="nueva-personal"> Sólo la veo yo</label>
         <button class="boton">Agregar</button>
       </form>
+    </div>
+    <div id="v-ahora" hidden></div>
+    <div id="v-hoy" hidden></div>
+    <div id="v-agenda" hidden></div>
+
+    <div id="v-tareas" hidden>
       <div id="v-tareas-lista"></div>
     </div>
 
@@ -94,10 +100,10 @@
          dos lugares. Ver protocolos/PROTOCOLO-AVISOS.md de datos. -->
     <p class="pie"><a class="link" href="https://casaverdecanas.com.br/interno/avisos.html" target="_blank" rel="noopener">Avisos de Claude por WhatsApp</a>
       · <a class="link" href="https://maurogasta-crypto.github.io/datos/pizarra.html" target="_blank" rel="noopener">📲 La app de los avisos (Pizarra)</a></p>
-    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-26</span></p>
+    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-29</span></p>
   </section>
 </main>
-<script type="module" src="app.js?v=28"></script>
+<script type="module" src="app.js?v=29"></script>
 <script>
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

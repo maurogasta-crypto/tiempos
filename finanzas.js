@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-5
+// finanzas.js — Fijos, el año y el reparto, adentro de Plata. Sello: finanzas-6
 //
 // app-19 (8-oct-2026, tiempos:V9). Mauro, con la captura de su planilla
 // «Gastos Uruguay»: «la misma idea que en Casa Verde pero para las finanzas
@@ -17,17 +17,29 @@
 // `repartoDelMes`) y tienen su banco. Todo es por moneda: BRL, UYU y USD no se
 // suman nunca. El presupuesto y los repartos van en `familia/` como MAPAS
 // —como las compras—, así dos teléfonos no se pisan y no hizo falta otra regla.
+//
+// finanzas-6 (11-oct-2026, tiempos:A28, Florencia desde el globo 💡): Fijos
+// muestra arriba el total por mes y por año (por moneda: `totalesFijos`), cada
+// fila dice si es mensual o se prorratea (`comoVence`), y una casilla se paga
+// con una FOTO o un TEXTO que lee la misma IA de las boletas (`leerGasto` de
+// plata.js). Lo escribe la persona, con su sesión; si lo pagado difiere de lo
+// estimado, ofrece dejarlo como el valor del Año.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { db, F } from "./firebase-init.js";
+import { db, F, CV } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, CADAS, PAISES, MESES, validarConcepto, presupuestoAnual,
-         fijosDeMeses, repartoDelMes, sumarMeses, idNuevo, esISO, ajusteTrimestral, posiblesFijos, firmaTrimestre, mesesDelTrimestre , baseAnual, pendientesComoMovs , anualDe, cuentasDe } from "./nucleo.js";
+         fijosDeMeses, repartoDelMes, sumarMeses, idNuevo, esISO, ajusteTrimestral, posiblesFijos, firmaTrimestre, mesesDelTrimestre , baseAnual, pendientesComoMovs , anualDe, cuentasDe,
+         totalesFijos, comoVence, montoDelMes } from "./nucleo.js";
+import { leerGasto } from "./plata.js";
 import { pedirAnalisis } from "./sugerir.js";
 import { E, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
 import { salidasDelMes } from "./balance.js";
 
 let editando = null;           // null | "nuevo" | id del concepto
 let pagando = null;            // "id|mes" de la casilla que se está pagando
+// finanzas-6: lo que se lleva escrito y leído del pago, para que un repintado
+// (un cambio que llega de la base) no borre lo que se estaba cargando.
+let pago = null;               // { clave, archivo, texto, monto, fecha, uid, leyendo, leido, nota }
 
 const fmt = (n) => (Math.round(n * 100) / 100).toLocaleString("es", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 const mesCorto = (m) => MESES[Number(m.slice(5)) - 1].slice(0, 3);
@@ -41,14 +53,19 @@ export function pintarFijos(v, mesVisto) {
   const meses = [sumarMeses(mesVisto, -1), mesVisto, sumarMeses(mesVisto, 1)];
   const filas = fijosDeMeses(E.conceptos, E.movs, meses);
   const actual = E.hoy.slice(0, 7);
-  let h = `<p class="gris">Lo que vence todos los meses (o cada tantos). Tocá una casilla para registrar el pago: queda como gasto, con su categoría. Los conceptos se agregan en «Año».</p>`;
+  const tot = totalesFijos(E.conceptos);
+  let h = Object.keys(tot).length ? `<div class="tarjeta rep"><h3>Total de los fijos</h3>${Object.entries(tot).map(([mon, t]) => `<div class="barra-fila"><span>${esc(mon)}</span>
+      <b class="num">${fmt(t.porMes)}</b><small class="gris">por mes · <b>${fmt(t.anual)}</b> por año · ${t.n} gasto${t.n === 1 ? "" : "s"}${t.sinEstimar ? ` (${t.sinEstimar} sin estimar)` : ""}</small></div>`).join("")}
+    <p class="gris chica">Por mes es el año ÷ 12: lo que hay que apartar todos los meses, aunque algunos se paguen de a una vez. Cada moneda va aparte.</p></div>` : "";
+  h += `<p class="gris">Lo que vence todos los meses (o cada tantos). Tocá una casilla para registrar el pago —también con la foto de la boleta o escribiéndolo—: queda como gasto, con su categoría. Los conceptos se agregan en «Año».</p>`;
   if (!filas.length) h += `<p class="gris">Todavía no hay gastos fijos. Agregalos en «Año».</p>`;
   else {
     h += `<div class="planilla"><div class="pl-fila pl-cab"><span>Gasto</span>${meses.map((m) => `<span${m === actual ? ' class="hoy"' : ""}>${esc(mesCorto(m))}</span>`).join("")}</div>`;
     let pais = null;
     for (const f of filas) {
       if ((f.pais || "") !== pais) { pais = f.pais || ""; h += `<div class="pl-grupo">${esc(PAISES[pais] || "Sin país")}</div>`; }
-      h += `<div class="pl-fila"><span class="pl-nombre">${esc(f.nombre)}<small class="gris">${f.monto > 0 ? fmt(f.monto) + " " + esc(f.moneda) : "sin estimar"}${f.deuda ? ` · quedan ${fmt(f.deuda.queda)}` : ""}</small></span>
+      const cv = comoVence(f);
+      h += `<div class="pl-fila"><span class="pl-nombre">${esc(f.nombre)}<small class="gris">${f.monto > 0 ? fmt(f.monto) + " " + esc(f.moneda) : "sin estimar"} · ${esc(cv.texto)}${!cv.mensual && cv.porMes > 0 ? ` = ${fmt(cv.porMes)} por mes` : ""}${f.deuda ? ` · quedan ${fmt(f.deuda.queda)}` : ""}</small></span>
         ${f.celdas.map((c) => {
           const k = f.id + "|" + c.mes;
           if (c.pagado > 0) return `<button class="pl-celda pagada" data-pagar="${esc(k)}" title="Pagado">✓ ${fmt(c.pagado)}</button>`;
@@ -60,34 +77,91 @@ export function pintarFijos(v, mesVisto) {
     h += `</div>`;
   }
   v.insertAdjacentHTML("beforeend", h);
-  for (const b of v.querySelectorAll("[data-pagar]")) b.onclick = () => { pagando = pagando === b.dataset.pagar ? null : b.dataset.pagar; repintar(); };
+  for (const b of v.querySelectorAll("[data-pagar]")) b.onclick = () => { pagando = pagando === b.dataset.pagar ? null : b.dataset.pagar; pago = null; repintar(); };
   const fp = v.querySelector("#form-fijo");
-  if (fp) {
-    fp.querySelector("[data-cancelar]").onclick = () => { pagando = null; repintar(); };
-    fp.onsubmit = async (ev) => {
-      ev.preventDefault();
-      const [id] = pagando.split("|"), c = E.conceptos[id];
-      const monto = Math.round(Number(fp.monto.value) * 100) / 100;
-      if (!(monto > 0)) return aviso("Poné cuánto se pagó.", true);
-      if (!esISO(fp.fecha.value)) return aviso("Falta la fecha.", true);
-      try {
-        await F.addDoc(F.collection(db, "movimientos"), { monto, moneda: c.moneda, fecha: fp.fecha.value, categoria: c.categoria,
-          comercio: c.nombre, detalle: "gasto fijo", uid: fp.uid.value, fijo: id, automatico: null, comprobanteUrl: null,
-          origen: "fijo", creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
-        pagando = null; aviso("Pago registrado.");
-      } catch (e) { fallo(e); }
-    };
-  }
+  if (fp) engancharPago(fp);
+}
+
+/* El formulario de pago de una casilla (finanzas-6). Lo escrito vive en `pago`
+   y no en el formulario: un repintado lo vuelve a dibujar igual. */
+function engancharPago(fp) {
+  const [id, mes] = pagando.split("|"), c = E.conceptos[id];
+  const guardarBorrador = () => { pago = { ...pago, monto: fp.monto.value, fecha: fp.fecha.value, uid: fp.uid.value, texto: fp.texto.value }; };
+  for (const el of fp.querySelectorAll("input, select, textarea")) if (el.type !== "file") el.addEventListener("input", guardarBorrador);
+  fp.querySelector("[data-cancelar]").onclick = () => { pagando = null; pago = null; repintar(); };
+  const leer = async (archivo) => {
+    guardarBorrador();
+    if (archivo) pago.archivo = archivo;
+    if (!pago.archivo && !String(pago.texto || "").trim()) return aviso("Sacá una foto de la boleta o escribí el pago, y tocá «Leer».", true);
+    pago.leyendo = true; pago.nota = ""; repintar();
+    try {
+      const s = await leerGasto({ file: pago.archivo || null, texto: pago.texto || "" });
+      if (!s) pago.nota = "La IA no lo pudo leer: completalo a mano.";
+      else {
+        if (s.moneda && s.moneda !== c.moneda) pago.nota = `Ojo: la boleta dice ${s.moneda} y este gasto es en ${c.moneda}. Revisá el monto.`;
+        if (Number(s.monto) > 0) pago.monto = String(s.monto);
+        if (esISO(s.fecha)) pago.fecha = s.fecha;
+        pago.leido = true;
+      }
+    } catch (e) { pago.nota = "No se pudo leer con IA (" + e.message + "): completalo a mano."; }
+    pago.leyendo = false; repintar();
+  };
+  for (const inp of fp.querySelectorAll("[data-foto-fijo]")) inp.onchange = () => { const f = inp.files && inp.files[0]; if (f) leer(f); };
+  fp.querySelector("[data-leer-fijo]").onclick = () => leer(null);
+  fp.onsubmit = async (ev) => {
+    ev.preventDefault();
+    guardarBorrador();
+    const monto = Math.round(Number(fp.monto.value) * 100) / 100;
+    if (!(monto > 0)) return aviso("Poné cuánto se pagó.", true);
+    if (!esISO(fp.fecha.value)) return aviso("Falta la fecha.", true);
+    // La foto se sube al GUARDAR, nunca al elegirla (regla de las boletas).
+    let comprobanteUrl = null;
+    if (pago && pago.archivo) {
+      aviso("Subiendo la boleta…");
+      try { comprobanteUrl = await CV.CV2.subirImagen(pago.archivo, "tiempos"); }
+      catch (e) { return aviso("No se pudo subir la boleta: " + e.message + ". No se guardó nada.", true); }
+    }
+    try {
+      await F.addDoc(F.collection(db, "movimientos"), { monto, moneda: c.moneda, fecha: fp.fecha.value, categoria: c.categoria,
+        comercio: c.nombre, detalle: "gasto fijo", uid: fp.uid.value, fijo: id, automatico: null, comprobanteUrl,
+        origen: comprobanteUrl ? "foto" : "fijo", creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
+      // «Ese gasto tiene que quedar registrado como valor actualizado en la
+      // planilla»: si lo pagado no es lo estimado, se ofrece dejarlo en el Año.
+      // En temporada (dic–feb) lo que se actualiza es el monto de temporada.
+      const nro = Number(mes.slice(5, 7)), estimado = montoDelMes(c, nro);
+      const enTemp = c.temporada && (c.temporada.meses || [12, 1, 2]).map(Number).includes(nro);
+      pagando = null; pago = null;
+      if (Math.abs(monto - estimado) >= 0.01 && confirm(`Pago registrado. ¿Dejar ${fmt(monto)} ${c.moneda} como el valor de «${c.nombre}» en el Año${enTemp ? " (en temporada)" : ""}? Hoy dice ${estimado > 0 ? fmt(estimado) : "sin estimar"}.`)) {
+        await guardarConcepto(id, { ...(enTemp ? { temporada: { ...c.temporada, monto } } : { monto }), estimado: false, editadoPor: E.yo.uid });
+        aviso("Pago registrado y el Año, al día.");
+      } else aviso("Pago registrado.");
+      repintar();
+    } catch (e) { fallo(e); }
+  };
 }
 
 function formPago(f, mes) {
   const celda = f.celdas.find((c) => c.mes === mes) || {};
-  const fecha = mes === E.hoy.slice(0, 7) ? E.hoy : mes + "-01";
+  const p = pago || {};
+  const fecha = p.fecha || (mes === E.hoy.slice(0, 7) ? E.hoy : mes + "-01");
+  const estimado = montoDelMes(f, Number(mes.slice(5, 7)));
+  const monto = p.monto !== undefined ? p.monto : (estimado > 0 ? estimado : "");
+  const uid = p.uid || E.yo.uid;
+  const hayIA = !!(CV && CV.CV2);
   return `<form class="tarjeta ficha" id="form-fijo"><b>${esc(f.nombre)} · ${esc(nombreMes(mes))}</b>
     ${celda.pagado > 0 ? `<p class="gris">Ya se registraron ${fmt(celda.pagado)} ${esc(f.moneda)} este mes. Para corregir, tocá el movimiento en «Día a día».</p>` : ""}
-    <div class="dos"><label>Monto (${esc(f.moneda)}) <input name="monto" type="number" step="0.01" min="0" value="${f.monto > 0 ? esc(f.monto) : ""}" required></label>
+    ${hayIA ? `<div class="boleta">
+      <label class="mini boton-archivo">📷 Sacar foto<input type="file" accept="image/*" capture="environment" data-foto-fijo hidden></label>
+      <label class="mini boton-archivo">🖼 Elegir archivo<input type="file" accept="image/*" data-foto-fijo hidden></label>
+      ${p.archivo ? `<small>${esc(p.archivo.name)}</small>` : ""}</div>
+    <label>O escribilo <textarea name="texto" rows="2" maxlength="600" placeholder="Ej.: pagué 3.450 de luz el 5 de octubre">${esc(p.texto || "")}</textarea></label>
+    <div class="botones"><button type="button" class="mini" data-leer-fijo${p.leyendo ? " disabled" : ""}>${p.leyendo ? "Leyendo con IA…" : "✨ Leer con IA"}</button>
+      ${p.leido ? `<small class="gris">Leído: revisá el monto y la fecha.</small>` : ""}</div>
+    ${p.nota ? `<p class="aviso">${esc(p.nota)}</p>` : ""}`
+    : `<textarea name="texto" hidden></textarea><small class="gris">Para leer una boleta con IA hace falta la sesión de Casa Verde.</small>`}
+    <div class="dos"><label>Monto (${esc(f.moneda)}) <input name="monto" type="number" step="0.01" min="0" value="${esc(monto)}" required></label>
     <label>Fecha <input name="fecha" type="date" value="${esc(fecha)}" required></label></div>
-    <label>Pagó <select name="uid">${personas().map((p) => `<option value="${esc(p.id)}"${p.id === E.yo.uid ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label>
+    <label>Pagó <select name="uid">${personas().map((x) => `<option value="${esc(x.id)}"${x.id === uid ? " selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></label>
     <div class="botones"><button class="boton">Registrar el pago</button><button type="button" class="mini" data-cancelar>Cancelar</button></div></form>`;
 }
 

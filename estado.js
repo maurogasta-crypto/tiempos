@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-3
+// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-4 (app-29: Tareas abre «Por categoría»)
 //
 // Un solo objeto con lo que se sabe (`E`), el aviso de arriba y el gancho para
 // volver a dibujar. Las vistas (`app.js`, `agenda.js`, `familia.js`) leen de
@@ -17,7 +17,7 @@ export const E = {
   cv: null, cvNombre: "", cvActs: [], enCursoCV: null, cvAgenda: {}, cvNombres: {},
   // Pantalla
   solapa: "pizarra", abierta: null, reloj: null,
-  hoy: isoDe(), diaVisto: isoDe(), vistaTareas: "pizarra",
+  hoy: isoDe(), diaVisto: isoDe(), vistaTareas: "todas",
 };
 
 export const $ = (id) => document.getElementById(id);

@@ -1,8 +1,19 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-28
+// Sello: app-29
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
+// app-29 (11-oct-2026, sugerencias de Florencia desde el globo 💡):
+//   · tiempos:A26 — «No hay ninguna tarea corriendo» ya no ocupa todas las
+//     pestañas: el reloj aparece sólo cuando algo corre. Y «Estoy con…» vive
+//     en Chicos; en las otras pestañas se ve sólo mientras su reloj corre.
+//   · tiempos:A25 — al pasar de un campo al botón Guardar del MISMO formulario
+//     la pantalla espera: antes se redibujaba en el medio del toque y el
+//     Guardar caía sobre un botón que ya no existía.
+//   · tiempos:A27 — Tareas: arriba el cuadro para agregar (a la semana o a un
+//     día de la agenda), y abajo todo por categoría —Casa Verde adentro de
+//     Producción— en árboles que se pliegan; la ficha edita también el título
+//     y agenda en un día sin salir de la tarea.
 // app-28 (11-oct-2026): el ojo 👁 en las dos contraseñas (la de Tiempos y la de
 // Casa Verde), para verlas mientras se tipean. Mismo código que en los otros sitios.
 // app-27 (10-oct-2026, tiempos:V12): escucha `extractos` (Plata → Extractos).
@@ -45,12 +56,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
-import { TIPOS, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
+import { TIPOS, TIPO_CASA_VERDE, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
          alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
          separarEnCurso, chicosDelDia, eventosDelDia,
          COLORES_TAREA, colorHeredado, estaCorriendo } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
-import { pintarAgenda, alternarEnAgenda, estaEnAgenda } from "./agenda.js";
+import { pintarAgenda, alternarEnAgenda, estaEnAgenda, guardarEnAgenda, agendaUnida } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
@@ -408,17 +419,35 @@ function pintarReloj() {
    (el otro tildó algo) borraría lo que se está tecleando. Se redibuja al
    soltar el campo. */
 let esperandoFoco = false;
+const ZONAS_EDICION = ".ficha, .dia-notas, .evento-form, .pas-ed, .chicos-ed";
+/* app-29 (tiempos:A25): si el foco pasa a otro elemento del MISMO formulario
+   —el botón Guardar, otro campo— no se redibuja todavía: se espera a que salga
+   del formulario. Redibujar en el medio del toque hacía que el Guardar cayera
+   sobre un botón que ya no existía, y se perdía lo escrito. */
+function esperarSalida(el) {
+  el.addEventListener("blur", (ev) => {
+    const sig = ev.relatedTarget, zona = el.closest(ZONAS_EDICION);
+    if (sig && zona && zona.contains(sig)) return esperarSalida(sig);
+    // Sin a dónde ir (un toque que no enfoca, como en el iPhone), un respiro
+    // para que el clic llegue antes de redibujar.
+    setTimeout(() => { esperandoFoco = false; pintar(); }, sig ? 0 : 350);
+  }, { once: true });
+}
 function pintar() {
   if ($("app").hidden) return;
   const foco = document.activeElement;
-  if (foco && foco.closest && foco.closest(".ficha, .dia-notas, .evento-form, .pas-ed, .chicos-ed") && foco.matches("textarea, input:not([type=checkbox]):not([type=radio])")) {
-    if (!esperandoFoco) { esperandoFoco = true; foco.addEventListener("blur", () => { esperandoFoco = false; setTimeout(pintar, 0); }, { once: true }); }
+  if (foco && foco.closest && foco.closest(ZONAS_EDICION) && foco.matches("textarea, input:not([type=checkbox]):not([type=radio])")) {
+    if (!esperandoFoco) { esperandoFoco = true; esperarSalida(foco); }
     return;
   }
+  esperandoFoco = false;
   for (const s of SOLAPAS) $("v-" + s).hidden = s !== E.solapa;
   $("v-ahora").hidden = E.solapa !== "tareas";   // app-16: el reloj y lo tomado van arriba de Tareas
-  // En Pizarra el reloj sólo se ve si hay algo corriendo: la pantalla es para anotar.
-  $("crono").hidden = E.solapa === "pizarra" && !(E.enCursoCV || E.enCursoFam);
+  $("t-arriba").hidden = E.solapa !== "tareas";  // app-29: el cuadro para agregar, lo primero de Tareas
+  // app-29 (tiempos:A26, Florencia): el reloj se ve sólo si algo corre, en
+  // todas las pestañas; «Estoy con…» vive en Chicos, y afuera sólo si corre.
+  $("crono").hidden = !(E.enCursoCV || E.enCursoFam);
+  $("cuidado").hidden = E.solapa !== "chicos" && !E.cuidado;
   pintarCrono();
   pintarCuidado();
   if (E.solapa === "pizarra") pintarPizarra(irA);
@@ -533,6 +562,28 @@ function filaTarea(t, nivel, porId, hijos, cuantos = 0) {
   return f;
 }
 
+/* app-29 (tiempos:A27, Florencia: «incluirla en la agenda semanal funciona
+   desde la semana pero no desde la tarea»): la tarea se agenda en un DÍA sin
+   salir de su ficha. Antes el botón la ponía flotando en hoy y saltaba a la
+   agenda, donde había que arrastrarla. */
+function filaAgendar(clave) {
+  const m = agendaUnida()[clave];
+  const en = !!m;
+  return `<div class="agendar"><label>📅 A mi agenda el <input type="date" data-agendar-dia value="${esc(m && m.dia ? m.dia : "")}"></label>
+    <button type="button" class="mini ok" data-agendar="${esc(clave)}">${en ? "Cambiar el día" : "Agendar"}</button>
+    ${en ? `<button type="button" class="mini" data-desagendar="${esc(clave)}">Sacar de mi agenda</button>
+      <small class="gris">${m.dia ? "Está en tu agenda el " + esc(fecha(m.dia)) : "Está en tu agenda, sin día: flota en hoy"}.</small>` : ""}</div>`;
+}
+function engancharAgendar(d) {
+  const b = d.querySelector("[data-agendar]");
+  if (b) b.onclick = () => {
+    const dia = d.querySelector("[data-agendar-dia]").value || null;
+    guardarEnAgenda(b.dataset.agendar, { dia }).then(() => aviso(dia ? `Agendada el ${fecha(dia)}.` : "Está en tu agenda: flota en hoy hasta que le des un día.")).catch(fallo);
+  };
+  const s = d.querySelector("[data-desagendar]");
+  if (s) s.onclick = () => guardarEnAgenda(s.dataset.desagendar, null).then(() => aviso("Salió de tu agenda.")).catch(fallo);
+}
+
 function fichaTarea(t, hijos) {
   const d = document.createElement("div");
   d.className = "ficha";
@@ -549,11 +600,12 @@ function fichaTarea(t, hijos) {
       <button class="mini${mia ? " on" : ""}" data-a="yo">${mia ? "✓ Me ocupo yo" : "Me ocupo yo"}</button>
       ${comun && o ? `<button class="mini" data-a="pedir">Pedírsela a ${esc(o.nombre || "el otro")}</button>` : ""}
       ${comun ? `<button class="mini${t.meta ? " on" : ""}" data-a="meta">${t.meta ? "★ Meta de la semana" : "☆ Meta de la semana"}</button>` : ""}
-      <button class="mini${estaEnAgenda("f:" + t.id) ? " on" : ""}" data-a="agenda">${estaEnAgenda("f:" + t.id) ? "📅 En mi agenda" : "📅 A mi agenda y ubicarla"}</button>
       <button class="mini" data-a="adentro">＋ Tarea adentro</button>
       <button class="mini" data-a="hecha">✔ Hecha</button>`}
       ${t.duenio === E.yo.uid ? `<button class="mini" data-a="borrar">Borrar</button>` : ""}
     </div>
+    ${!t.hecho ? filaAgendar("f:" + t.id) : ""}
+    <label>Título <input data-a="titulo" maxlength="120" value="${esc(t.titulo || "")}"></label>
     ${!t.parentId ? `<label>Ámbito <select data-a="tipo">${Object.entries(TIPOS).map(([k, x]) => `<option value="${k}"${t.tipo === k ? " selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></label>` : ""}
     <div class="colores"><span class="gris">Color</span>${COLORES_TAREA.map((c) => `<button class="color${t.color === c ? " on" : ""}" data-color="${c}" style="--c:${c}" aria-label="Color ${c}"></button>`).join("")}
       <button class="mini${t.color ? "" : " on"}" data-color="">${t.parentId ? "el del proyecto" : "sin color"}</button></div>
@@ -565,13 +617,12 @@ function fichaTarea(t, hijos) {
   on("meta", () => up({ meta: t.meta ? null : lunes }));
   on("hecha", () => up({ hecho: true, hechoPor: E.yo.uid }));
   on("reabrir", () => up({ hecho: false }));
-  // «Un botón para arrastrar a mi agenda y ahí poder moverla en la semana»:
-  // la pone en la agenda y lleva ahí, donde se arrastra con el agarre ⠿.
-  on("agenda", () => {
-    const ya = estaEnAgenda("f:" + t.id);
-    alternarEnAgenda("f:" + t.id);
-    if (!ya) irA("agenda");
-  });
+  engancharAgendar(d);
+  d.querySelector('[data-a="titulo"]').onchange = (ev) => {
+    const titulo = ev.target.value.trim().slice(0, 120);
+    if (!titulo) { ev.target.value = t.titulo; return aviso("El título no puede quedar vacío.", true); }
+    up({ titulo });
+  };
   // «Dentro del proyecto agregar una tarea, y dentro de ella puede haber
   // otra»: sin límite de niveles. Hereda el ámbito y a quién se ve.
   on("adentro", async () => {
@@ -686,9 +737,9 @@ function fichaCV(a) {
     ${datos.length ? `<dl class="datos">${datos.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
     <div class="botones">
       <button class="mini" data-a="tildar">✔ Hecha sin cronómetro</button>
-      <button class="mini${estaEnAgenda("cv:" + a.id) ? " on" : ""}" data-a="agenda">${estaEnAgenda("cv:" + a.id) ? "📅 En mi agenda" : "📅 A mi agenda"}</button>
       <a class="mini" href="https://casaverdecanas.com.br/interno/actividades.html?a=${encodeURIComponent(a.id)}&editar=1" target="_blank" rel="noopener">Editar en Casa Verde</a>
     </div>
+    ${filaAgendar("cv:" + a.id)}
     <h4>Registros</h4>
     ${r.cargando ? `<p class="gris">Buscando…</p>` : r.error ? `<p class="mal">No se pudieron leer: ${esc(r.error)}</p>`
       : !r.lista || !r.lista.length ? `<p class="gris">Nadie le registró tiempo todavía.</p>`
@@ -700,7 +751,7 @@ function fichaCV(a) {
     try { const x = await CV.Core.tildar(a.id, E.cv); aviso(x.recurrente ? `Hecha. Vuelve el ${fecha(x.proxima)}.` : "Hecha."); }
     catch (e) { fallo(e); }
   };
-  d.querySelector('[data-a="agenda"]').onclick = () => alternarEnAgenda("cv:" + a.id);
+  engancharAgendar(d);
   return d;
 }
 
@@ -742,18 +793,47 @@ function pintarAhora() {
       + evs.map((e) => `<div>👦 ${esc(e.hora || "")} <b>${esc(e.titulo)}</b></div>`).join("");
     v.append(h2("Hoy con los chicos")); v.append(t);
   }
-  const vivas = E.tareas.filter((t) => !t.hecho);
-  const mias = vivas.filter((t) => (t.encargados || []).includes(E.yo.uid) || t.alcance === "personal");
-  const libres = vivas.filter((t) => t.alcance === "comun" && !(t.encargados || []).length);
-  v.append(h2("Lo que tomaste"));
-  v.append(mias.length ? listaFamilia(mias) : gris("Nada todavía. En una tarea, «Me ocupo yo»."));
-  v.append(h2("De los dos, sin encargado"));
-  v.append(libres.length ? listaFamilia(libres) : gris("Todas tienen a alguien."));
-  v.append(h2("Casa Verde"));
-  if (!E.cv) v.append(gris("Sin sesión en Casa Verde."));
-  else if (!E.cvActs.length) v.append(gris("Nada pendiente."));
-  else v.append(listaCV(E.cvActs));
+  // app-29 (tiempos:A27): «Lo que tomaste», «De los dos» y «Casa Verde» se
+  // fundieron en «Por categoría» (pintarCategorias): una sola lista, sin
+  // dividirla dos veces. Quién la tiene se ve en la fila («vos», el nombre).
 }
+
+/* ── POR CATEGORÍA (app-29, tiempos:A27) ──────────────────────────────────────
+   Florencia: «las categorías fusionadas de Casa Verde con todas las personales,
+   en árboles que se puedan desplegar o reducir». Una rama por ámbito, en el
+   orden de TIPOS; las actividades de Casa Verde van adentro de Producción, que
+   es lo que son (TIPO_CASA_VERDE). Cada rama se pliega con la misma flechita y
+   se recuerda en este teléfono. */
+function pintarCategorias(v) {
+  const { porId } = arbol(E.tareas);
+  const vivas = E.tareas.filter((t) => !t.hecho);
+  let algo = false;
+  for (const [k, tipo] of Object.entries(TIPOS)) {
+    const delTipo = vivas.filter((t) => tipoHeredado(t, porId) === k);
+    const cv = k === TIPO_CASA_VERDE && E.cv ? (E.cvActs || []) : [];
+    if (!delTipo.length && !cv.length) continue;
+    algo = true;
+    const cab = document.createElement("div");
+    cab.className = "cat-cab";
+    cab.style.setProperty("--c", tipo.color);
+    cab.innerHTML = `${flecha("cat:" + k, delTipo.length + cv.length)}<b>${esc(tipo.nombre)}</b> <small class="gris">${delTipo.length + cv.length}</small>`;
+    engancharFlecha(cab);
+    v.append(cab);
+    if (plegado.has("cat:" + k)) continue;
+    if (delTipo.length) v.append(listaFamilia(delTipo));
+    if (cv.length) {
+      const sub = document.createElement("div");
+      sub.className = "cat-cab sub";
+      sub.innerHTML = `${flecha("cat:cv", cv.length)}<b>Casa Verde</b> <small class="gris">${cv.length}</small>`;
+      engancharFlecha(sub);
+      v.append(sub);
+      if (!plegado.has("cat:cv")) v.append(listaCV(cv));
+    }
+  }
+  if (!E.cv) v.append(gris("Casa Verde: sin sesión. Entrá arriba para ver sus actividades acá."));
+  if (!algo) v.append(gris("Todavía no hay tareas. Agregá una arriba."));
+}
+
 
 /* ── TAREAS: la pizarra de la semana y la lista entera ────────────────────── */
 let lunesPizarra = null;
@@ -771,7 +851,6 @@ function pintarTareas() {
   sel.value = antes;
   $("nueva-tipo").parentElement.hidden = !!sel.value;
   sel.onchange = () => { $("nueva-tipo").parentElement.hidden = !!sel.value; };
-  $("nueva-meta").parentElement.hidden = E.vistaTareas !== "pizarra";
   $("form-tarea").hidden = E.vistaTareas === "compras";
   const v = $("v-tareas-lista"); v.replaceChildren();
   if (E.vistaTareas === "compras") { pintarCompras(v); return; }
@@ -804,7 +883,7 @@ function pintarTareas() {
     }
     return;
   }
-  v.append(listaFamilia(E.tareas.filter((t) => !t.hecho), { todas: true }));
+  pintarCategorias(v);
   const hechas = E.tareas.filter((t) => t.hecho);
   if (hechas.length) {
     const det = document.createElement("details");
@@ -826,15 +905,18 @@ $("form-tarea").onsubmit = async (ev) => {
   // la regla pueda validarlo sin leer al padre.
   const tipo = padre ? tipoHeredado(padre, porId) : $("nueva-tipo").value;
   const personal = $("nueva-personal").checked;
+  const dia = $("nueva-dia").value || null;
   try {
-    await F.addDoc(F.collection(db, "tareas"), {
+    const r = await F.addDoc(F.collection(db, "tareas"), {
       titulo: titulo.slice(0, 120), parentId: padreId, tipo,
       alcance: personal ? "personal" : "comun",
       duenio: E.yo.uid, hecho: false, encargados: $("nueva-mia").checked || personal ? [E.yo.uid] : [],
-      meta: !personal && E.vistaTareas === "pizarra" && $("nueva-meta").checked ? (lunesPizarra || lunesDe(E.hoy)) : null,
+      meta: !personal && $("nueva-meta").checked ? (lunesPizarra || lunesDe(E.hoy)) : null,
       detalle: "", creadoEn: F.serverTimestamp(),
     });
     $("nueva-titulo").value = "";
+    // app-29: «para ponerla en la semana o en la organización de la agenda».
+    if (dia) { await guardarEnAgenda("f:" + r.id, { dia }); $("nueva-dia").value = ""; aviso(`Agregada y agendada el ${fecha(dia)}.`); }
   } catch (e) { fallo(e); }
 };
 

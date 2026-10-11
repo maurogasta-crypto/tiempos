@@ -42,6 +42,18 @@ la documentación diga la verdad.
   los sitios»): `ojosEnClaves()` al final de `app.js`. Es el mismo código que
   en Casa Verde, CasaYourte, remate y el panel, y en la Pizarra va en Kotlin:
   si cambia en uno, cambia en todos en la misma tanda.
+- **Las sugerencias de Florencia del 11-oct** (app-29, `tiempos:A25`–`A28`):
+  el reloj se ve sólo si algo corre y «Estoy con…» vive en Chicos; **la
+  pantalla no se redibuja mientras el foco pasa a otro elemento del MISMO
+  formulario** (`esperarSalida`): antes el Guardar caía sobre un botón que ya
+  no existía y se perdía lo escrito, y el editor de la agenda guarda lo escrito
+  en un borrador. Tareas abre con el cuadro para agregar y debajo todo **por
+  categoría**, con Casa Verde adentro de Producción; la ficha edita el título y
+  agenda en un día. Fijos muestra el **total por mes y por año, por moneda**
+  (`totalesFijos`), dice si cada gasto es mensual o prorrateado (`comoVence`) y
+  una casilla se paga con **foto o texto** que lee la IA de las boletas
+  (`leerGasto`, con el escudo de los nombres): la foto se sube al guardar, y si
+  lo pagado no es lo estimado ofrece dejarlo en el Año.
 - **Casa Verde se usa, no se copia.** Arrancar, frenar y tildar son
   `Core.iniciar`, `Core.finalizar` y `Core.tildar` de `actividades-core.js`,
   importado de su sitio. La app no escribe en Casa Verde por su cuenta, **salvo

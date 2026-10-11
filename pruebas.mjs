@@ -23,7 +23,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
          paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas,
          CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, cuentaSugerida, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
-         CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes } from "./nucleo.js";
+         CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes,
+         totalesFijos, comoVence, TIPO_CASA_VERDE } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
@@ -1126,7 +1127,7 @@ prueba("la pantalla: el presupuesto y los repartos van en familia/ (mapas), el p
   const fz = fs.readFileSync("finanzas.js", "utf8"), app = fs.readFileSync("app.js", "utf8"), sw = fs.readFileSync("sw.js", "utf8");
   assert.match(fz, /F\.doc\(db, "familia", "presupuesto"\),\s*\{ conceptos: \{ \[id\]: datos \}/);
   assert.match(fz, /F\.doc\(db, "familia", "repartos"\)/);
-  assert.match(fz, /fijo: id, automatico: null, comprobanteUrl: null,\s*origen: "fijo"/);
+  assert.match(fz, /fijo: id, automatico: null, comprobanteUrl,\s*origen: comprobanteUrl \? "foto" : "fijo"/);
   assert.ok(!/F\.(collection|doc)\(db, "(?!familia|movimientos)/.test(fz), "finanzas.js no escribe en otra colección");
   assert.match(app, /F\.doc\(db, "familia", "presupuesto"\)/); assert.match(sw, /"finanzas\.js"/);
 });
@@ -1641,6 +1642,76 @@ prueba("la boleta pide la cuenta a la IA con la lista real, y el formulario dice
   assert.match(p, /cuentaSugerida\(\{ comercio: form\.datos\.comercio, cuentaIA \}/);
   assert.match(p, /Cuenta propuesta:/);
   assert.match(p, /if \(s && !form\.datos\.cuenta\)/, "no pisa una cuenta ya elegida");
+});
+
+// ── nucleo-33: los totales de Fijos y cómo vence cada uno (Florencia, 11-oct) ──
+prueba("Fijos: el total mensual y el anual, por moneda, sin los base ni los pausados", () => {
+  const C = {
+    luz: { nombre: "Luz", moneda: "UYU", cada: 1, mes: 1, monto: 3000, categoria: "servicios" },
+    pat: { nombre: "Patente", moneda: "UYU", cada: 12, mes: 3, monto: 24000, categoria: "vehiculo" },
+    iptu: { nombre: "IPTU", moneda: "BRL", cada: 12, mes: 2, monto: 2000, categoria: "impuestos" },
+    sup: { nombre: "Súper (base)", moneda: "UYU", cada: 1, mes: 1, monto: 50000, base: true, categoria: "comida" },
+    viejo: { nombre: "Fiat", moneda: "UYU", cada: 12, mes: 1, monto: 9999, activo: false, categoria: "vehiculo" },
+    nuevo: { nombre: "Seguro", moneda: "UYU", cada: 12, mes: 1, monto: 0, categoria: "vehiculo" },
+  };
+  const t = totalesFijos(C);
+  assert.deepEqual(Object.keys(t).sort(), ["BRL", "UYU"], "cada moneda aparte");
+  assert.equal(t.UYU.anual, 3000 * 12 + 24000);
+  assert.equal(t.UYU.porMes, 5000);
+  assert.equal(t.UYU.n, 3); assert.equal(t.UYU.sinEstimar, 1);
+  assert.equal(t.BRL.porMes, 166.67);
+});
+prueba("Fijos: cada concepto dice si es mensual o se prorratea, y cuánto es por mes", () => {
+  assert.deepEqual(comoVence({ cada: 1, mes: 1, monto: 3000 }), { mensual: true, texto: "mensual", porMes: 3000, anual: 36000 });
+  const p = comoVence({ cada: 12, mes: 3, monto: 24000 });
+  assert.equal(p.mensual, false); assert.equal(p.porMes, 2000); assert.match(p.texto, /una vez al año: prorrateado/);
+  const tmp = comoVence({ cada: 1, mes: 1, monto: 150, temporada: { meses: [12, 1, 2], monto: 1500 } });
+  assert.equal(tmp.mensual, false); assert.equal(tmp.anual, 150 * 9 + 1500 * 3); assert.match(tmp.texto, /temporada/);
+  assert.equal(comoVence(null).texto, "");
+});
+
+// ── app-29: las sugerencias de Florencia (tiempos:A25 a A28, 11-oct) ──
+prueba("A26: el reloj se ve sólo si algo corre, y «Estoy con…» vive en Chicos", () => {
+  const a = fs.readFileSync("app.js", "utf8");
+  assert.match(a, /\$\("crono"\)\.hidden = !\(E\.enCursoCV \|\| E\.enCursoFam\);/);
+  assert.match(a, /\$\("cuidado"\)\.hidden = E\.solapa !== "chicos" && !E\.cuidado;/);
+});
+prueba("A25: la pantalla no se redibuja mientras el foco sigue en el mismo formulario", () => {
+  const a = fs.readFileSync("app.js", "utf8");
+  assert.match(a, /function esperarSalida\(el\)/);
+  assert.match(a, /zona\.contains\(sig\)\) return esperarSalida\(sig\)/, "pasar al Guardar del mismo formulario no redibuja");
+});
+prueba("A25: el editor de una actividad cambia todo, y lo escrito sobrevive a un redibujado", () => {
+  const g = fs.readFileSync("agenda.js", "utf8");
+  const f = g.slice(g.indexOf("const formMover"), g.indexOf("const actividadesDelDia"));
+  for (const campo of ["titulo", "dia", "hi", "hf", "lugar", "tipo"]) assert.match(f, new RegExp(`name="${campo}"`), "falta " + campo);
+  assert.match(f, /valorDe\(id, campo, x\)/, "lee del borrador");
+  assert.match(g, /export async function reprogramarActividad\(id, \{ dia, hi, hf = "", titulo, lugar, tipo \} = \{\}\)/);
+  assert.match(g, /seguirBorrador\(fa, "nueva"\)/, "también la actividad nueva");
+});
+prueba("A27: en Tareas el cuadro para agregar va arriba de todo, y abajo todo por categoría", () => {
+  const h = fs.readFileSync("index.html", "utf8");
+  assert.ok(h.indexOf('id="t-arriba"') < h.indexOf('id="v-ahora"') && h.indexOf('id="form-tarea"') < h.indexOf('id="v-ahora"'));
+  assert.match(h, /id="nueva-dia"/, "se agenda en un día al crearla");
+  const a = fs.readFileSync("app.js", "utf8");
+  assert.match(a, /function pintarCategorias\(v\)/);
+  assert.match(a, /k === TIPO_CASA_VERDE && E\.cv/, "Casa Verde va adentro de Producción");
+  assert.match(a, /\$\{!t\.hecho \? filaAgendar\("f:" \+ t\.id\) : ""\}/, "la tarea se agenda sin salir de la ficha");
+  assert.match(a, /\$\{filaAgendar\("cv:" \+ a\.id\)\}/, "y la de Casa Verde también");
+  assert.match(a, /data-a="titulo"/, "el título se edita en la ficha");
+  assert.equal(TIPO_CASA_VERDE, "produccion");
+});
+prueba("A28: Fijos muestra los totales, dice cómo vence cada uno, y la foto se sube al guardar", () => {
+  const f = fs.readFileSync("finanzas.js", "utf8");
+  assert.match(f, /totalesFijos\(E\.conceptos\)/);
+  assert.match(f, /comoVence\(f\)/);
+  const enviar = f.slice(f.indexOf("fp.onsubmit"));
+  assert.match(enviar, /CV\.CV2\.subirImagen\(pago\.archivo, "tiempos"\)/, "se sube al GUARDAR");
+  const elegir = f.slice(f.indexOf("[data-foto-fijo]"), f.indexOf("fp.querySelector(\"[data-leer-fijo]\")"));
+  assert.doesNotMatch(elegir, /subirImagen/, "nunca al elegirla");
+  const pl = fs.readFileSync("plata.js", "utf8");
+  assert.match(pl, /export async function leerGasto\(\{ file = null, texto = "" \} = \{\}\)/);
+  assert.match(pl, /escudarNombres\(String\(texto \|\| ""\)/, "a la IA no le van los nombres de los chicos");
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

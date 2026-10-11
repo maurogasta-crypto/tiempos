@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-32
+// Sello: nucleo-33
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1545,6 +1545,36 @@ export function presupuestoAnual(conceptos) {
   return out;
 }
 const redondo = (n) => Math.round(n * 100) / 100;
+
+/* ── Los TOTALES de Fijos y cómo vence cada uno (nucleo-33, 11-oct-2026) ─────
+   Florencia, desde el globo 💡: «en Fijos quiero el total mensual y el total
+   anual sumados… y una descripción de los valores que son anuales con su
+   prorrateo mensual estimado y los que son mensuales». Los mismos conceptos
+   que la planilla (activos y no `base`), POR MONEDA: pesos, reales y dólares
+   no se suman nunca. «Por mes» es el año ÷ 12, o sea lo que hay que apartar. */
+export function totalesFijos(conceptos) {
+  const out = {};
+  for (const [, c] of Object.entries(conceptos || {})) {
+    if (!c || c.activo === false || c.base || !MONEDAS.includes(c.moneda)) continue;
+    const o = (out[c.moneda] = out[c.moneda] || { anual: 0, porMes: 0, n: 0, sinEstimar: 0 });
+    o.anual += anualDe(c); o.n++;
+    if (!(Number(c.monto) > 0)) o.sinEstimar++;
+  }
+  for (const o of Object.values(out)) { o.anual = redondo(o.anual); o.porMes = redondo(o.anual / 12); }
+  return out;
+}
+/** Cómo vence un concepto, para decirlo en una línea: si es mensual (lo que se
+ *  paga es lo que cuesta cada mes) o si se prorratea (se paga de a una vez y
+ *  por mes hay que apartar el año ÷ 12). */
+export function comoVence(c) {
+  if (!c || !CADAS[c.cada]) return { mensual: false, texto: "", porMes: 0, anual: 0 };
+  const anual = anualDe(c), porMes = redondo(anual / 12);
+  const mensual = Number(c.cada) === 1 && !c.temporada;
+  const texto = mensual ? "mensual"
+    : Number(c.cada) === 1 ? "mensual, distinto en temporada (dic–feb): prorrateado"
+    : `${CADAS[c.cada]}: prorrateado`;
+  return { mensual, texto, porMes, anual };
+}
 
 /* La grilla de la planilla: cada concepto, qué pasa en cada mes. */
 /* nucleo-30 (11-oct-2026): un concepto `base: true` es lo que cuesta una
