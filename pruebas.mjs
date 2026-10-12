@@ -1877,5 +1877,17 @@ prueba("el aviso se guarda en alertas/ con la forma que suena la Pizarra, atado 
   assert.match(a, /data-aviso-borrar/);
 });
 
+titulo("agenda-16 / app-33: el widget abre la pieza tocada (12-oct)");
+prueba("?abrir= sólo acepta una clave de pieza, y app.js la pasa a la agenda", async () => {
+  const a = fs.readFileSync("agenda.js", "utf8"), ap = fs.readFileSync("app.js", "utf8");
+  const m = a.match(/export const CLAVE_PIEZA = (\/.*\/);/);
+  assert.ok(m, "CLAVE_PIEZA está");
+  const re = eval(m[1]);
+  for (const k of ["act:a1", "f:t-9", "cv:abc", "ev:e2|2026-10-14"]) assert.ok(re.test(k), k);
+  for (const k of ["ev:e2", "<script>", "act:", "x:1", "f:a b"]) assert.ok(!re.test(k), k);
+  assert.match(ap, /if \(solapaPedida === "agenda"\) irAPieza\(params\.get\("abrir"\), params\.get\("dia"\)\)/);
+  assert.match(a, /CSS\.escape\(editando\)/);
+});
+
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);

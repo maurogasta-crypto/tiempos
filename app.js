@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-32
+// Sello: app-33
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -68,7 +68,7 @@ import { TIPOS, TIPO_CASA_VERDE, arbolOrganizado, puedeSoltar, tipoHeredado, arb
          separarEnCurso, chicosDelDia, eventosDelDia,
          COLORES_TAREA, colorHeredado, estaCorriendo, idNuevo, conReloj } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
-import { pintarAgenda, alternarEnAgenda, estaEnAgenda, guardarEnAgenda, agendaUnida } from "./agenda.js";
+import { pintarAgenda, irAPieza, alternarEnAgenda, estaEnAgenda, guardarEnAgenda, agendaUnida } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
@@ -156,6 +156,8 @@ async function entrarAlaApp() {
   if (solapaPedida && SOLAPAS.includes(solapaPedida)) {
     history.replaceState(null, "", location.pathname);
     E.solapa = solapaPedida;
+    // app-33: y desde el widget, la pieza tocada (una alarma lleva a la suya).
+    if (solapaPedida === "agenda") irAPieza(params.get("abrir"), params.get("dia"));
     for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x.dataset.solapa === solapaPedida));
     pintar();
   }

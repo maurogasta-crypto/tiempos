@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-15
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-16
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -450,6 +450,25 @@ function pintarMesAgenda(v) {
   for (const b of v.querySelectorAll("[data-va]")) b.onclick = () => { vistaAg = b.dataset.va; repintar(); };
   for (const b of v.querySelectorAll("[data-mes]")) b.onclick = () => { const d = new Date(a, m + Number(b.dataset.mes), 1); mesAg = [d.getFullYear(), d.getMonth()]; repintar(); };
   for (const b of v.querySelectorAll("[data-dia-ag]")) b.onclick = () => { lunes = lunesDe(b.dataset.diaAg); vistaAg = "semana"; repintar(); };
+}
+
+/* agenda-16 (12-oct-2026, Mauro: «que tocar una alarma en el widget abra su
+   pieza»): el widget «Mi agenda» de la Pizarra abre Tiempos con
+   `?solapa=agenda&dia=…&abrir=<clave>`. Va a esa semana y deja el editor de
+   esa pieza abierto; cuando la pieza aparece (los datos llegan después), la
+   trae a la vista. Una clave que no se reconoce sólo lleva al día. */
+export const CLAVE_PIEZA = /^(act:|f:|cv:)[\w-]{1,80}$|^ev:[\w-]{1,80}\|\d{4}-\d{2}-\d{2}$/;
+export function irAPieza(clave, dia) {
+  if (esISO(dia)) lunes = lunesDe(dia);
+  vistaAg = "semana";
+  editando = clave && CLAVE_PIEZA.test(clave) ? clave : null;
+  const buscar = (n) => {
+    const el = editando && document.querySelector(`[data-pieza-form="${CSS.escape(editando)}"]`)
+      || (esISO(dia) && document.querySelector(`[data-zona^="${dia}|"]`));
+    if (el) el.scrollIntoView({ block: "center" });
+    else if (n > 0) setTimeout(() => buscar(n - 1), 300);
+  };
+  setTimeout(() => buscar(20), 100);
 }
 
 export function pintarAgenda() {
