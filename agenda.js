@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-14
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-15
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -239,19 +239,26 @@ function avisosDePieza(p, v) {
       <label>Cuándo <select name="antes">${AVISO_ANTES.map(([m, t]) => `<option value="${m}"${String(v("antes", "30")) === String(m) ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label></div>
     <small class="gris">Suena en la Pizarra del teléfono. Si la pieza no tiene hora, a las 08:00 de ese día.</small></fieldset>`;
 }
-/** Después de guardar la pieza: corre los avisos que ya tenía y crea el nuevo, si se pidió. */
-async function guardarAvisos(p, f, dia, hi, titulo, lugar) {
-  for (const a of alertasDe(p.clave)) {
+/** Los avisos de una pieza la siguen: a su día y hora nuevos y, si cambió de
+    clave (una de los chicos que pasó a otro día), a su clave nueva (agenda-15). */
+async function correrAvisos(deClave, aClave, dia, hi) {
+  for (const a of alertasDe(deClave)) {
     const n = horaDelAviso(dia, hi, a.antes ?? 0);
-    if (n && (n.dia !== a.dia || n.hora !== a.hora)) await F.updateDoc(F.doc(db, "alertas", a.id), { ...n, avisada: false });
+    if (!n) continue;
+    if (n.dia !== a.dia || n.hora !== a.hora || aClave !== deClave)
+      await F.updateDoc(F.doc(db, "alertas", a.id), { ...n, avisada: false, sobre: aClave });
   }
+}
+/** Después de guardar la pieza: corre los avisos que ya tenía y crea el nuevo, si se pidió. */
+async function guardarAvisos(p, nueva, f, dia, hi, titulo, lugar) {
+  await correrAvisos(p.clave, nueva, dia, hi);
   const tipo = f.aviso ? f.aviso.value : "";
   if (!tipo) return "";
   const antes = Number(f.antes ? f.antes.value : 0) || 0;
   const n = horaDelAviso(dia, hi, antes);
   if (!n) return "El aviso necesita un día.";
   const texto = (titulo + (lugar ? " · " + lugar : "")).slice(0, 200);
-  await F.addDoc(F.collection(db, "alertas"), { uid: E.yo.uid, tipo, texto, ...n, antes, sobre: p.clave, avisada: false, creadoEn: F.serverTimestamp() });
+  await F.addDoc(F.collection(db, "alertas"), { uid: E.yo.uid, tipo, texto, ...n, antes, sobre: nueva, avisada: false, creadoEn: F.serverTimestamp() });
   return `${tipo === "alarma" ? "⏰ Alarma" : "🔔 Recordatorio"} el ${n.dia.split("-").reverse().slice(0, 2).join("/")} a las ${n.hora}.`;
 }
 
@@ -260,6 +267,7 @@ async function guardarPieza(p, f) {
   const val = (n) => (f[n] ? String(f[n].value || "").trim() : "");
   const titulo = val("titulo").slice(0, 120), dia = val("dia"), hi = val("hi"), hf = val("hf"), lugar = val("lugar").slice(0, 80), nota = val("nota").slice(0, 300);
   if (!titulo) return aviso("Falta qué es.", true);
+  let nueva = k;                                  // la clave de la pieza después de guardar
   if (p.clase === "act") {
     const tipo = (f.querySelector('[name="tipo"]:checked') || {}).value;
     const mal = await reprogramarActividad(p.id, { dia, hi, hf, titulo, lugar, tipo, nota });
@@ -269,7 +277,7 @@ async function guardarPieza(p, f) {
     const e = (E.eventos || []).find((x) => x.id === p.id); if (!e) return aviso("Esa actividad ya no está.", true);
     const lista = (n) => [...f.querySelectorAll(`[name="${n}"]:checked`)].map((x) => x.value);
     const datos = { titulo, hora: hi, horaFin: hf, lugar, nota, ninos: lista("ninos"), quienes: lista("quienes"), semanal: !!(f.semanal && f.semanal.checked), actualizadoEn: F.serverTimestamp() };
-    if (dia !== p.dia) { const ok = await moverEvento(e, p.dia, dia, datos); if (!ok) return; }
+    if (dia !== p.dia) { nueva = await moverEvento(e, p.dia, dia, datos); if (!nueva) return; }
     else await F.updateDoc(F.doc(db, "eventos", p.id), datos);
   } else {
     // Una tarea: lo de MI agenda (día, hora, fin, dónde, nota), y el título en la tarea.
@@ -279,7 +287,7 @@ async function guardarPieza(p, f) {
   }
   // agenda-14: los avisos, con el día y la hora que quedaron. Una tarea sin
   // día flota en hoy.
-  const extra = await guardarAvisos(p, f, esISO(dia) ? dia : E.hoy, hi, titulo, lugar);
+  const extra = await guardarAvisos(p, nueva, f, esISO(dia) ? dia : E.hoy, hi, titulo, lugar);
   if (extra.startsWith("El aviso")) return aviso(extra, true);
   editando = null; delete borrador[k];
   aviso((p.clase === "chicos" ? "Guardada. La ven los dos." : "Guardada.") + (extra ? " " + extra : ""));
@@ -289,13 +297,15 @@ async function guardarPieza(p, f) {
 /* Mover una actividad de los chicos de un día a otro. Si se repite todas las
    semanas, se pregunta: mover sólo ESE día deja la serie como estaba (ese día
    pasa a `excepto`) y crea una suelta en el día nuevo. */
+// agenda-15: devuelve la clave de la pieza en su día nuevo (otra, si nació una
+// suelta), para que sus avisos la sigan; `null` si se canceló.
 async function moverEvento(e, deDia, aDia, cambios = {}) {
-  if (!e.semanal) { await F.updateDoc(F.doc(db, "eventos", e.id), { ...cambios, titulo: cambios.titulo || e.titulo, fecha: aDia, actualizadoEn: F.serverTimestamp() }); return true; }
-  if (!confirm(`«${e.titulo}» se repite todas las semanas. ¿Moverla sólo el ${deDia.split("-").reverse().join("/")}? La serie sigue igual.`)) return false;
+  if (!e.semanal) { await F.updateDoc(F.doc(db, "eventos", e.id), { ...cambios, titulo: cambios.titulo || e.titulo, fecha: aDia, actualizadoEn: F.serverTimestamp() }); return `ev:${e.id}|${aDia}`; }
+  if (!confirm(`«${e.titulo}» se repite todas las semanas. ¿Moverla sólo el ${deDia.split("-").reverse().join("/")}? La serie sigue igual.`)) return null;
   const { id, excepto, ...resto } = e;
   await F.updateDoc(F.doc(db, "eventos", e.id), { titulo: e.titulo, excepto: F.arrayUnion(deDia), actualizadoEn: F.serverTimestamp() });
-  await F.addDoc(F.collection(db, "eventos"), { ...resto, ...cambios, titulo: cambios.titulo || e.titulo, fecha: aDia, semanal: false, excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
-  return true;
+  const r = await F.addDoc(F.collection(db, "eventos"), { ...resto, ...cambios, titulo: cambios.titulo || e.titulo, fecha: aDia, semanal: false, excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
+  return `ev:${r.id}|${aDia}`;
 }
 
 const actividadesDelDia = (d) => Object.entries(E.actividades || {}).filter(([, a]) => a && a.dia === d)
@@ -598,19 +608,25 @@ async function soltarEn(clave, dia, franja) {
     // Una tarea: la hora sólo se borra si ya no cae ahí (una de las 9 en la noche mentiría).
     const m = agendaUnida()[clave] || {};
     const hora = m.hora && franjaDe({ hora: m.hora }) === franja ? m.hora : "";
-    return guardarEnAgenda(clave, { dia, franja, hora, ...(m.hasta && !hora ? { hasta: "" } : {}) });
+    await guardarEnAgenda(clave, { dia, franja, hora, ...(m.hasta && !hora ? { hasta: "" } : {}) });
+    // agenda-15: sus avisos la siguen; sin hora, a la de la franja.
+    return correrAvisos(clave, clave, dia, hora || HORA_DE_FRANJA[franja]);
   }
   if (p.clase === "act") {
     const a = (E.actividades || {})[p.id]; if (!a) return;
     const hi0 = hhmm(a.desde), hi = horaEnFranja(hi0, franja) || HORA_DE_FRANJA[franja];
     const mal = await reprogramarActividad(p.id, { dia, hi, hf: a.hf === "" ? "" : correrFin(hi0, hhmm(a.hasta), hi) });
-    if (mal) aviso(mal[0].toUpperCase() + mal.slice(1) + ".", true);
-    return;
+    if (mal) return aviso(mal[0].toUpperCase() + mal.slice(1) + ".", true);
+    return correrAvisos(clave, clave, dia, hi);
   }
   const e = (E.eventos || []).find((x) => x.id === p.id); if (!e) return;
   const hi = horaEnFranja(e.hora || "", franja);
   if (dia === p.dia && hi === (e.hora || "")) return;
   const cambios = { hora: hi, horaFin: correrFin(e.hora || "", e.horaFin || "", hi) };
-  if (dia === p.dia && !e.semanal) return F.updateDoc(F.doc(db, "eventos", e.id), { ...cambios, titulo: e.titulo, actualizadoEn: F.serverTimestamp() });
-  await moverEvento(e, p.dia, dia, cambios);
+  if (dia === p.dia && !e.semanal) {
+    await F.updateDoc(F.doc(db, "eventos", e.id), { ...cambios, titulo: e.titulo, actualizadoEn: F.serverTimestamp() });
+    return correrAvisos(clave, clave, dia, hi);
+  }
+  const nueva = await moverEvento(e, p.dia, dia, cambios);
+  if (nueva) await correrAvisos(clave, nueva, dia, hi);
 }

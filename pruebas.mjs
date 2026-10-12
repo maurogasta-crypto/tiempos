@@ -1866,9 +1866,14 @@ prueba("la hora del aviso: cuánto antes, cruzando la medianoche, y sin hora a l
 });
 prueba("el aviso se guarda en alertas/ con la forma que suena la Pizarra, atado a la pieza, y se corre con ella", () => {
   const a = fs.readFileSync("agenda.js", "utf8");
-  assert.match(a, /F\.addDoc\(F\.collection\(db, "alertas"\), \{ uid: E\.yo\.uid, tipo, texto, \.\.\.n, antes, sobre: p\.clave, avisada: false/);
+  assert.match(a, /F\.addDoc\(F\.collection\(db, "alertas"\), \{ uid: E\.yo\.uid, tipo, texto, \.\.\.n, antes, sobre: nueva, avisada: false/);
   assert.match(a, /\$\{avisosDePieza\(p, v\)\}/);
   assert.match(a, /horaDelAviso\(dia, hi, a\.antes \?\? 0\)/, "al mover la pieza, sus avisos se corren");
+  // agenda-15: también al arrastrar, y una de los chicos que cambia de día lleva su aviso a la clave nueva.
+  assert.match(a, /\{ \.\.\.n, avisada: false, sobre: aClave \}/);
+  assert.match(a, /return `ev:\$\{r\.id\}\|\$\{aDia\}`;/);
+  assert.match(a, /const nueva = await moverEvento\(e, p\.dia, dia, cambios\);\s*if \(nueva\) await correrAvisos\(clave, nueva, dia, hi\);/);
+  assert.equal((a.match(/correrAvisos\(clave, clave/g) || []).length, 3, "arrastrar una tarea, una actividad o una de los chicos en su día");
   assert.match(a, /data-aviso-borrar/);
 });
 

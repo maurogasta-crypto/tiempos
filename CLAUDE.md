@@ -83,7 +83,9 @@ la documentación diga la verdad.
   forma de siempre —la que suena la Pizarra— más `sobre` (la clave de la
   pieza) y `antes` (minutos); al guardar la pieza con otra hora, sus avisos
   se corren con ella, y cada uno se saca con ✕. Sin regla nueva: la de
-  `alertas/` no limita los campos.
+  `alertas/` no limita los campos. **Desde agenda-15 también al ARRASTRAR**
+  (`correrAvisos`), y una de los chicos que cambia de día lleva su aviso a su
+  clave nueva (`moverEvento` la devuelve: la suelta que nace tiene otro id).
 - **Casa Verde se usa, no se copia.** Arrancar, frenar y tildar son
   `Core.iniciar`, `Core.finalizar` y `Core.tildar` de `actividades-core.js`,
   importado de su sitio. La app no escribe en Casa Verde por su cuenta, **salvo
