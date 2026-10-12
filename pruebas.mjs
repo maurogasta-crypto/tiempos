@@ -1848,5 +1848,12 @@ prueba("el balance cuenta los chicos por el calendario, no por relojes ni bloque
   assert.match(b, /diasConChicos\(r\.desde/);
 });
 
+titulo("app-32: el widget de la agenda abre Tiempos en la Agenda (12-oct)");
+prueba("?solapa= abre esa solapa, sólo si existe, y se saca de la dirección", () => {
+  const a = fs.readFileSync("app.js", "utf8");
+  assert.match(a, /const solapaPedida = params\.get\("solapa"\);\s*if \(solapaPedida && SOLAPAS\.includes\(solapaPedida\)\) \{\s*history\.replaceState/);
+  assert.match(a, /const SOLAPAS = \[[^\]]*"agenda"/);
+});
+
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-31
+// Sello: app-32
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -148,6 +148,15 @@ async function entrarAlaApp() {
     for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x.dataset.solapa === "tareas"));
     for (const x of document.querySelectorAll("[data-vt]")) x.setAttribute("aria-selected", String(x.dataset.vt === "compras"));
     abrirSuper(superId.slice(0, 60));
+    pintar();
+  }
+  // app-32: el widget de la agenda de la Pizarra abre Tiempos en la Agenda
+  // (?solapa=agenda). Sólo una solapa que exista; se saca de la dirección.
+  const solapaPedida = params.get("solapa");
+  if (solapaPedida && SOLAPAS.includes(solapaPedida)) {
+    history.replaceState(null, "", location.pathname);
+    E.solapa = solapaPedida;
+    for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x.dataset.solapa === solapaPedida));
     pintar();
   }
   const dictado = params.get("dictar");
