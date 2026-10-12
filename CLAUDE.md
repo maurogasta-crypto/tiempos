@@ -54,6 +54,18 @@ la documentación diga la verdad.
   una casilla se paga con **foto o texto** que lee la IA de las boletas
   (`leerGasto`, con el escudo de los nombres): la foto se sube al guardar, y si
   lo pagado no es lo estimado ofrece dejarlo en el Año.
+- **En la agenda todo es una PIEZA** (agenda-13, 12-oct-2026, Mauro: «tres
+  configuraciones totalmente diferentes, es muy confuso»). La tarea, la
+  actividad propia y la de los chicos se ven igual (resumidas en su franja,
+  por hora), se arrastran igual del ⠿ y se editan con el MISMO formulario
+  (`editorPieza`: qué, día, desde, hasta, dónde, es…, nota; lo que en una no se
+  puede cambiar se ve apagado, con el porqué). Cada una se guarda donde vive:
+  la tarea en `agendas/{uid}.items` (ahora también `hasta`, `lugar`, `nota`),
+  la actividad con su marca, la de los chicos en `eventos` (y `lugar`). Mover
+  una que se repite pregunta y mueve **sólo ese día** (`excepto` + una suelta).
+  Soltar en otra franja: `horaEnFranja` y `correrFin` de nucleo.js. La
+  actividad suma `nota`: si `herramientas/agenda.mjs` de `datos` la reescribe
+  entera, que la conserve.
 - **Casa Verde se usa, no se copia.** Arrancar, frenar y tildar son
   `Core.iniciar`, `Core.finalizar` y `Core.tildar` de `actividades-core.js`,
   importado de su sitio. La app no escribe en Casa Verde por su cuenta, **salvo

@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-24
+/* estilos.css — Tiempos. Sello: estilos-25
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -338,3 +338,18 @@ details.cifra summary::-webkit-details-marker { display:none; }
 .tocable { cursor:pointer; }
 .tocable:active { filter:brightness(1.15); }
 .pas-txt { cursor:pointer; }
+
+/* estilos-25 (agenda-13): una pieza de la agenda, sea tarea, actividad propia o
+   de los chicos: el mismo resumen, con su color al costado, y el mismo editor
+   abajo cuando se abre. */
+.pas { border-left:4px solid var(--c, var(--linea)); }
+.pas.abierta { box-shadow:0 0 0 1px var(--c, var(--linea)); }
+.pas-hora { display:flex; flex-direction:column; line-height:1.1; }
+.pas-hora small { font-weight:400; color:var(--gris); font-size:.72rem; }
+.pas-txt { flex:1; min-width:0; }
+.pieza-ed { padding:4px 10px 10px; border-top:1px solid var(--linea); }
+.tres { display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:end; }
+.tres > label:first-child { grid-column:1 / -1; }
+.tres input { width:100%; min-width:0; box-sizing:border-box; }
+.pieza-ed fieldset.clases { margin:8px 0; }
+.pieza-ed input:disabled, .pieza-ed input[readonly] { opacity:.6; }

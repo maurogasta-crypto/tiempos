@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-33
+// Sello: nucleo-34
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -291,6 +291,24 @@ export function franjaDe(m) {
   if (!h) return "manana";
   return h >= "19:00" ? "noche" : h >= "13:00" ? "tarde" : "manana";
 }
+/* ── Arrastrar cualquier cosa de la agenda (nucleo-34, 12-oct-2026) ──────────
+   Mauro: «todos los elementos de la agenda deberían poder arrastrarse y
+   moverse como el primero». Soltar en otra franja deja la hora si cae ahí y,
+   si no, la de arriba de esa franja; lo que tenía hora de fin conserva lo que
+   duraba. Sin hora, sigue sin hora. */
+export const HORA_DE_FRANJA = { manana: "09:00", tarde: "15:00", noche: "20:00" };
+export function horaEnFranja(hora, franja) {
+  if (!hora) return "";
+  return franjaDe({ hora }) === franja ? hora : (HORA_DE_FRANJA[franja] || hora);
+}
+const aMin = (h) => Number(String(h).slice(0, 2)) * 60 + Number(String(h).slice(3, 5));
+const deMin = (m) => { const x = ((m % 1440) + 1440) % 1440; return `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`; };
+/** La hora de fin, corrida lo mismo que el comienzo. Un fin vacío sigue vacío. */
+export function correrFin(desde, hasta, nuevoDesde) {
+  if (!hasta || !desde || !nuevoDesde) return hasta || "";
+  return deMin(aMin(hasta) + aMin(nuevoDesde) - aMin(desde));
+}
+
 export function ubicarEnSemana(items, agenda, hoy, lunes) {
   const dias = semanaISO(lunes);
   const out = Object.fromEntries(dias.map((d) => [d, { manana: [], tarde: [], noche: [] }]));

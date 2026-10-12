@@ -13,7 +13,7 @@ import path from "node:path";
 import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          quePuedoArrancar, semanaDe, fmtHoras, esc, isoDe, sumarDias, lunesDe, semanaISO,
          grillaDelMes, chicosDelDia, eventosDelDia, COTIDIANAS, progresoDia, alternarEncargado,
-         pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe,
+         pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
          cotidianasDe, listasDeCompras, recorridoDeCompra, ajusteTrimestral, posiblesFijos, trimestreDe, mesesDelTrimestre, sumarTrimestres, firmaTrimestre, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
@@ -470,7 +470,8 @@ prueba("reglas v11: Claude mueve marcas de la agenda firmando como él, nunca un
 }
 prueba("lo que movió Claude dice ✨ y por qué; si la persona lo vuelve a mover, el ✨ se va", () => {
   const ag = fs.readFileSync("agenda.js", "utf8");
-  assert.match(ag, /a\.claude && a\.claude\.porque/);
+  assert.match(ag, /claude: a\.claude/, "la pieza de la actividad lleva lo que dijo Claude");
+  assert.match(ag, /p\.claude && p\.claude\.porque/, "y la pieza lo muestra con ✨");
   assert.match(ag, /claude: F\.deleteField\(\)/);
 });
 
@@ -1681,13 +1682,14 @@ prueba("A25: la pantalla no se redibuja mientras el foco sigue en el mismo formu
   assert.match(a, /function esperarSalida\(el\)/);
   assert.match(a, /zona\.contains\(sig\)\) return esperarSalida\(sig\)/, "pasar al Guardar del mismo formulario no redibuja");
 });
-prueba("A25: el editor de una actividad cambia todo, y lo escrito sobrevive a un redibujado", () => {
+prueba("A25: el editor de una pieza cambia todo, y lo escrito sobrevive a un redibujado", () => {
   const g = fs.readFileSync("agenda.js", "utf8");
-  const f = g.slice(g.indexOf("const formMover"), g.indexOf("const actividadesDelDia"));
-  for (const campo of ["titulo", "dia", "hi", "hf", "lugar", "tipo"]) assert.match(f, new RegExp(`name="${campo}"`), "falta " + campo);
-  assert.match(f, /valorDe\(id, campo, x\)/, "lee del borrador");
-  assert.match(g, /export async function reprogramarActividad\(id, \{ dia, hi, hf = "", titulo, lugar, tipo \} = \{\}\)/);
+  const f = g.slice(g.indexOf("function editorPieza"), g.indexOf("async function guardarPieza"));
+  for (const campo of ["titulo", "dia", "hi", "hf", "lugar", "tipo", "nota"]) assert.match(f, new RegExp(`name="${campo}"`), "falta " + campo);
+  assert.match(f, /valorDe\(k, campo, x\)/, "lee del borrador");
+  assert.match(g, /export async function reprogramarActividad\(id, \{ dia, hi, hf = "", titulo, lugar, tipo, nota \} = \{\}\)/);
   assert.match(g, /seguirBorrador\(fa, "nueva"\)/, "también la actividad nueva");
+  assert.match(g, /seguirBorrador\(f, p\.clave\)/, "y cada pieza abierta");
 });
 prueba("A27: en Tareas el cuadro para agregar va arriba de todo, y abajo todo por categoría", () => {
   const h = fs.readFileSync("index.html", "utf8");
@@ -1720,14 +1722,30 @@ prueba("Chicos: un desplegable abierto sigue abierto después de tildar (se recu
   assert.match(f, /data-recordar="acordado"\$\{abierto\("acordado"\)\}/);
   assert.match(f, /addEventListener\("toggle"/);
 });
-prueba("Agenda: tocar una actividad de los chicos, una propia o una tarea abre su editor", () => {
+prueba("Agenda (agenda-13): las tres clases se ven, se arrastran y se editan IGUAL", () => {
   const g = fs.readFileSync("agenda.js", "utf8");
-  assert.match(g, /data-tocar-ev="\$\{esc\(e\.id\)\}"/);
-  assert.match(g, /editandoEv === e\.id \? formEvento\(e\)/, "el mismo formulario que en Chicos");
-  assert.match(g, /data-tocar-act=/);
-  assert.match(g, /querySelectorAll\("\.pas-txt"\)/);
-  const f = fs.readFileSync("familia.js", "utf8");
-  assert.match(f, /export function formEvento\(/); assert.match(f, /export function engancharEvento\(/);
+  const piezas = g.slice(g.indexOf("function piezasDelDia"), g.indexOf("function datosDePieza"));
+  for (const c of ['clase: "tarea"', 'clase: "act"', 'clase: "chicos"']) assert.ok(piezas.includes(c), "falta " + c);
+  const resumen = g.slice(g.indexOf("function pieza(p)"), g.indexOf("async function sacarPieza"));
+  assert.match(resumen, /data-agarre=/, "toda pieza tiene su agarre");
+  assert.match(resumen, /data-abrir=/, "toda pieza se abre con un toque");
+  assert.match(resumen, /editorPieza\(p\)/, "y abre el MISMO editor");
+  assert.doesNotMatch(g, /function pastilla\(|const formMover|data-tocar-ev/, "no quedan las tres formas viejas");
+  const soltar = g.slice(g.indexOf("async function soltarEn"));
+  assert.match(soltar, /p\.clase === "act"/); assert.match(soltar, /moverEvento\(e, p\.dia, dia, cambios\)/);
+  assert.match(g, /se repite todas las semanas\. ¿Moverla sólo el/, "mover una que se repite pregunta: sólo ese día");
+});
+
+prueba("arrastrar: la hora se queda si cae en la franja; si no, la de arriba de esa franja", () => {
+  assert.equal(horaEnFranja("10:30", "manana"), "10:30");
+  assert.equal(horaEnFranja("10:30", "tarde"), HORA_DE_FRANJA.tarde);
+  assert.equal(horaEnFranja("15:00", "noche"), "20:00");
+  assert.equal(horaEnFranja("", "noche"), "", "sin hora sigue sin hora");
+});
+prueba("arrastrar: lo que tenía fin conserva lo que duraba, también si cruza la medianoche", () => {
+  assert.equal(correrFin("15:00", "16:00", "09:00"), "10:00");
+  assert.equal(correrFin("19:00", "20:30", "23:30"), "01:00");
+  assert.equal(correrFin("21:00", "", "20:00"), "", "una noche sin vuelta sigue sin vuelta");
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
