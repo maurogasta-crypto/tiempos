@@ -13,7 +13,7 @@ import path from "node:path";
 import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          quePuedoArrancar, semanaDe, fmtHoras, esc, isoDe, sumarDias, lunesDe, semanaISO,
          grillaDelMes, chicosDelDia, eventosDelDia, COTIDIANAS, progresoDia, alternarEncargado,
-         pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA,
+         pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, arbolOrganizado, puedeSoltar,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
          cotidianasDe, listasDeCompras, recorridoDeCompra, ajusteTrimestral, posiblesFijos, trimestreDe, mesesDelTrimestre, sumarTrimestres, firmaTrimestre, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
@@ -1697,7 +1697,7 @@ prueba("A27: en Tareas el cuadro para agregar va arriba de todo, y abajo todo po
   assert.match(h, /id="nueva-dia"/, "se agenda en un día al crearla");
   const a = fs.readFileSync("app.js", "utf8");
   assert.match(a, /function pintarCategorias\(v\)/);
-  assert.match(a, /k === TIPO_CASA_VERDE && E\.cv/, "Casa Verde va adentro de Producción");
+  assert.match(a, /"cat:" \+ TIPO_CASA_VERDE[\s\S]{0,80}clave: "g:cv", padre: cat/, "Casa Verde va adentro de Producción");
   assert.match(a, /\$\{!t\.hecho \? filaAgendar\("f:" \+ t\.id\) : ""\}/, "la tarea se agenda sin salir de la ficha");
   assert.match(a, /\$\{filaAgendar\("cv:" \+ a\.id\)\}/, "y la de Casa Verde también");
   assert.match(a, /data-a="titulo"/, "el título se edita en la ficha");
@@ -1746,6 +1746,70 @@ prueba("arrastrar: lo que tenía fin conserva lo que duraba, también si cruza l
   assert.equal(correrFin("15:00", "16:00", "09:00"), "10:00");
   assert.equal(correrFin("19:00", "20:30", "23:30"), "01:00");
   assert.equal(correrFin("21:00", "", "20:00"), "", "una noche sin vuelta sigue sin vuelta");
+});
+
+titulo("nucleo-35: cada uno organiza sus tareas (12-oct)");
+const NODOS = [
+  { clave: "f:a", padre: "cat:mantenimiento", cat: "cat:mantenimiento" },
+  { clave: "f:b", padre: "f:a", cat: "cat:mantenimiento" },
+  { clave: "f:c", padre: "cat:casa", cat: "cat:casa" },
+  { clave: "g:1", padre: "cat:personal", cat: "cat:personal" },
+];
+prueba("sin nada guardado, cada cosa va donde va siempre", () => {
+  const { padre, hijos } = arbolOrganizado(NODOS, {});
+  assert.equal(padre["f:b"], "f:a"); assert.deepEqual(hijos["cat:mantenimiento"], ["f:a"]);
+});
+prueba("lo que uno ordena manda: una tarea adentro de un grupo propio, y el grupo adentro de un proyecto", () => {
+  const { padre, hijos } = arbolOrganizado(NODOS, { "f:c": "g:1", "g:1": "f:a" });
+  assert.equal(padre["f:c"], "g:1"); assert.equal(padre["g:1"], "f:a");
+  assert.deepEqual(hijos["f:a"], ["f:b", "g:1"]);
+});
+prueba("un padre que ya no existe se ignora: la tarea vuelve a su lugar, no desaparece", () => {
+  assert.equal(arbolOrganizado(NODOS, { "f:c": "g:borrado" }).padre["f:c"], "cat:casa");
+  assert.equal(arbolOrganizado([{ clave: "f:x", padre: "f:hecha", cat: "cat:casa" }], {}).padre["f:x"], "cat:casa", "si el padre está hecho, cuelga de su categoría");
+});
+prueba("un círculo no se arma: nada queda adentro de sí mismo", () => {
+  const { padre } = arbolOrganizado(NODOS, { "f:a": "f:b" });
+  assert.equal(padre["f:a"], "cat:mantenimiento");
+  assert.equal(puedeSoltar("f:a", "f:b", padre), false, "no adentro de su propia hija");
+  assert.equal(puedeSoltar("f:a", "f:a", padre), false);
+  assert.equal(puedeSoltar("f:c", "f:b", padre), true);
+  assert.equal(puedeSoltar("f:b", "cat:personal", padre), true);
+});
+
+titulo("app-30: proyectos y tareas, a gusto de cada uno (12-oct)");
+prueba("agregar una tarea es un botón que se despliega", () => {
+  const h = fs.readFileSync("index.html", "utf8"), a = fs.readFileSync("app.js", "utf8");
+  assert.match(h, /<form id="form-tarea"[^>]*\bhidden\b/, "el formulario arranca escondido");
+  assert.match(h, /id="abrir-tarea"[^>]*>＋ Tarea</);
+  assert.match(h, /id="cerrar-tarea"/);
+  assert.match(a, /\$\("form-tarea"\)\.hidden = [^;]*!formTareaAbierto/);
+});
+prueba("el orden es PERSONAL: va a agendas/{uid} de quien lo toca, nunca a la tarea", () => {
+  const a = fs.readFileSync("app.js", "utf8");
+  const org = a.slice(a.indexOf("function organizar("), a.indexOf("function filaGrupo("));
+  assert.match(org, /F\.doc\(db, "agendas", E\.yo\.uid\)/);
+  assert.match(org, /organizar: \{ \[clave\]: valor \}/);
+  assert.doesNotMatch(org, /"tareas"/, "ordenar no toca la tarea compartida");
+});
+prueba("arrastrar no deja soltar algo adentro de sí mismo, y usa el árbol de cada uno", () => {
+  const a = fs.readFileSync("app.js", "utf8");
+  const arr = a.slice(a.indexOf("function arrastrarOrg("), a.indexOf("function opcionesAdentro("));
+  assert.match(arr, /puedeSoltar\(clave, z\.dataset\.destino, orgPadre\)/);
+  assert.match(a, /arbolOrganizado\(nodos, E\.organizar \|\| \{\}\)/);
+});
+prueba("el «Adentro de» se agrupa por categoría, con sangría y los grupos propios", () => {
+  const a = fs.readFileSync("app.js", "utf8");
+  const op = a.slice(a.indexOf("function opcionesAdentro("), a.indexOf("/* ── TAREAS"));
+  assert.match(op, /<optgroup label=/);
+  assert.match(op, /📂/); assert.match(op, /📁/);
+  assert.match(op, /!n\.grupo\.fijo/, "Casa Verde no se ofrece como padre: sus tareas viven en su base");
+  assert.match(a, /sel\.innerHTML = opcionesAdentro\(\)/);
+});
+prueba("una tarea nueva dentro de un grupo propio no lleva padre: el grupo es sólo de quien la crea", () => {
+  const a = fs.readFileSync("app.js", "utf8");
+  assert.match(a, /const padreId = grupo \? null : elegido/);
+  assert.match(a, /organizar\("f:" \+ r\.id, grupo\)/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex">
 <title>Tiempos</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilos.css?v=25">
+<link rel="stylesheet" href="estilos.css?v=26">
 </head>
 <body>
 <header id="barra"><span class="marca">Tiempos</span><span id="quien" class="gris"></span></header>
@@ -65,7 +65,10 @@
         <button data-vt="pizarra" aria-selected="false">Pizarra de la semana</button>
         <button data-vt="compras" aria-selected="false">Compras</button>
       </nav>
-      <form id="form-tarea" class="tarjeta ficha">
+      <!-- app-30 (Mauro, 12-oct): agregar es un botón que se despliega. -->
+      <div class="botones" id="t-botones"><button class="boton" id="abrir-tarea" type="button">＋ Tarea</button>
+        <button class="mini" id="nuevo-grupo" type="button">＋ Grupo propio</button></div>
+      <form id="form-tarea" class="tarjeta ficha" hidden>
         <label>Tarea nueva <input id="nueva-titulo" maxlength="120" required placeholder="Ej.: Llevar a los chicos a la escuela"></label>
         <label>Adentro de <select id="nueva-padre"></select></label>
         <label>Ámbito <select id="nueva-tipo">
@@ -79,7 +82,7 @@
         <label>A mi agenda el día <input type="date" id="nueva-dia"> <small class="gris">opcional</small></label>
         <label class="check"><input type="checkbox" id="nueva-mia"> Me ocupo yo</label>
         <label class="check"><input type="checkbox" id="nueva-personal"> Sólo la veo yo</label>
-        <button class="boton">Agregar</button>
+        <div class="botones"><button class="boton">Agregar</button><button class="mini" type="button" id="cerrar-tarea">Cancelar</button></div>
       </form>
     </div>
     <div id="v-ahora" hidden></div>
@@ -100,10 +103,10 @@
          dos lugares. Ver protocolos/PROTOCOLO-AVISOS.md de datos. -->
     <p class="pie"><a class="link" href="https://casaverdecanas.com.br/interno/avisos.html" target="_blank" rel="noopener">Avisos de Claude por WhatsApp</a>
       · <a class="link" href="https://maurogasta-crypto.github.io/datos/pizarra.html" target="_blank" rel="noopener">📲 La app de los avisos (Pizarra)</a></p>
-    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-29</span></p>
+    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-30</span></p>
   </section>
 </main>
-<script type="module" src="app.js?v=29"></script>
+<script type="module" src="app.js?v=30"></script>
 <script>
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

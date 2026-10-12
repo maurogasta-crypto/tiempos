@@ -1,8 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-29
+// Sello: app-30
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
+// app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
+//   intuitiva y dinámica, con arrastrar y soltar… cada usuario organiza como le
+//   resulta más cómodo»). En «Por categoría» cada tarea, proyecto o grupo tiene
+//   su ⠿ y se suelta ADENTRO de otro; los grupos 📂 son propios. El orden es de
+//   CADA UNO (`agendas/{uid}.organizar` y `.grupos`, arbolOrganizado de
+//   nucleo.js): las tareas son las mismas para los dos. Agregar es un botón que
+//   se despliega, y «Adentro de» va agrupado por categoría, con sangría.
 // app-29 (11-oct-2026, sugerencias de Florencia desde el globo 💡):
 //   · tiempos:A26 — «No hay ninguna tarea corriendo» ya no ocupa todas las
 //     pestañas: el reloj aparece sólo cuando algo corre. Y «Estoy con…» vive
@@ -56,10 +63,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
-import { TIPOS, TIPO_CASA_VERDE, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
+import { TIPOS, TIPO_CASA_VERDE, arbolOrganizado, puedeSoltar, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
          alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
          separarEnCurso, chicosDelDia, eventosDelDia,
-         COLORES_TAREA, colorHeredado, estaCorriendo } from "./nucleo.js";
+         COLORES_TAREA, colorHeredado, estaCorriendo, idNuevo } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
 import { pintarAgenda, alternarEnAgenda, estaEnAgenda, guardarEnAgenda, agendaUnida } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
@@ -246,6 +253,8 @@ function escucharFamilia() {
     E.lugares = (d.exists() && d.data().lugares) || {};             // app-17: mis lugares (lugares.js)
     E.casas = (d.exists() && d.data().casas) || {};
     E.agenteAgenda = d.exists() && d.data().agente === true;         // app-18: «Claude organiza mi agenda»
+    E.organizar = (d.exists() && d.data().organizar) || {};          // app-30: dónde cuelga cada cosa, para mí
+    E.grupos = (d.exists() && d.data().grupos) || {};                // app-30: mis grupos 📂
     pintar();
   }, mal("tu agenda"));
   // app-13: mis alertas (recordatorios y alarmas) y la lista de deseos de los dos.
@@ -798,60 +807,212 @@ function pintarAhora() {
   // dividirla dos veces. Quién la tiene se ve en la fila («vos», el nombre).
 }
 
-/* ── POR CATEGORÍA (app-29, tiempos:A27) ──────────────────────────────────────
-   Florencia: «las categorías fusionadas de Casa Verde con todas las personales,
-   en árboles que se puedan desplegar o reducir». Una rama por ámbito, en el
-   orden de TIPOS; las actividades de Casa Verde van adentro de Producción, que
-   es lo que son (TIPO_CASA_VERDE). Cada rama se pliega con la misma flechita y
-   se recuerda en este teléfono. */
+/* ── POR CATEGORÍA, y organizado por cada uno (app-29 → app-30) ──────────────
+   Una rama por ámbito, en el orden de TIPOS; adentro, el árbol de CADA UNO:
+   las tareas, los proyectos, las actividades de Casa Verde (en su grupo, en
+   Producción) y los grupos 📂 propios, colgados donde cada uno los puso
+   (arbolOrganizado). Cada fila tiene su ⠿: se arrastra y se suelta ADENTRO de
+   otra fila o en una categoría. Se pliega con la misma flechita. */
+let orgPadre = {};             // el árbol que está dibujado: clave → padre
+let orgDefecto = {};           // dónde iría cada cosa sin el orden propio
+function nodosOrganizables() {
+  const { porId } = arbol(E.tareas);
+  const nodos = [];
+  for (const t of E.tareas.filter((x) => !x.hecho)) {
+    const cat = "cat:" + tipoHeredado(t, porId);
+    nodos.push({ clave: "f:" + t.id, padre: t.parentId ? "f:" + t.parentId : cat, cat, t });
+  }
+  if (E.cv) {
+    const cat = "cat:" + TIPO_CASA_VERDE;
+    nodos.push({ clave: "g:cv", padre: cat, cat, grupo: { titulo: "Casa Verde", fijo: true } });
+    for (const a of E.cvActs || []) nodos.push({ clave: "cv:" + a.id, padre: a.parentId ? "cv:" + a.parentId : "g:cv", cat, a });
+  }
+  for (const [id, g] of Object.entries(E.grupos || {})) if (g) nodos.push({ clave: "g:" + id, padre: "cat:personal", cat: "cat:personal", grupo: g });
+  return nodos;
+}
 function pintarCategorias(v) {
   const { porId } = arbol(E.tareas);
-  const vivas = E.tareas.filter((t) => !t.hecho);
+  const todosHijos = arbol(E.tareas).hijos;
+  const nodos = nodosOrganizables();
+  const { padre, hijos } = arbolOrganizado(nodos, E.organizar || {});
+  orgPadre = padre; orgDefecto = Object.fromEntries(nodos.map((n) => [n.clave, n.padre]));
+  const porClave = Object.fromEntries(nodos.map((n) => [n.clave, n]));
+  const cuenta = (k) => (hijos[k] || []).reduce((t, c) => t + 1 + cuenta(c), 0);
+  const bajar = (k, nivel) => {
+    const n = porClave[k]; if (!n) return;
+    const f = n.t ? filaTarea(n.t, nivel, porId, todosHijos, cuenta(k)) : n.a ? filaCV(n.a, nivel, cuenta(k)) : filaGrupo(k, n.grupo, nivel, cuenta(k));
+    organizable(f, k);
+    v.append(f);
+    if (plegado.has(k)) return;
+    for (const h of hijos[k] || []) bajar(h, nivel + 1);
+  };
   let algo = false;
   for (const [k, tipo] of Object.entries(TIPOS)) {
-    const delTipo = vivas.filter((t) => tipoHeredado(t, porId) === k);
-    const cv = k === TIPO_CASA_VERDE && E.cv ? (E.cvActs || []) : [];
-    if (!delTipo.length && !cv.length) continue;
-    algo = true;
+    const cat = "cat:" + k, n = cuenta(cat);
+    algo = algo || n > 0;
     const cab = document.createElement("div");
     cab.className = "cat-cab";
+    cab.dataset.destino = cat;
     cab.style.setProperty("--c", tipo.color);
-    cab.innerHTML = `${flecha("cat:" + k, delTipo.length + cv.length)}<b>${esc(tipo.nombre)}</b> <small class="gris">${delTipo.length + cv.length}</small>`;
+    cab.innerHTML = `${flecha(cat, n)}<b>${esc(tipo.nombre)}</b> <small class="gris">${n || "vacía: soltá algo acá"}</small>`;
     engancharFlecha(cab);
     v.append(cab);
-    if (plegado.has("cat:" + k)) continue;
-    if (delTipo.length) v.append(listaFamilia(delTipo));
-    if (cv.length) {
-      const sub = document.createElement("div");
-      sub.className = "cat-cab sub";
-      sub.innerHTML = `${flecha("cat:cv", cv.length)}<b>Casa Verde</b> <small class="gris">${cv.length}</small>`;
-      engancharFlecha(sub);
-      v.append(sub);
-      if (!plegado.has("cat:cv")) v.append(listaCV(cv));
-    }
+    if (plegado.has(cat)) continue;
+    for (const h of hijos[cat] || []) bajar(h, 0);
   }
   if (!E.cv) v.append(gris("Casa Verde: sin sesión. Entrá arriba para ver sus actividades acá."));
-  if (!algo) v.append(gris("Todavía no hay tareas. Agregá una arriba."));
+  if (!algo) v.append(gris("Todavía no hay tareas. Tocá «＋ Tarea» arriba."));
+  v.append(gris("Arrastrá del ⠿ y soltá ADENTRO de un proyecto, un grupo o una categoría. Este orden es tuyo: al otro no le cambia nada."));
 }
 
+/* El agarre y el «volver a su lugar» de una fila organizable. */
+function organizable(f, clave) {
+  f.dataset.destino = clave;
+  const fila = f.querySelector(".fila");
+  const g = document.createElement("span");
+  g.className = "pas-agarre org-agarre"; g.textContent = "⠿"; g.title = "Arrastrar";
+  g.addEventListener("pointerdown", (ev) => arrastrarOrg(ev, clave));
+  fila.prepend(g);
+  if ((E.organizar || {})[clave] && !clave.startsWith("g:")) {
+    const b = document.createElement("button");
+    b.className = "mini volver"; b.textContent = "↩"; b.title = "Volver a su lugar de siempre";
+    b.onclick = () => organizar(clave, null);
+    fila.insertBefore(b, fila.querySelector(".mas"));
+  }
+}
+
+/* Guardar dónde cuelga algo, para mí. `null` (o su lugar de siempre) borra el orden propio. */
+function organizar(clave, destino) {
+  const valor = !destino || (destino === orgDefecto[clave] && !clave.startsWith("g:")) ? F.deleteField() : destino;
+  return F.setDoc(F.doc(db, "agendas", E.yo.uid), { organizar: { [clave]: valor }, actualizadoEn: F.serverTimestamp() }, { merge: true }).catch(fallo);
+}
+
+/* Un grupo propio 📂: sólo lo ve quien lo armó. */
+function filaGrupo(clave, g, nivel, cuantos) {
+  const f = document.createElement("div");
+  f.className = "fila-tarea grupo";
+  f.style.paddingLeft = (nivel * 16) + "px";
+  const abierta = E.abierta === clave;
+  f.innerHTML = `<div class="fila">${flecha(clave, cuantos)}
+      <span class="txt">📂 <b>${esc(g.titulo || "Grupo")}</b> <small class="gris">${g.fijo ? "las de Casa Verde" : "grupo tuyo"}${cuantos && plegado.has(clave) ? ` · ${cuantos} adentro` : ""}</small></span>
+      <button class="mas" aria-label="Más">${abierta ? "▴" : "⋯"}</button></div>`;
+  engancharFlecha(f);
+  f.querySelector(".mas").onclick = () => { E.abierta = abierta ? null : clave; pintar(); };
+  if (abierta) {
+    const d = document.createElement("div"); d.className = "ficha";
+    d.innerHTML = g.fijo ? `<p class="gris">Las actividades de Casa Verde. Podés moverlo a donde te quede más cómodo.</p>`
+      : `<label>Nombre <input data-a="nombre" maxlength="60" value="${esc(g.titulo || "")}"></label>
+        <div class="botones"><button class="mini" data-a="adentro">＋ Grupo adentro</button><button class="mini" data-a="borrar">Borrar el grupo</button></div>
+        <p class="gris">Al borrarlo, lo que tiene adentro vuelve a su lugar de siempre. Las tareas no se borran.</p>`;
+    const id = clave.slice(2);
+    const nom = d.querySelector('[data-a="nombre"]');
+    if (nom) nom.onchange = () => { const t = nom.value.trim().slice(0, 60); if (t) F.setDoc(F.doc(db, "agendas", E.yo.uid), { grupos: { [id]: { titulo: t } } }, { merge: true }).catch(fallo); };
+    const ad = d.querySelector('[data-a="adentro"]');
+    if (ad) ad.onclick = () => nuevoGrupo(clave);
+    const bo = d.querySelector('[data-a="borrar"]');
+    if (bo) bo.onclick = () => {
+      if (!confirm(`¿Borrar el grupo «${g.titulo}»? Lo de adentro vuelve a su lugar; ninguna tarea se borra.`)) return;
+      const org = { [clave]: F.deleteField() };
+      for (const [k, p] of Object.entries(E.organizar || {})) if (p === clave) org[k] = F.deleteField();
+      E.abierta = null;
+      F.setDoc(F.doc(db, "agendas", E.yo.uid), { grupos: { [id]: F.deleteField() }, organizar: org, actualizadoEn: F.serverTimestamp() }, { merge: true }).catch(fallo);
+    };
+    f.append(d);
+  }
+  return f;
+}
+async function nuevoGrupo(adentroDe = "cat:personal") {
+  const titulo = (prompt("Nombre del grupo (sólo lo ves vos)", "") || "").trim().slice(0, 60);
+  if (!titulo) return;
+  const id = idNuevo("g");
+  await F.setDoc(F.doc(db, "agendas", E.yo.uid), { grupos: { [id]: { titulo } }, organizar: { ["g:" + id]: adentroDe }, actualizadoEn: F.serverTimestamp() }, { merge: true }).catch(fallo);
+  if (plegado.has(adentroDe)) alternarPlegado(adentroDe);
+  aviso(`Grupo «${titulo}» listo: arrastrá adentro lo que quieras.`);
+}
+
+/* El arrastre de la lista: un fantasma sigue al dedo, lo de abajo se ilumina,
+   y al soltar queda ADENTRO de eso. Cerca del borde la pantalla se desplaza. */
+function arrastrarOrg(ev, clave) {
+  ev.preventDefault();
+  const origen = ev.target.closest("[data-destino]");
+  const r = origen.querySelector(".fila").getBoundingClientRect();
+  const fantasma = origen.querySelector(".fila").cloneNode(true);
+  Object.assign(fantasma.style, { position: "fixed", left: r.left + "px", width: r.width + "px", top: r.top + "px", pointerEvents: "none", zIndex: 50, opacity: ".9" });
+  fantasma.classList.add("fantasma");
+  document.body.append(fantasma);
+  origen.classList.add("arrastrando"); document.body.classList.add("arrastrando-algo");
+  const dy = ev.clientY - r.top;
+  let sobre = null, rueda = 0, x = ev.clientX, y = ev.clientY;
+  const marcar = () => {
+    const el = document.elementFromPoint(x, y);
+    let z = el && el.closest("[data-destino]");
+    if (z && !puedeSoltar(clave, z.dataset.destino, orgPadre)) z = null;
+    if (z !== sobre) { if (sobre) sobre.classList.remove("encima"); sobre = z; if (sobre) sobre.classList.add("encima"); }
+  };
+  const mover = (e) => { x = e.clientX; y = e.clientY; fantasma.style.top = (e.clientY - dy) + "px"; marcar(); };
+  const desplazar = () => { if (y < 80) { scrollBy(0, -12); marcar(); } else if (y > innerHeight - 80) { scrollBy(0, 12); marcar(); } rueda = requestAnimationFrame(desplazar); };
+  rueda = requestAnimationFrame(desplazar);
+  const soltar = () => {
+    cancelAnimationFrame(rueda);
+    removeEventListener("pointermove", mover); removeEventListener("pointerup", soltar); removeEventListener("pointercancel", soltar);
+    fantasma.remove(); origen.classList.remove("arrastrando"); document.body.classList.remove("arrastrando-algo");
+    if (!sobre) return;
+    sobre.classList.remove("encima");
+    const destino = sobre.dataset.destino;
+    if (destino === orgPadre[clave]) return;
+    organizar(clave, destino);
+    if (plegado.has(destino)) alternarPlegado(destino);
+  };
+  addEventListener("pointermove", mover); addEventListener("pointerup", soltar); addEventListener("pointercancel", soltar);
+}
+
+/* «Adentro de»: agrupado por categoría, con sangría, en el orden de CADA UNO.
+   Los proyectos 📁 y los grupos 📂 se distinguen; Casa Verde no entra (sus
+   tareas viven en su base). */
+function opcionesAdentro() {
+  const nodos = nodosOrganizables().filter((n) => n.t || (n.grupo && !n.grupo.fijo));
+  const { hijos } = arbolOrganizado(nodos, E.organizar || {});
+  const porClave = Object.fromEntries(nodos.map((n) => [n.clave, n]));
+  const sangria = (n) => "\u2003".repeat(n) + (n ? "└ " : "");
+  let h = `<option value="">— Suelta, sin proyecto —</option>`;
+  for (const [k, tipo] of Object.entries(TIPOS)) {
+    const ops = [];
+    const bajar = (c, n) => {
+      const x = porClave[c]; if (!x) return;
+      const tiene = (hijos[c] || []).length;
+      ops.push(`<option value="${esc(x.t ? x.t.id : c)}">${sangria(n)}${x.grupo ? "📂 " : tiene ? "📁 " : ""}${esc(x.t ? x.t.titulo : x.grupo.titulo)}</option>`);
+      for (const hh of hijos[c] || []) bajar(hh, n + 1);
+    };
+    for (const c of hijos["cat:" + k] || []) bajar(c, 0);
+    if (ops.length) h += `<optgroup label="${esc(tipo.nombre)}">${ops.join("")}</optgroup>`;
+  }
+  return h;
+}
 
 /* ── TAREAS: la pizarra de la semana y la lista entera ────────────────────── */
 let lunesPizarra = null;
+let formTareaAbierto = false;
+$("abrir-tarea").onclick = () => { formTareaAbierto = true; pintar(); $("nueva-titulo").focus(); };
+$("cerrar-tarea").onclick = () => { formTareaAbierto = false; pintar(); };
+$("nuevo-grupo").onclick = () => nuevoGrupo().catch(fallo);
 function pintarTareas() {
   const lunes = lunesPizarra || lunesDe(E.hoy);
   for (const b of document.querySelectorAll("[data-vt]")) b.setAttribute("aria-selected", String(b.dataset.vt === E.vistaTareas));
   const sel = $("nueva-padre");
-  const { raices, porId, hijos: hijosSel } = arbol(E.tareas.filter((t) => !t.hecho));
   const antes = sel.value;
-  // app-8: se puede meter adentro de cualquier tarea, no sólo de un proyecto.
-  const opciones = [];
-  const bajarSel = (t, n) => { opciones.push(`<option value="${esc(t.id)}">${"— ".repeat(n)}${esc(t.titulo)}${n ? "" : " (" + esc(TIPOS[tipoHeredado(t, porId)].nombre) + ")"}</option>`); for (const h of hijosSel[t.id] || []) bajarSel(h, n + 1); };
-  for (const r of raices) bajarSel(r, 0);
-  sel.innerHTML = `<option value="">— Proyecto nuevo (suelto) —</option>` + opciones.join("");
+  sel.innerHTML = opcionesAdentro();
   sel.value = antes;
-  $("nueva-tipo").parentElement.hidden = !!sel.value;
-  sel.onchange = () => { $("nueva-tipo").parentElement.hidden = !!sel.value; };
-  $("form-tarea").hidden = E.vistaTareas === "compras";
+  const suelta = () => !sel.value || sel.value.startsWith("g:");
+  $("nueva-tipo").parentElement.hidden = !suelta();
+  sel.onchange = () => {
+    $("nueva-tipo").parentElement.hidden = !suelta();
+    // En un grupo propio, la categoría que se ofrece es la de donde vive el grupo.
+    let k = sel.value; if (k.startsWith("g:")) for (let i = 0; k && !k.startsWith("cat:") && i < 50; i++) k = orgPadre[k];
+    if (k && k.startsWith("cat:") && TIPOS[k.slice(4)]) $("nueva-tipo").value = k.slice(4);
+  };
+  // app-30: agregar es un botón que se despliega.
+  $("t-botones").hidden = E.vistaTareas === "compras" || formTareaAbierto;
+  $("form-tarea").hidden = E.vistaTareas === "compras" || !formTareaAbierto;
   const v = $("v-tareas-lista"); v.replaceChildren();
   if (E.vistaTareas === "compras") { pintarCompras(v); return; }
 
@@ -898,7 +1059,9 @@ $("form-tarea").onsubmit = async (ev) => {
   ev.preventDefault();
   const titulo = $("nueva-titulo").value.trim();
   if (!titulo) return;
-  const padreId = $("nueva-padre").value || null;
+  const elegido = $("nueva-padre").value || null;
+  const grupo = elegido && elegido.startsWith("g:") ? elegido : null;   // app-30: un grupo propio
+  const padreId = grupo ? null : elegido;
   const { porId } = arbol(E.tareas);
   const padre = padreId ? porId[padreId] : null;
   // El tipo lo pone la raíz: una hija lo hereda y lo guarda igual, para que
@@ -915,6 +1078,8 @@ $("form-tarea").onsubmit = async (ev) => {
       detalle: "", creadoEn: F.serverTimestamp(),
     });
     $("nueva-titulo").value = "";
+    formTareaAbierto = false; pintar();
+    if (grupo) await organizar("f:" + r.id, grupo);
     // app-29: «para ponerla en la semana o en la organización de la agenda».
     if (dia) { await guardarEnAgenda("f:" + r.id, { dia }); $("nueva-dia").value = ""; aviso(`Agregada y agendada el ${fecha(dia)}.`); }
   } catch (e) { fallo(e); }

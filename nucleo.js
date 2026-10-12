@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-34
+// Sello: nucleo-35
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -291,6 +291,46 @@ export function franjaDe(m) {
   if (!h) return "manana";
   return h >= "19:00" ? "noche" : h >= "13:00" ? "tarde" : "manana";
 }
+/* ── Cada uno ORGANIZA sus tareas (nucleo-35, 12-oct-2026) ───────────────────
+   Mauro: «una edición de proyectos y tareas más intuitiva y dinámica, con la
+   misma lógica de arrastrar y soltar… organizar en proyectos y dentro otros
+   subgrupos… cada usuario debe poder organizar las tareas como le resulta más
+   cómodo». Y eligió que el orden sea DE CADA UNO: las tareas son las mismas
+   para los dos, pero dónde cuelga cada una en la lista es personal
+   (`agendas/{uid}.organizar`, clave → clave del padre, y `grupos`, carpetas
+   propias). Sin nada guardado, cada cosa va donde va siempre (`padre` del
+   nodo). Una clave de padre que no existe, o que haría un círculo, se ignora:
+   nada puede quedar adentro de sí mismo, y nada se pierde de vista. */
+const esCat = (k) => typeof k === "string" && k.startsWith("cat:");
+export function arbolOrganizado(nodos, organizar = {}) {
+  const existe = new Set((nodos || []).map((n) => n.clave));
+  const valido = (k) => esCat(k) || existe.has(k);
+  const padre = {};
+  for (const n of nodos || []) {
+    const def = valido(n.padre) && n.padre !== n.clave ? n.padre : (n.cat || "cat:personal");
+    const o = (organizar || {})[n.clave];
+    padre[n.clave] = o && o !== n.clave && valido(o) ? o : def;
+  }
+  // Un círculo (A dentro de B dentro de A) vuelve cada uno a su lugar de siempre.
+  for (const n of nodos || []) {
+    const vistos = new Set([n.clave]);
+    for (let p = padre[n.clave], k = 0; p && !esCat(p) && k < 1000; p = padre[p], k++) {
+      if (vistos.has(p)) { padre[n.clave] = valido(n.padre) && n.padre !== n.clave ? n.padre : (n.cat || "cat:personal"); break; }
+      vistos.add(p);
+    }
+  }
+  const hijos = {};
+  for (const n of nodos || []) (hijos[padre[n.clave]] = hijos[padre[n.clave]] || []).push(n.clave);
+  return { padre, hijos };
+}
+/** ¿Se puede soltar `clave` adentro de `destino`? No en sí misma ni en algo
+ *  que cuelga de ella. */
+export function puedeSoltar(clave, destino, padre) {
+  if (!destino || clave === destino) return false;
+  for (let p = destino, k = 0; p && !esCat(p) && k < 1000; p = (padre || {})[p], k++) if (p === clave) return false;
+  return true;
+}
+
 /* ── Arrastrar cualquier cosa de la agenda (nucleo-34, 12-oct-2026) ──────────
    Mauro: «todos los elementos de la agenda deberían poder arrastrarse y
    moverse como el primero». Soltar en otra franja deja la hora si cae ahí y,

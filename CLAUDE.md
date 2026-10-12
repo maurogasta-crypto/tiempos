@@ -42,6 +42,17 @@ la documentación diga la verdad.
   los sitios»): `ojosEnClaves()` al final de `app.js`. Es el mismo código que
   en Casa Verde, CasaYourte, remate y el panel, y en la Pizarra va en Kotlin:
   si cambia en uno, cambia en todos en la misma tanda.
+- **Cada uno ordena proyectos y tareas a su gusto** (app-30, nucleo-35,
+  12-oct-2026, Mauro: «cada usuario debe poder organizar las tareas como le
+  resulta más cómodo»). En Tareas → Por categoría se arrastra del ⠿ y se suelta
+  ADENTRO de un proyecto, un grupo propio 📂 o una categoría. **El orden es
+  PERSONAL y no toca la tarea**: vive en `agendas/{uid}` —`organizar` (clave →
+  padre: `f:<tarea>`, `cv:<act>`, `g:<grupo>`, `cat:<tipo>`) y `grupos`—, que
+  sólo lee y escribe su dueño, así que no hizo falta regla nueva y el agente
+  no lo escribe. `arbolOrganizado` ignora un padre que ya no existe y rompe
+  círculos; `puedeSoltar` no deja soltar algo adentro de sí mismo. ↩ vuelve al
+  lugar de siempre; borrar un grupo no borra tareas. «＋ Tarea» se despliega, y
+  «Adentro de» va agrupado por categoría (📁 proyecto, 📂 grupo).
 - **Las sugerencias de Florencia del 11-oct** (app-29, `tiempos:A25`–`A28`):
   el reloj se ve sólo si algo corre y «Estoy con…» vive en Chicos; **la
   pantalla no se redibuja mientras el foco pasa a otro elemento del MISMO

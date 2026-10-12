@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-25
+/* estilos.css — Tiempos. Sello: estilos-26
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -353,3 +353,16 @@ details.cifra summary::-webkit-details-marker { display:none; }
 .tres input { width:100%; min-width:0; box-sizing:border-box; }
 .pieza-ed fieldset.clases { margin:8px 0; }
 .pieza-ed input:disabled, .pieza-ed input[readonly] { opacity:.6; }
+
+/* ── estilos-26 (app-30): el orden propio de proyectos y tareas ───────────── */
+.org-agarre { flex:0 0 28px; height:40px; touch-action:none; cursor:grab; }
+[data-destino].encima > .fila, .cat-cab.encima { outline:2px dashed var(--acento); outline-offset:-2px; border-radius:10px;
+  background:color-mix(in srgb, var(--acento) 16%, transparent); }
+.fila-tarea.arrastrando { opacity:.35; }
+.fila.fantasma { background:var(--tinta3); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+.fila-tarea.grupo .txt b { color:#d8a657; }
+.mini.volver { padding:.2rem .5rem; }
+#t-botones { display:flex; gap:8px; align-items:center; margin:6px 0 10px; }
+#t-botones .boton { flex:1; }
+select optgroup { font-weight:700; color:var(--gris); }
+select option { font-weight:400; color:var(--texto); }
