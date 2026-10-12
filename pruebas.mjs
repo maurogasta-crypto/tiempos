@@ -1892,5 +1892,15 @@ prueba("?abrir= sólo acepta una clave de pieza, y app.js la pasa a la agenda", 
   assert.match(a, /if \(clave\.startsWith\("ev:"\)\) return clave\.split\("\|"\)\[1\]/);
 });
 
+titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");
+prueba("?solapa=tareas&abrir=f:<id> abre su ficha, despliega lo que la tapa y sólo acepta una tarea", () => {
+  const a = fs.readFileSync("app.js", "utf8");
+  assert.match(a, /if \(solapaPedida === "tareas"\) irATarea\(params\.get\("abrir"\)\)/);
+  const f = a.slice(a.indexOf("function irATarea("), a.indexOf("function irATarea(") + 1200);
+  assert.match(f, /if \(!\/\^f:\[\\w-\]\{1,80\}\$\/\.test/);
+  assert.match(f, /E\.abierta = clave;/);
+  assert.match(f, /plegado\.delete\(k\)/, "lo que la tapa se despliega");
+});
+
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);

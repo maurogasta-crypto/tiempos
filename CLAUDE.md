@@ -53,6 +53,9 @@ la documentación diga la verdad.
   círculos; `puedeSoltar` no deja soltar algo adentro de sí mismo. ↩ vuelve al
   lugar de siempre; borrar un grupo no borra tareas. «＋ Tarea» se despliega, y
   «Adentro de» va agrupado por categoría (📁 proyecto, 📂 grupo).
+  **Desde app-34 una tarea se abre desde afuera**: `?solapa=tareas&abrir=f:<id>`
+  (lo usa el widget de la pizarra al tocar el texto) muestra su ficha y
+  despliega lo que la tapa (`irATarea`).
 - **Las sugerencias de Florencia del 11-oct** (app-29, `tiempos:A25`–`A28`):
   el reloj se ve sólo si algo corre y «Estoy con…» vivía en Chicos (se fue en app-31); **la
   pantalla no se redibuja mientras el foco pasa a otro elemento del MISMO

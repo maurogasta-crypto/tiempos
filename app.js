@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-33
+// Sello: app-34
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -158,6 +158,8 @@ async function entrarAlaApp() {
     E.solapa = solapaPedida;
     // app-33: y desde el widget, la pieza tocada (una alarma lleva a la suya).
     if (solapaPedida === "agenda") irAPieza(params.get("abrir"), params.get("dia"));
+    // app-34: y desde el widget de la pizarra, la tarea tocada con su ficha abierta.
+    if (solapaPedida === "tareas") irATarea(params.get("abrir"));
     for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x.dataset.solapa === solapaPedida));
     pintar();
   }
@@ -816,6 +818,27 @@ function pintarAhora() {
    (arbolOrganizado). Cada fila tiene su ⠿: se arrastra y se suelta ADENTRO de
    otra fila o en una categoría. Se pliega con la misma flechita. */
 let orgPadre = {};             // el árbol que está dibujado: clave → padre
+
+/* app-34 (12-oct-2026, Mauro: «que el widget de pizarra también abra la tarea
+   tocada»): `?solapa=tareas&abrir=f:<id>` muestra Por categoría con la ficha
+   de esa tarea abierta, despliega lo que la tapa (en el orden de cada uno) y
+   la trae a la vista. Las tareas llegan después: se reintenta un rato. */
+function irATarea(clave) {
+  if (!/^f:[\w-]{1,80}$/.test(String(clave || ""))) return;
+  E.vistaTareas = "todas";
+  E.abierta = clave;
+  for (const x of document.querySelectorAll("[data-vt]")) x.setAttribute("aria-selected", String(x.dataset.vt === "todas"));
+  const buscar = (n) => {
+    let abri = false;
+    for (let k = orgPadre[clave], i = 0; k && i < 40; k = orgPadre[k], i++) if (plegado.delete(k)) abri = true;
+    if (abri) pintar();
+    const el = document.querySelector(`[data-destino="${CSS.escape(clave)}"]`);
+    if (el) el.scrollIntoView({ block: "center" });
+    else if (n > 0) setTimeout(() => buscar(n - 1), 300);
+  };
+  pintar();
+  setTimeout(() => buscar(20), 100);
+}
 let orgDefecto = {};           // dónde iría cada cosa sin el orden propio
 function nodosOrganizables() {
   const { porId } = arbol(E.tareas);
