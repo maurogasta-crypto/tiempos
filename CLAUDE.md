@@ -85,10 +85,20 @@ la documentación diga la verdad.
   sea la única escritura directa.
 - **Los nombres de los chicos no entran al código**: viven en
   `familia/config` de la base. El banco busca los nombres y falla si aparecen.
-- **Estar con los chicos es un reloj aparte, en paralelo** al de la tarea
-  (`registro: "cuidado"`). No bloquea ni es bloqueado. Estar a cargo de los
-  chicos **es carga, igual que producir** (app-4 corrigió el «½» de app-3 con
-  las palabras de Mauro); la cuenta fina es `balanceTiempo` de `nucleo.js`.
+- **El tiempo con los chicos sale del CALENDARIO, no de un reloj** (app-31,
+  nucleo-36, balance-5, 12-oct-2026, Mauro: «se calcula en función de lo que se
+  marca en el calendario de los chicos, no poniendo un reloj»). El reloj
+  «Estoy con…» (`registro: "cuidado"`, de app-3 a app-30) ya no se ofrece: el
+  balance cuenta DÍAS con `diasConChicos` (lo acordado cada semana más los
+  cambios de un día) y deja afuera los intervalos «chicos» y «juntos» de
+  relojes y bloques. Uno viejo que quedó corriendo se ve y se puede terminar.
+- **El reloj es sólo para lo que se COBRA** (app-31, Mauro: «para las
+  actividades monetarizadas, como la limpieza de la cabaña u otra que se
+  indique, para repartir el dinero si trabaja más de una persona»). Las de
+  Casa Verde siempre; una tarea de la familia, si ella o su proyecto tiene
+  `reloj: true` («⏱ Lleva reloj» en la ficha; `conReloj` de nucleo.js). Las
+  demás se tildan con ○, que escribe lo mismo que «✔ Hecha». El campo `reloj`
+  no necesitó regla nueva: la de `tareas` no limita los campos.
 - **Un acuerdo de tiempo cuenta sólo cuando los dos lo confirman**, y cada uno
   firma sólo lo suyo (lo exige la regla de `bloques`). Un acuerdo a futuro es
   una promesa, no un hecho.

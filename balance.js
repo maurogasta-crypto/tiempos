@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// balance.js — El balance del tiempo, los acuerdos y la auditoría. Sello: balance-4
+// balance.js — El balance del tiempo, los acuerdos y la auditoría. Sello: balance-5
 //
 // BALANCE    cuánta carga tuvo cada uno y cuánto tiempo liberado gastó, con la
 //            regla del 29-sep (`balanceTiempo` en nucleo.js). Lo que cuenta es
@@ -11,6 +11,10 @@
 //            Florencia»), sin título, y la noche no marca la vuelta. Salir
 //            juntos es neutro y una doble marcación no suma (nucleo-6).
 // HORAS      las horas por tipo, como antes.
+// CHICOS     (balance-5, 12-oct-2026, Mauro: «el tiempo con los chicos se
+//            calcula en función de lo que se marca en el calendario, no
+//            poniendo un reloj»): días con los chicos según el calendario de
+//            Chicos (`diasConChicos`). El reloj queda para lo que se cobra.
 // AUDITORÍA  lo que se revisa solo (`auditar`) y las observaciones del
 //            agente sobre cómo se vienen haciendo los registros, con lugar
 //            para contestarle.
@@ -20,7 +24,7 @@ import { db, F, CV } from "./firebase-init.js";
 import { esc, TIPOS, TIPO_CASA_VERDE, sumarPorTipo, fmtHoras, semanaDe, lunesDe, sumarDias, isoDe,
          CLASES_BLOQUE, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          auditar, intervalosDeMarcas, validarMarca, marcasQueSePisan, idNuevo,
-         UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, chicosDelDia } from "./nucleo.js";
+         UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, chicosDelDia, diasConChicos } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, ninoPorId, fallo } from "./estado.js";
 
 let periodo = "semana";           // "semana" | "mes"
@@ -83,16 +87,20 @@ async function calcular(esta, desdeMs, hastaMs, ahora) {
   if (esta !== pedido || !$("bal-cuerpo")) return;           // ya se pidió otra cosa
 
   const totalNinos = (E.familia.ninos || []).length;
-  const ivs = [...intervalosDe({ sesiones, bloques: E.bloques, uids: uids(), ahoraMs: ahora }), ...intervalosDeMarcas(E.marcas)];
+  // balance-5: los chicos salen del calendario, no de los relojes ni de los bloques.
+  const ivs = [...intervalosDe({ sesiones, bloques: E.bloques, uids: uids(), ahoraMs: ahora }), ...intervalosDeMarcas(E.marcas)]
+    .filter((i) => i.clase !== "chicos" && i.clase !== "juntos");
   const b = balanceTiempo({ uids: uids(), intervalos: ivs, totalNinos, desdeMs, hastaMs: Math.min(hastaMs, ahora) });
+  const r = rango();
+  const cal = diasConChicos(r.desde, r.hasta < sumarDias(E.hoy, 1) ? r.hasta : sumarDias(E.hoy, 1), E.familia.patron, E.turnos, totalNinos);
   const tot = sumarPorTipo(sesiones, { desdeMs, hastaMs, ahoraMs: ahora });
 
   let h = `<div class="tarjeta">` + personas().map((p) => {
-    const x = b.por[p.id] || {};
+    const x = b.por[p.id] || {}, c = cal[p.id] || { dias: 0, conTodos: 0 };
     return `<div class="persona-bal"><h3>${esc(p.nombre)}</h3>
-      <div class="barra-fila"><span>Carga</span><b class="num">${fmtHoras(x.carga)}</b><small class="gris">produciendo ${fmtHoras(x.productivo)} · con los chicos ${fmtHoras(x.conChicos)}</small></div>
-      ${x.juntos ? `<div class="barra-fila"><span>Todos juntos</span><b class="num">${fmtHoras(x.juntos)}</b><small class="gris">la mitad a cada uno</small></div>` : ""}</div>`;
-  }).join("") + `<p class="gris">Carga: con los chicos (aunque se haga otra cosa) o produciendo, sin contar dos veces; estar con los chicos vale lo mismo que producir, porque es lo que deja producir al otro. «Todos juntos» es mitad y mitad. Las salidas se cuentan aparte, en días (abajo).</p></div>`;
+      <div class="barra-fila"><span>Con los chicos</span><b class="num">${fmtDias(c.dias)}</b><small class="gris">${c.conTodos && totalNinos > 1 ? `${fmtDias(c.conTodos)} con todos` : "según el calendario"}</small></div>
+      <div class="barra-fila"><span>Con reloj</span><b class="num">${fmtHoras(x.productivo)}</b><small class="gris">lo que se cobra</small></div></div>`;
+  }).join("") + `<p class="gris">Los días con los chicos salen del calendario de Chicos: lo que se marca ahí es lo que cuenta, sin reloj. El reloj es para lo que se cobra (la limpieza de una cabaña, o una tarea marcada «⏱ Lleva reloj»), para repartir la plata si trabaja más de uno. Las salidas se cuentan aparte, en días (abajo).</p></div>`;
   h += `<details class="tarjeta"><summary><b>Horas por tipo</b></summary>` + personas().map((p) => {
     const t = tot[p.id] || {};
     const max = Math.max(1, ...Object.values(t));

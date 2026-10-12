@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-35
+// Sello: nucleo-36
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -105,6 +105,21 @@ export function tipoHeredado(tarea, porId) {
   return t && esTipo(t.tipo) ? t.tipo : "personal";
 }
 
+/* nucleo-36 (12-oct-2026, Mauro: «el reloj es sólo para las actividades
+   monetarizadas, como la limpieza de la cabaña u otra que se indique, para
+   poder repartir el dinero si trabaja más de una persona»). Una tarea de la
+   familia lleva reloj si ella o algo de lo que cuelga lo pide (`reloj: true`):
+   se marca una vez en el proyecto y vale para lo de adentro. Las de Casa
+   Verde siempre lo llevan. */
+export function conReloj(tarea, porId = {}) {
+  let t = tarea, vueltas = 0;
+  while (t && vueltas++ < 30) {
+    if (t.reloj === true) return true;
+    t = t.parentId ? porId[t.parentId] : null;
+  }
+  return false;
+}
+
 export function arbol(tareas) {
   const porId = Object.fromEntries((tareas || []).map((t) => [t.id, t]));
   const hijos = {};
@@ -199,6 +214,34 @@ export function chicosDelDia(iso, patron, turnos) {
     if (uid === "nota") continue;
     const lista = Object.prototype.hasOwnProperty.call(cambio, uid) ? cambio[uid] : base[uid];
     if (Array.isArray(lista) && lista.length) out[uid] = [...new Set(lista)];
+  }
+  return out;
+}
+
+/* nucleo-36 (12-oct-2026, Mauro: «el tiempo que cada uno pasa con los chicos
+   se calcula en función de lo que se marca en el calendario de los chicos, no
+   poniendo un reloj»). Días de `desde` (incluido) a `hasta` (sin incluir) en
+   que cada uno tiene al menos un chico según el calendario, y cuántos de esos
+   con todos. */
+export function diasConChicos(desde, hasta, patron, turnos, totalNinos = 0) {
+  const por = {};
+  for (let d = desde, n = 0; d < hasta && n < 400; d = sumarDias(d, 1), n++) {
+    for (const [uid, ns] of Object.entries(chicosDelDia(d, patron, turnos))) {
+      const x = por[uid] || (por[uid] = { dias: 0, conTodos: 0 });
+      x.dias++;
+      if (totalNinos && ns.length >= totalNinos) x.conTodos++;
+    }
+  }
+  return por;
+}
+
+/* La lista de las próximas: UN renglón de fecha por día, con sus actividades
+   por hora (12-oct: antes cada actividad repetía su fecha). */
+export function proximosPorDia(hoy, eventos, dias = 14) {
+  const out = [];
+  for (let i = 0; i < dias; i++) {
+    const iso = sumarDias(hoy, i), del = eventosDelDia(iso, eventos);
+    if (del.length) out.push([iso, del]);
   }
   return out;
 }

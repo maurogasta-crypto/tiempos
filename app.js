@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-30
+// Sello: app-31
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -66,7 +66,7 @@ import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
 import { TIPOS, TIPO_CASA_VERDE, arbolOrganizado, puedeSoltar, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
          alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
          separarEnCurso, chicosDelDia, eventosDelDia,
-         COLORES_TAREA, colorHeredado, estaCorriendo, idNuevo } from "./nucleo.js";
+         COLORES_TAREA, colorHeredado, estaCorriendo, idNuevo, conReloj } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
 import { pintarAgenda, alternarEnAgenda, estaEnAgenda, guardarEnAgenda, agendaUnida } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
@@ -316,19 +316,12 @@ async function frenarFamilia(terminada) {
   aviso(`Registrado: ${fmtHoras(h)}${terminada ? " · tarea terminada" : " · queda pendiente"}.`);
 }
 
-/* ── Los chicos, en paralelo ──────────────────────────────────────────────────
-   «En paralelo a eso está la dedicación a los niños»: estar con ellos es un
-   reloj APARTE, que no frena ni bloquea el de la tarea. Cuenta como «chicos»,
-   que en la carga vale la mitad (TIPOS.ninos.peso). */
-async function empezarCuidado(ninos, juntos = false) {
-  if (E.cuidado) return aviso("Ya estás contado con los chicos.", true);
-  await F.addDoc(F.collection(db, "sesiones"), {
-    tareaId: null, tareaTitulo: "", tipo: "ninos", ninos, juntos,
-    uid: E.yo.uid, nombre: E.miembro.nombre || "",
-    inicio: F.Timestamp.now(), fin: null, horas: 0, estado: "en_curso",
-    registro: "cuidado", creadoEn: F.serverTimestamp(),
-  });
-}
+/* ── Los chicos: del CALENDARIO, no de un reloj ───────────────────────────────
+   app-31 (12-oct-2026, Mauro: «el tiempo que cada uno pasa con los chicos se
+   calcula en función de lo que se marca en el calendario de los chicos, no
+   poniendo un reloj»). Ya no se arranca un reloj «Estoy con…»: lo cuenta
+   `diasConChicos` desde el calendario de Chicos. Si quedó uno corriendo de
+   antes, se ve y se puede terminar, para que no quede colgado. */
 async function terminarCuidado() {
   if (!E.cuidado) return;
   const h = await cerrarSesion(E.cuidado);
@@ -456,7 +449,7 @@ function pintar() {
   // app-29 (tiempos:A26, Florencia): el reloj se ve sólo si algo corre, en
   // todas las pestañas; «Estoy con…» vive en Chicos, y afuera sólo si corre.
   $("crono").hidden = !(E.enCursoCV || E.enCursoFam);
-  $("cuidado").hidden = E.solapa !== "chicos" && !E.cuidado;
+  $("cuidado").hidden = !E.cuidado;            // app-31: sólo uno viejo que quedó corriendo
   pintarCrono();
   pintarCuidado();
   if (E.solapa === "pizarra") pintarPizarra(irA);
@@ -492,7 +485,6 @@ function pintarCrono() {
 
 function pintarCuidado() {
   const c = $("cuidado");
-  const ninos = E.familia.ninos || [];
   if (E.cuidado) {
     const quienes = E.cuidado.juntos ? "todos juntos"
       : (E.cuidado.ninos || []).map((id) => (ninoPorId(id) || {}).nombre || "?").join(" y ");
@@ -503,19 +495,7 @@ function pintarCuidado() {
     pintarReloj();
     return;
   }
-  if (!ninos.length) { c.innerHTML = `<p class="gris">No aparecen los chicos: están en la base, pedíselo al agente.</p>`; return; }
-  // app-8, pedido de Mauro: «con Yacko, con Kala, ambos o todos». «Todos
-  // juntos» es la familia entera: los mismos chicos que «ambos», y la sesión
-  // lo dice (`juntos`) para que el balance lo pueda distinguir.
-  c.innerHTML = `<div class="cuidado-botones"><span class="gris">Estoy con</span>` +
-    ninos.map((n) => `<button class="mini nino" style="--c:${esc(n.color || "#c89bd8")}" data-con="${esc(n.id)}">${esc(n.nombre)}</button>`).join("") +
-    (ninos.length > 1 ? `<button class="mini nino" data-con="*">${ninos.length === 2 ? "Ambos" : "Los " + ninos.length}</button>` : "") +
-    `<button class="mini nino" data-con="todos">Todos juntos</button></div>`;
-  for (const b of c.querySelectorAll("[data-con]")) b.onclick = () => {
-    const todos = ninos.map((n) => n.id);
-    const x = b.dataset.con;
-    empezarCuidado(x === "*" || x === "todos" ? todos : [x], x === "todos").catch(fallo);
-  };
+  c.innerHTML = "";
 }
 
 /* ── Plegar un grupo (app-7) ──────────────────────────────────────────────────
@@ -559,13 +539,19 @@ function filaTarea(t, nivel, porId, hijos, cuantos = 0) {
   // app-11: la que corre muestra ■ (parar) y queda recuadrada.
   const corre = estaCorriendo(E.enCursoCV, E.enCursoFam, "f", t.id);
   if (corre) f.classList.add("corriendo");
+  // app-31: el reloj, sólo en lo que se cobra (`conReloj`); lo demás se tilda.
+  const reloj = conReloj(t, porId);
   f.innerHTML = `<div class="fila">${flecha("f:" + t.id, cuantos)}
-      ${t.hecho ? `<span class="play apagado">✓</span>` : corre ? `<button class="play parar" aria-label="Parar">■</button>` : `<button class="play" aria-label="Empezar">▶</button>`}
+      ${t.hecho ? `<span class="play apagado">✓</span>` : corre ? `<button class="play parar" aria-label="Parar">■</button>`
+        : reloj ? `<button class="play" aria-label="Empezar">▶</button>` : `<button class="tilde" aria-label="Marcar hecha" title="Marcar hecha">○</button>`}
       <span class="txt">${esc(t.titulo)}${chipsDe(t, porId)}${cuantos && plegado.has("f:" + t.id) ? ` <small class="gris">· ${cuantos} adentro</small>` : ""}</span>
       <button class="mas" aria-label="Más">${abierta ? "▴" : "⋯"}</button></div>`;
   engancharFlecha(f);
   const p = f.querySelector("button.play");
   if (p) p.onclick = () => (corre ? frenarFamilia(false) : arrancarFamilia(t)).catch(fallo);
+  const tl = f.querySelector("button.tilde");
+  if (tl) tl.onclick = () => F.updateDoc(F.doc(db, "tareas", t.id), { hecho: true, hechoPor: E.yo.uid, actualizadoEn: F.serverTimestamp() })
+    .then(() => aviso(`Hecha: «${t.titulo}». Si fue sin querer, en «Hechas» está «Volver a pendiente».`)).catch(fallo);
   f.querySelector(".mas").onclick = () => { E.abierta = abierta ? null : "f:" + t.id; pintar(); };
   if (abierta) f.append(fichaTarea(t, hijos));
   return f;
@@ -601,6 +587,8 @@ function fichaTarea(t, hijos) {
   const comun = t.alcance === "comun";
   const lunes = lunesDe(E.hoy);
   const pedAMi = t.pedido && t.pedido.estado === "pendiente" && t.pedido.a === E.yo.uid;
+  const relojPropio = t.reloj === true;
+  const relojHeredado = !relojPropio && conReloj(t, arbol(E.tareas).porId);
   d.innerHTML = `
     ${t.pedido && t.pedido.texto ? `<p class="gris">Pedido de ${esc(nombreDe(t.pedido.de))}: «${esc(t.pedido.texto)}»</p>` : ""}
     ${pedAMi ? `<div class="botones"><button class="mini ok" data-a="aceptar">Me ocupo</button><button class="mini" data-a="devolver">No puedo</button></div>` : ""}
@@ -610,7 +598,9 @@ function fichaTarea(t, hijos) {
       ${comun && o ? `<button class="mini" data-a="pedir">Pedírsela a ${esc(o.nombre || "el otro")}</button>` : ""}
       ${comun ? `<button class="mini${t.meta ? " on" : ""}" data-a="meta">${t.meta ? "★ Meta de la semana" : "☆ Meta de la semana"}</button>` : ""}
       <button class="mini" data-a="adentro">＋ Tarea adentro</button>
-      <button class="mini" data-a="hecha">✔ Hecha</button>`}
+      <button class="mini" data-a="hecha">✔ Hecha</button>
+      ${relojPropio || !relojHeredado ? `<button class="mini${relojPropio ? " on" : ""}" data-a="reloj" title="Para lo que se cobra: el reloj reparte la plata por horas">${relojPropio ? "⏱ Con reloj (se cobra)" : "⏱ Lleva reloj: se cobra"}</button>`
+        : `<small class="gris">⏱ con reloj: lo pide el proyecto</small>`}`}
       ${t.duenio === E.yo.uid ? `<button class="mini" data-a="borrar">Borrar</button>` : ""}
     </div>
     ${!t.hecho ? filaAgendar("f:" + t.id) : ""}
@@ -626,6 +616,7 @@ function fichaTarea(t, hijos) {
   on("meta", () => up({ meta: t.meta ? null : lunes }));
   on("hecha", () => up({ hecho: true, hechoPor: E.yo.uid }));
   on("reabrir", () => up({ hecho: false }));
+  on("reloj", () => up({ reloj: relojPropio ? null : true }));
   engancharAgendar(d);
   d.querySelector('[data-a="titulo"]').onchange = (ev) => {
     const titulo = ev.target.value.trim().slice(0, 120);

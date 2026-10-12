@@ -13,7 +13,7 @@ import path from "node:path";
 import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          quePuedoArrancar, semanaDe, fmtHoras, esc, isoDe, sumarDias, lunesDe, semanaISO,
          grillaDelMes, chicosDelDia, eventosDelDia, COTIDIANAS, progresoDia, alternarEncargado,
-         pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, arbolOrganizado, puedeSoltar,
+         pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, arbolOrganizado, puedeSoltar, conReloj, diasConChicos, proximosPorDia,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
          cotidianasDe, listasDeCompras, recorridoDeCompra, ajusteTrimestral, posiblesFijos, trimestreDe, mesesDelTrimestre, sumarTrimestres, firmaTrimestre, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
@@ -894,10 +894,10 @@ prueba("el color del proyecto lo heredan las de adentro, salvo que tengan el suy
 prueba("dos ids nuevos en el mismo milisegundo no chocan", () => {
   assert.notEqual(idNuevo("c", 5), idNuevo("c", 5));
 });
-prueba("no se pueden agregar chicos desde la app, y el reloj ofrece ambos y todos juntos", () => {
+prueba("no se pueden agregar chicos desde la app, y ya no hay reloj «Estoy con…» (app-31)", () => {
   const fam = fs.readFileSync("familia.js", "utf8");
   assert.ok(!/data-form-nino/.test(fam));
-  assert.ok(/Todos juntos/.test(app) && /Ambos/.test(app) && /juntos/.test(app));
+  assert.ok(!/data-con=/.test(app) && !/registro: "cuidado"/.test(app), "el tiempo con los chicos sale del calendario");
 });
 prueba("modo súper: pasillos en su orden, lo tildado NO se mueve, sin pasillo al final", () => {
   const [l] = listasDeCompras({ listas: { m: { nombre: "Macro", orden: 1,
@@ -1675,7 +1675,7 @@ prueba("Fijos: cada concepto dice si es mensual o se prorratea, y cuánto es por
 prueba("A26: el reloj se ve sólo si algo corre, y «Estoy con…» vive en Chicos", () => {
   const a = fs.readFileSync("app.js", "utf8");
   assert.match(a, /\$\("crono"\)\.hidden = !\(E\.enCursoCV \|\| E\.enCursoFam\);/);
-  assert.match(a, /\$\("cuidado"\)\.hidden = E\.solapa !== "chicos" && !E\.cuidado;/);
+  assert.match(a, /\$\("cuidado"\)\.hidden = !E\.cuidado;/, "app-31: sólo uno viejo que quedó corriendo");
 });
 prueba("A25: la pantalla no se redibuja mientras el foco sigue en el mismo formulario", () => {
   const a = fs.readFileSync("app.js", "utf8");
@@ -1810,6 +1810,42 @@ prueba("una tarea nueva dentro de un grupo propio no lleva padre: el grupo es s�
   const a = fs.readFileSync("app.js", "utf8");
   assert.match(a, /const padreId = grupo \? null : elegido/);
   assert.match(a, /organizar\("f:" \+ r\.id, grupo\)/);
+});
+
+titulo("nucleo-36 / app-31: el reloj sólo en lo que se cobra; los chicos, del calendario (12-oct)");
+prueba("una tarea lleva reloj si ella o su proyecto lo pide", () => {
+  const p = { id: "p", reloj: true }, h = { id: "h", parentId: "p" }, n = { id: "n", parentId: "h" }, s = { id: "s" };
+  const porId = { p, h, n, s };
+  assert.equal(conReloj(n, porId), true);
+  assert.equal(conReloj(s, porId), false);
+  assert.equal(conReloj({ id: "x", parentId: "falta" }, porId), false);
+});
+prueba("los días con los chicos salen del calendario: lo acordado y los cambios de un día", () => {
+  // 2026-10-12 es lunes (1). Lo acordado: lunes con A los dos chicos, martes con B uno.
+  const patron = { "1": { A: ["n1", "n2"] }, "2": { B: ["n1"] } };
+  const turnos = { "2026-10-13": { A: ["n2"] } };           // el martes, además, A tiene a uno
+  const d = diasConChicos("2026-10-12", "2026-10-14", patron, turnos, 2);
+  assert.deepEqual(d.A, { dias: 2, conTodos: 1 });
+  assert.deepEqual(d.B, { dias: 1, conTodos: 0 });
+});
+prueba("las próximas actividades: una fecha por día, por hora", () => {
+  const ev = [{ id: "b", titulo: "Odontólogo", fecha: "2026-10-14", hora: "19:00" }, { id: "a", titulo: "Psicóloga", fecha: "2026-10-14", hora: "16:00" },
+    { id: "c", titulo: "Básquet", fecha: "2026-10-13", hora: "18:00", semanal: true }];
+  const l = proximosPorDia("2026-10-12", ev, 14);
+  assert.deepEqual(l.slice(0, 2).map(([d, es]) => [d, es.map((e) => e.id)]), [["2026-10-13", ["c"]], ["2026-10-14", ["a", "b"]]]);
+  assert.equal(l.filter(([d]) => d === "2026-10-14").length, 1, "el 14 aparece una sola vez");
+  assert.match(fs.readFileSync("familia.js", "utf8"), /proximosPorDia\(E\.hoy, E\.eventos, 14\)/);
+});
+prueba("sin reloj la tarea se tilda, y el reloj se marca en la ficha", () => {
+  const a = fs.readFileSync("app.js", "utf8");
+  assert.match(a, /const reloj = conReloj\(t, porId\)/);
+  assert.match(a, /class="tilde"/);
+  assert.match(a, /on\("reloj", \(\) => up\(\{ reloj: relojPropio \? null : true \}\)\)/);
+});
+prueba("el balance cuenta los chicos por el calendario, no por relojes ni bloques", () => {
+  const b = fs.readFileSync("balance.js", "utf8");
+  assert.match(b, /\.filter\(\(i\) => i\.clase !== "chicos" && i\.clase !== "juntos"\)/);
+  assert.match(b, /diasConChicos\(r\.desde/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

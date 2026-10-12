@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// familia.js — Lo de la casa que ven los dos. Sello: familia-5
+// familia.js — Lo de la casa que ven los dos. Sello: familia-6
 //
 // HOY    lo cotidiano: desayuno, almuerzo, merienda, cena, la basura, los
 //        cuartos, la ropa. Se TILDA, no se cronometra, y cada tilde puede
@@ -23,7 +23,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F } from "./firebase-init.js";
-import { esc, cotidianasDe, idNuevo, progresoDia, chicosDelDia, eventosDelDia, grillaDelMes, semanaISO,
+import { esc, cotidianasDe, idNuevo, progresoDia, chicosDelDia, eventosDelDia, proximosPorDia, grillaDelMes, semanaISO,
          lunesDe, sumarDias, DIAS, MESES, esISO } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, ninoPorId, fallo } from "./estado.js";
 import { htmlPosibles, enganchar as engancharDeseos } from "./deseos.js";
@@ -214,11 +214,11 @@ export function formEvento(e, diaPorDefecto = null) {
 }
 
 function proximos() {
-  const lista = [];
-  for (let i = 0; i < 14; i++) { const iso = sumarDias(E.hoy, i); for (const e of eventosDelDia(iso, E.eventos)) lista.push([iso, e]); }
+  // familia-6 (12-oct, Mauro: «no agrupa por el mismo día»): una fecha por día.
+  const lista = proximosPorDia(E.hoy, E.eventos, 14);
   return `<h2>Actividades de los chicos — próximas dos semanas</h2>
     ${editandoEvento === "nuevo" ? formEvento(null) : `<button class="mini" data-nuevo-ev="${E.hoy}">＋ Nueva actividad</button>`}
-    ${lista.length ? lista.map(([iso, e]) => `<div class="prox"><small class="gris">${esc(fmtDia(iso))}</small>${filaEvento(e, iso)}</div>`).join("")
+    ${lista.length ? lista.map(([iso, es]) => `<div class="prox"><small class="gris">${esc(fmtDia(iso))}</small>${es.map((e) => filaEvento(e, iso)).join("")}</div>`).join("")
       : `<p class="gris">No hay actividades cargadas.</p>`}`;
 }
 
