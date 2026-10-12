@@ -54,7 +54,7 @@ la documentación diga la verdad.
   lugar de siempre; borrar un grupo no borra tareas. «＋ Tarea» se despliega, y
   «Adentro de» va agrupado por categoría (📁 proyecto, 📂 grupo).
 - **Las sugerencias de Florencia del 11-oct** (app-29, `tiempos:A25`–`A28`):
-  el reloj se ve sólo si algo corre y «Estoy con…» vive en Chicos; **la
+  el reloj se ve sólo si algo corre y «Estoy con…» vivía en Chicos (se fue en app-31); **la
   pantalla no se redibuja mientras el foco pasa a otro elemento del MISMO
   formulario** (`esperarSalida`): antes el Guardar caía sobre un botón que ya
   no existía y se perdía lo escrito, y el editor de la agenda guarda lo escrito

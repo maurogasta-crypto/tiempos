@@ -31,13 +31,15 @@ app del teléfono (la Pizarra) sea una sola app con todo Tiempos adentro:
 Lo que sigue describe cada parte; donde dice «Ahora», hoy es arriba de Tareas
 (el reloj y lo tomado) o Pizarra (propuestas, recordatorios y deseos).
 
-Lo de arriba de todo —el cronómetro y «Estoy con»— está en todas.
+El cronómetro de arriba aparece en todas las pestañas, sólo mientras algo corre.
 
-- **Ahora**: un solo cronómetro de tarea. Se elige una tarea de la familia o de
-  Casa Verde y corre; mientras corre uno no arranca otro en ninguna de las dos
-  bases. Se para con «queda pendiente» o «terminé». Aparte, y **en paralelo**,
-  «Estoy con» un chico, **ambos** o **todos juntos** (la familia entera; la
-  sesión lo marca con `juntos`): ese reloj no frena ni bloquea el de la tarea.
+- **Ahora**: un solo cronómetro, **sólo para lo que se cobra** (app-31): las
+  actividades de Casa Verde, y las tareas de la familia marcadas «⏱ Lleva
+  reloj» (o adentro de un proyecto que lo lleva). Mientras corre uno no arranca
+  otro en ninguna de las dos bases. Se para con «queda pendiente» o «terminé».
+  Las demás tareas no tienen reloj: se tildan con ○. **El tiempo con los
+  chicos no se cronometra**: sale del calendario de Chicos (hasta app-30 había
+  un reloj «Estoy con…»).
   Arriba lo que **te pidieron**, después lo que tomaste, lo de los dos sin
   encargado, y Casa Verde. Cada tarea se despliega con «⋯».
 - **Los grupos se pliegan** con la flechita ▾/▸, como en Casa Verde (app-7):
