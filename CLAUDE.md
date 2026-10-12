@@ -89,7 +89,9 @@ la documentación diga la verdad.
   **Y desde agenda-16 / app-33 se puede ABRIR una pieza desde afuera**:
   `?solapa=agenda&dia=…&abrir=<clave>` (lo usa el widget «Mi agenda» de la
   Pizarra) va a esa semana con su editor abierto; `CLAVE_PIEZA` deja pasar
-  sólo una clave de pieza. **Si cambia la forma de una clave (`act:`, `f:`,
+  sólo una clave de pieza, y desde agenda-17 la semana es la de la PIEZA
+  (`diaDePieza`), no la del aviso: una alarma «el día antes» puede caer en la
+  semana anterior. **Si cambia la forma de una clave (`act:`, `f:`,
   `cv:`, `ev:<id>|<día>`), cambia `AgendaLogica.kt` de la Pizarra.**
 - **Casa Verde se usa, no se copia.** Arrancar, frenar y tildar son
   `Core.iniciar`, `Core.finalizar` y `Core.tildar` de `actividades-core.js`,

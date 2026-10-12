@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-16
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-17
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -458,11 +458,24 @@ function pintarMesAgenda(v) {
    esa pieza abierto; cuando la pieza aparece (los datos llegan después), la
    trae a la vista. Una clave que no se reconoce sólo lleva al día. */
 export const CLAVE_PIEZA = /^(act:|f:|cv:)[\w-]{1,80}$|^ev:[\w-]{1,80}\|\d{4}-\d{2}-\d{2}$/;
+/** El día en que está una pieza, según los datos que ya llegaron (null si todavía no). */
+export function diaDePieza(clave) {
+  if (clave.startsWith("ev:")) return clave.split("|")[1] || null;
+  if (clave.startsWith("act:")) { const a = (E.actividades || {})[clave.slice(4)]; return a && esISO(a.dia) ? a.dia : null; }
+  const m = agendaUnida()[clave];
+  return m ? (esISO(m.dia) ? m.dia : E.hoy) : null;      // sin día flota en hoy
+}
 export function irAPieza(clave, dia) {
   if (esISO(dia)) lunes = lunesDe(dia);
   vistaAg = "semana";
   editando = clave && CLAVE_PIEZA.test(clave) ? clave : null;
   const buscar = (n) => {
+    // agenda-17 (12-oct, Mauro: «ajustá lo de la alarma del día antes»): el
+    // día que trae el widget es el de la ALARMA, que puede caer en la semana
+    // anterior a la pieza. Apenas los datos dicen el día de la pieza, se va a
+    // su semana.
+    const dp = editando && diaDePieza(editando);
+    if (dp && lunesDe(dp) !== lunes) { lunes = lunesDe(dp); repintar(); }
     const el = editando && document.querySelector(`[data-pieza-form="${CSS.escape(editando)}"]`)
       || (esISO(dia) && document.querySelector(`[data-zona^="${dia}|"]`));
     if (el) el.scrollIntoView({ block: "center" });

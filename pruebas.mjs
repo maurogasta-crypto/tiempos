@@ -1887,6 +1887,9 @@ prueba("?abrir= sólo acepta una clave de pieza, y app.js la pasa a la agenda", 
   for (const k of ["ev:e2", "<script>", "act:", "x:1", "f:a b"]) assert.ok(!re.test(k), k);
   assert.match(ap, /if \(solapaPedida === "agenda"\) irAPieza\(params\.get\("abrir"\), params\.get\("dia"\)\)/);
   assert.match(a, /CSS\.escape\(editando\)/);
+  // agenda-17: va a la semana de la PIEZA, no a la del aviso (una alarma del día antes).
+  assert.match(a, /const dp = editando && diaDePieza\(editando\);\s*if \(dp && lunesDe\(dp\) !== lunes\)/);
+  assert.match(a, /if \(clave\.startsWith\("ev:"\)\) return clave\.split\("\|"\)\[1\]/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
