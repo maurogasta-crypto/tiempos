@@ -77,6 +77,13 @@ la documentación diga la verdad.
   Soltar en otra franja: `horaEnFranja` y `correrFin` de nucleo.js. La
   actividad suma `nota`: si `herramientas/agenda.mjs` de `datos` la reescribe
   entera, que la conserve.
+  **Y desde agenda-14 el editor lleva «⏰ Avisarme»** (12-oct, Mauro: «agregar
+  una alarma desde esa ventana»): alarma o recordatorio, a la hora o un rato
+  antes (`AVISO_ANTES`, `horaDelAviso` de nucleo.js). Va a `alertas/` con la
+  forma de siempre —la que suena la Pizarra— más `sobre` (la clave de la
+  pieza) y `antes` (minutos); al guardar la pieza con otra hora, sus avisos
+  se corren con ella, y cada uno se saca con ✕. Sin regla nueva: la de
+  `alertas/` no limita los campos.
 - **Casa Verde se usa, no se copia.** Arrancar, frenar y tildar son
   `Core.iniciar`, `Core.finalizar` y `Core.tildar` de `actividades-core.js`,
   importado de su sitio. La app no escribe en Casa Verde por su cuenta, **salvo

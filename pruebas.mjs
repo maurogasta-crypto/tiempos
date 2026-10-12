@@ -13,7 +13,7 @@ import path from "node:path";
 import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          quePuedoArrancar, semanaDe, fmtHoras, esc, isoDe, sumarDias, lunesDe, semanaISO,
          grillaDelMes, chicosDelDia, eventosDelDia, COTIDIANAS, progresoDia, alternarEncargado,
-         pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, arbolOrganizado, puedeSoltar, conReloj, diasConChicos, proximosPorDia,
+         pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, arbolOrganizado, puedeSoltar, conReloj, diasConChicos, proximosPorDia, horaDelAviso, AVISO_ANTES,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
          validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
          cotidianasDe, listasDeCompras, recorridoDeCompra, ajusteTrimestral, posiblesFijos, trimestreDe, mesesDelTrimestre, sumarTrimestres, firmaTrimestre, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
@@ -1853,6 +1853,23 @@ prueba("?solapa= abre esa solapa, sólo si existe, y se saca de la dirección", 
   const a = fs.readFileSync("app.js", "utf8");
   assert.match(a, /const solapaPedida = params\.get\("solapa"\);\s*if \(solapaPedida && SOLAPAS\.includes\(solapaPedida\)\) \{\s*history\.replaceState/);
   assert.match(a, /const SOLAPAS = \[[^\]]*"agenda"/);
+});
+
+titulo("agenda-14 / nucleo-37: un aviso desde el editor de la agenda (12-oct)");
+prueba("la hora del aviso: cuánto antes, cruzando la medianoche, y sin hora a las 08:00", () => {
+  assert.deepEqual(horaDelAviso("2026-10-14", "15:00", 30), { dia: "2026-10-14", hora: "14:30" });
+  assert.deepEqual(horaDelAviso("2026-10-14", "00:20", 30), { dia: "2026-10-13", hora: "23:50" });
+  assert.deepEqual(horaDelAviso("2026-10-14", "09:00", 1440), { dia: "2026-10-13", hora: "09:00" });
+  assert.deepEqual(horaDelAviso("2026-10-14", "", 10), { dia: "2026-10-14", hora: "08:00" });
+  assert.equal(horaDelAviso("", "10:00", 0), null);
+  assert.ok(AVISO_ANTES.some(([m]) => m === 0) && AVISO_ANTES.some(([m]) => m === 1440));
+});
+prueba("el aviso se guarda en alertas/ con la forma que suena la Pizarra, atado a la pieza, y se corre con ella", () => {
+  const a = fs.readFileSync("agenda.js", "utf8");
+  assert.match(a, /F\.addDoc\(F\.collection\(db, "alertas"\), \{ uid: E\.yo\.uid, tipo, texto, \.\.\.n, antes, sobre: p\.clave, avisada: false/);
+  assert.match(a, /\$\{avisosDePieza\(p, v\)\}/);
+  assert.match(a, /horaDelAviso\(dia, hi, a\.antes \?\? 0\)/, "al mover la pieza, sus avisos se corren");
+  assert.match(a, /data-aviso-borrar/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

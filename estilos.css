@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-27
+/* estilos.css — Tiempos. Sello: estilos-28
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -370,3 +370,10 @@ select option { font-weight:400; color:var(--texto); }
 /* ── estilos-27 (app-31): sin reloj, la tarea se tilda ──────────────────────── */
 .tilde { flex:0 0 40px; height:40px; border-radius:50%; border:2px solid var(--linea); background:none; color:var(--gris); font-size:1.1rem; }
 .tilde:active { background:color-mix(in srgb, var(--ok) 25%, transparent); color:var(--ok); }
+
+/* ── estilos-28 (agenda-14): los avisos de una pieza de la agenda ───────────── */
+.avisos-pieza { border:1px solid var(--linea); border-radius:10px; padding:6px 10px 8px; margin:8px 0; }
+.avisos-pieza legend { padding:0 4px; color:var(--gris); }
+.fila-aviso { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 0; }
+.avisos-pieza .dos > label { min-width:0; }
+.avisos-pieza select { width:100%; }

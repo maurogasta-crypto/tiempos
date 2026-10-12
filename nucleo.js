@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-36
+// Sello: nucleo-37
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -244,6 +244,20 @@ export function proximosPorDia(hoy, eventos, dias = 14) {
     if (del.length) out.push([iso, del]);
   }
   return out;
+}
+
+/* nucleo-37 (12-oct-2026, Mauro: «la posibilidad de agregar una alarma desde
+   esa ventana»): un aviso de una pieza de la agenda se guarda con CUÁNTO ANTES
+   (`antes`, en minutos), así al mover la pieza el aviso se corre con ella.
+   Sin hora de la pieza, a las 08:00 de ese día. Puede caer el día anterior. */
+export const AVISO_ANTES = [[0, "a la hora"], [10, "10 min antes"], [30, "30 min antes"], [60, "1 h antes"], [120, "2 h antes"], [1440, "el día antes"]];
+export function horaDelAviso(dia, hi, antes = 0) {
+  if (!esISO(dia)) return null;
+  if (!/^\d{2}:\d{2}$/.test(String(hi || ""))) return { dia, hora: "08:00" };
+  const [h, m] = hi.split(":").map(Number);
+  let min = h * 60 + m - (Number(antes) || 0), d = dia;
+  while (min < 0) { min += 1440; d = sumarDias(d, -1); }
+  return { dia: d, hora: `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}` };
 }
 
 /* ── Las actividades con los chicos: las ven LOS DOS, siempre ────────────────

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-13
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-14
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -38,7 +38,7 @@
 import { db, F, CV } from "./firebase-init.js";
 import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, eventosDelDia,
          grillaDelMes, MESES, cuentaDelDia, parecidas, DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado,
-         CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA } from "./nucleo.js";
+         CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, AVISO_ANTES, horaDelAviso } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, personas, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
 import { pintarLugares, pintarAgente, recordarLugar } from "./lugares.js";
@@ -213,10 +213,46 @@ function editorPieza(p) {
       <div class="fila-persona"><span>Van</span>${personas().map((x) => `<label class="check"><input type="checkbox" name="quienes" value="${esc(x.id)}"${marcado("quienes", x.id) ? " checked" : ""}> ${esc(x.nombre)}</label>`).join("")}</div>
       <label class="check"><input type="checkbox" name="semanal"${(v("semanal", null) === null ? d.semanal : v("semanal") === "on") ? " checked" : ""}> Se repite todas las semanas</label>` : ""}
     <label>Nota <input name="nota" maxlength="300" value="${esc(v("nota", d.nota))}"${cv ? " disabled" : ""}></label>
+    ${avisosDePieza(p, v)}
     ${cv ? `<p class="gris">Las de Casa Verde guardan acá el día y la hora; lo demás se cambia en Casa Verde.</p>` : ""}
     <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-pieza-cerrar>Cancelar</button>
       ${p.clase === "tarea" ? `<button type="button" class="mini" data-pieza-flotar>Sin día</button>` : ""}
       <button type="button" class="mini" data-pieza-sacar>${p.clase === "tarea" ? "Sacar de mi agenda" : p.clase === "chicos" ? "Borrar (para los dos)" : "Borrar"}</button></div></form>`;
+}
+
+/* agenda-14 (12-oct-2026, Mauro: «la posibilidad de agregar una alarma desde
+   esa ventana»). Los avisos de una pieza son `alertas/` con `sobre` = su clave
+   y `antes` = cuántos minutos antes; los suena la Pizarra en el teléfono (la
+   alarma, con sirena; el recordatorio, como notificación). Al guardar la pieza
+   con otro día u hora, sus avisos se corren con ella. */
+const alertasDe = (clave) => (E.alertas || []).filter((a) => a.sobre === clave).sort((a, b) => `${a.dia}${a.hora}`.localeCompare(`${b.dia}${b.hora}`));
+function avisosDePieza(p, v) {
+  const ya = alertasDe(p.clave);
+  const fecha = (d) => d.split("-").reverse().slice(0, 2).join("/");
+  return `<fieldset class="avisos-pieza"><legend>⏰ Avisarme</legend>
+    ${ya.map((a) => `<div class="fila-aviso"><span>${a.tipo === "alarma" ? "⏰ Alarma" : "🔔 Recordatorio"} · ${esc(fecha(a.dia))} ${esc(a.hora)}${a.avisada ? " · ya sonó" : ""}</span>
+      <button type="button" class="mini" data-aviso-borrar="${esc(a.id)}" aria-label="Sacar el aviso">✕</button></div>`).join("")}
+    <div class="dos"><label>Agregar <select name="aviso">
+        <option value="">—</option>
+        <option value="alarma"${v("aviso", "") === "alarma" ? " selected" : ""}>⏰ Alarma</option>
+        <option value="recordatorio"${v("aviso", "") === "recordatorio" ? " selected" : ""}>🔔 Recordatorio</option></select></label>
+      <label>Cuándo <select name="antes">${AVISO_ANTES.map(([m, t]) => `<option value="${m}"${String(v("antes", "30")) === String(m) ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label></div>
+    <small class="gris">Suena en la Pizarra del teléfono. Si la pieza no tiene hora, a las 08:00 de ese día.</small></fieldset>`;
+}
+/** Después de guardar la pieza: corre los avisos que ya tenía y crea el nuevo, si se pidió. */
+async function guardarAvisos(p, f, dia, hi, titulo, lugar) {
+  for (const a of alertasDe(p.clave)) {
+    const n = horaDelAviso(dia, hi, a.antes ?? 0);
+    if (n && (n.dia !== a.dia || n.hora !== a.hora)) await F.updateDoc(F.doc(db, "alertas", a.id), { ...n, avisada: false });
+  }
+  const tipo = f.aviso ? f.aviso.value : "";
+  if (!tipo) return "";
+  const antes = Number(f.antes ? f.antes.value : 0) || 0;
+  const n = horaDelAviso(dia, hi, antes);
+  if (!n) return "El aviso necesita un día.";
+  const texto = (titulo + (lugar ? " · " + lugar : "")).slice(0, 200);
+  await F.addDoc(F.collection(db, "alertas"), { uid: E.yo.uid, tipo, texto, ...n, antes, sobre: p.clave, avisada: false, creadoEn: F.serverTimestamp() });
+  return `${tipo === "alarma" ? "⏰ Alarma" : "🔔 Recordatorio"} el ${n.dia.split("-").reverse().slice(0, 2).join("/")} a las ${n.hora}.`;
 }
 
 async function guardarPieza(p, f) {
@@ -241,8 +277,12 @@ async function guardarPieza(p, f) {
     if (!cv && titulo !== p.titulo) await F.updateDoc(F.doc(db, "tareas", k.slice(2)), { titulo, actualizadoEn: F.serverTimestamp() });
     await guardarEnAgenda(k, cv ? { dia: dia || null, hora: hi, franja: "" } : { dia: dia || null, hora: hi, franja: "", hasta: hf, lugar, nota });
   }
+  // agenda-14: los avisos, con el día y la hora que quedaron. Una tarea sin
+  // día flota en hoy.
+  const extra = await guardarAvisos(p, f, esISO(dia) ? dia : E.hoy, hi, titulo, lugar);
+  if (extra.startsWith("El aviso")) return aviso(extra, true);
   editando = null; delete borrador[k];
-  aviso(p.clase === "act" ? "Cambiada. Revisá sus recordatorios y alarmas en Pizarra → «Te recordás»." : p.clase === "chicos" ? "Guardada. La ven los dos." : "Guardada.");
+  aviso((p.clase === "chicos" ? "Guardada. La ven los dos." : "Guardada.") + (extra ? " " + extra : ""));
   repintar();
 }
 
@@ -462,6 +502,7 @@ export function pintarAgenda() {
     const flotar = f.querySelector("[data-pieza-flotar]");
     if (flotar) flotar.onclick = () => { editando = null; guardarEnAgenda(p.clave, { dia: null }).then(() => aviso("Sin día: flota en hoy.")).catch(fallo); };
     f.querySelector("[data-pieza-sacar]").onclick = () => sacarPieza(p).catch(fallo);
+    for (const b of f.querySelectorAll("[data-aviso-borrar]")) b.onclick = () => F.deleteDoc(F.doc(db, "alertas", b.dataset.avisoBorrar)).then(() => aviso("Aviso sacado.")).catch(fallo);
   }
   const fa = v.querySelector("#form-actividad");
   if (fa) { seguirBorrador(fa, "nueva"); fa.onsubmit = (ev) => { ev.preventDefault(); guardarActividad(fa); }; }
