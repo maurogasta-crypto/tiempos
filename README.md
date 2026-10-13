@@ -251,6 +251,11 @@ que «pizarra» es el lugar, nunca el título.
   arriba, cada cuenta se cierra con un toque; queda en `familia/cierres` con la
   firma de sus números, y si después entra o sale algo de ese mes dice que
   cambió y pide volver a cerrar.
+  **Lo pegado entra entero** (sugerir-20, nucleo-38, 13-oct): una confirmación
+  de un turno o una reserva es UNA actividad con su `nota` (número, serie,
+  qué hacer al llegar), su alarma va en el mismo renglón y se guarda atada a
+  ella (`sobre: act:<id>`, `antes`), y antes de mandarla a la IA se le sacan
+  el documento, el teléfono y el mail.
   **El análisis de Claude** (sugerir-19): «📊 Análisis de Claude» en una
   respuesta o en una cuenta manda el pedido a `reportes/` con el campo
   `analisis`; Claude junta los números con `herramientas/analisis.mjs` de
@@ -510,7 +515,7 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-37` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-38` |
 | `estado.js` | lo que comparten las vistas | `estado-4` |
 | `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-34` |
 | `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-2` |
@@ -519,7 +524,7 @@ Florencia la acuerden.
 | `lista.html` + `lista.js` | la lista compartida sin cuenta (`?c=<token>`); fuera del SHELL | `lista-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
-| `sugerir.js` | el globo ✏️: pedirle a la IA (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-19` |
+| `sugerir.js` | el globo ✏️: pedirle a la IA (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-20` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-14` |
 | `extractos.js` | Plata → Extractos: las líneas de cada banco, para clasificarlas y registrarlas de a muchas, con cuenta y para quién | `extractos-2` |
 | `proyectos.js` | Plata → Proyectos: la economía centralizada, cada destino con lo que se le dedica y su neto, y el libro propio de Casa Verde | `proyectos-1` |
@@ -530,7 +535,7 @@ Florencia la acuerden.
 | `familia.js` | Hoy y Chicos | `familia-6` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
 | `estilos.css` | | `estilos-28` |
-| `sw.js` | el cascarón sin señal | `tiempos-57` |
+| `sw.js` | el cascarón sin señal | `tiempos-58` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

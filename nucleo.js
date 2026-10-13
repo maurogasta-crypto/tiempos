@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-37
+// Sello: nucleo-38
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -973,6 +973,8 @@ export function actividadDePropuesta(d, uid) {
   const actividad = { titulo, dia: x.dia, desde, hasta, tipo, hf: hf || "",
     origen: "claude", modo: MODOS_AGENDA[x.modo] ? x.modo : "sugerida", recordar: !!x.recordar,
     lugar: String(x.lugar || "").slice(0, 120), imagen: /^https:\/\//.test(String(x.imagen || "")) ? String(x.imagen).slice(0, 400) : "" };
+  const nota = String(x.nota || "").trim().slice(0, 300);
+  if (nota) actividad.nota = nota;                         // nucleo-38
   return { ok: true, actividad, marca, supuesto };
 }
 
@@ -996,6 +998,9 @@ export function leerAgendaIA(texto) {
     dia: esISO(j.dia) ? j.dia : "",
     hi: hora(j.hi), hf: hora(j.hf),
     lugar: String(j.lugar || "").slice(0, 120),
+    // nucleo-38: los detalles que no son título ni lugar (un número de
+    // reserva, qué decir al llegar). Antes se perdían.
+    nota: String(j.nota || "").trim().slice(0, 300),
     tipo: CLASES_ACTIVIDAD[j.tipo] ? j.tipo : "",
     quien: QUIENES_AGENDA.includes(j.quien) ? j.quien : "yo",
     chicos: j.chicos === true,
@@ -1113,7 +1118,7 @@ export function ordenarPlan(acciones, ahoraMs, dudas, dictado = "") {
   return acciones;
 }
 
-export function leerPlanIA(texto, ahoraMs, dictado = "") {
+export function leerPlanIA(texto, ahoraMs, dictado = "", agendaIds = null) {
   let j = null;
   const t = String(texto || "").replace(/```(?:json)?/gi, "");
   const i = t.indexOf("{"), k = t.lastIndexOf("}");
@@ -1202,7 +1207,7 @@ export function leerPlanIA(texto, ahoraMs, dictado = "") {
     }
   }
   ordenarPlan(acciones, ahoraMs, dudas, dictado);
-  return { resumen: corto(j.resumen, 200), acciones, dudas: [...new Set(dudas)] };
+  return { resumen: corto(j.resumen, 200), acciones: unirAvisos(acciones, agendaIds), dudas: [...new Set(dudas)] };
 }
 
 /* ── Las CUENTAS: lugares, vehículos y sus partes (nucleo-24, tiempos:V11) ────
@@ -1448,6 +1453,53 @@ export function listaParaCompra(listas, nombre) {
   const l = (listas || []).find((x) => plano(x.nombre) === n)
     || (listas || []).find((x) => plano(x.nombre).includes(n) || n.includes(plano(x.nombre)));
   return l ? l.id : null;
+}
+
+/* nucleo-38 (13-oct-2026, Mauro: «hice el pedido a la IA para guardar un
+   evento en la agenda con alarma y propuso agregar dos cosas diferentes»).
+   La alarma de algo NUEVO del mismo plan no tenía cómo decir de quién era:
+   su `sobre` pide el id de la agenda, que todavía no existe, y la IA ponía
+   cualquier cosa. Quedaba suelta —no se corría con la actividad ni la abría
+   el widget— y se proponía como un renglón aparte.
+   Ahora el aviso que no nombra algo que YA está en la agenda se engancha a la
+   actividad del plan de ese mismo día (la del mismo lugar, si hay varias; si
+   no hay una sola que elegir, queda suelto como antes) y viaja ADENTRO de
+   ella: un renglón, y al agendar se guarda con `sobre: act:<id>` y `antes`,
+   como «⏰ Avisarme» del editor (agenda-14). El que nombra algo que ya está
+   lleva su clave de pieza (`act:<id>`), que es lo que lee la agenda. */
+export function unirAvisos(acciones, agendaIds = null) {
+  // Sin la agenda (null) no se puede saber qué id existe: el `sobre` que
+  // vino queda como está.
+  const ids = new Set(agendaIds || []);
+  const acts = acciones.filter((x) => x.tipo === "actividad" && x.dia && x.hi);
+  const fuera = new Set();
+  for (const a of acciones) {
+    if (a.tipo !== "alarma" && a.tipo !== "recordatorio") continue;
+    const id = String(a.sobre || "").replace(/^act:/, "");
+    if (ids.has(id)) { a.sobre = "act:" + id; continue; }
+    if (!agendaIds && id) continue;
+    a.sobre = "";
+    const mismoDia = acts.filter((x) => x.dia === a.dia);
+    const mismoLugar = a.lugar ? mismoDia.filter((x) => plano(x.lugar) && plano(x.lugar) === plano(a.lugar)) : [];
+    const act = mismoLugar.length === 1 ? mismoLugar[0] : mismoDia.length === 1 ? mismoDia[0] : null;
+    if (!act || !a.hora || a.hora > act.hi) continue;
+    const [h1, m1] = act.hi.split(":").map(Number), [h2, m2] = a.hora.split(":").map(Number);
+    (act.avisos = act.avisos || []).push({ ...a, antes: (h1 * 60 + m1) - (h2 * 60 + m2) });
+    fuera.add(a);
+  }
+  return acciones.filter((a) => !fuera.has(a));
+}
+
+/* nucleo-38: lo que se pega a la IA puede ser una confirmación entera, con
+   la cédula, el teléfono y el mail de quien reservó (el 13-oct, una de una
+   oficina). Nada de eso hace falta para agendar, y no tiene por qué salir:
+   se cambia por «[dato]» antes de mandarlo. Una fecha o una hora no se
+   tocan. */
+export function sinDatosPersonales(texto) {
+  return String(texto || "")
+    .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[dato]")
+    .replace(/\b\d{1,2}\.\d{3}\.\d{3}-?\d\b/g, "[dato]")
+    .replace(/(?<![\d-])\+?\d[\d ]{6,}\d(?![\d-])/g, (m) => m.replace(/\D/g, "").length >= 7 ? "[dato]" : m);
 }
 
 /* El dictado del teléfono, en Android, a veces repite lo que va entendiendo:

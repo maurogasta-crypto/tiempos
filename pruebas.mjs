@@ -19,7 +19,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          cotidianasDe, listasDeCompras, recorridoDeCompra, ajusteTrimestral, posiblesFijos, trimestreDe, mesesDelTrimestre, sumarTrimestres, firmaTrimestre, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, indicesDeChicos, chicosParaIA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
-         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
+         actividadDePropuesta, paraMi, MODOS_AGENDA, leerAgendaIA, leerPlanIA, unirAvisos, sinDatosPersonales, correrSiPaso, agendaParaIA, ACCIONES, limpiarDictado, listaParaCompra, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia, esTareaDelSistema, diasHastaSiPaso,
          paisDe, lugarNuevo, lugaresParaIA, claveLugar, parecidas,
          CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, cuentaSugerida, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
@@ -184,7 +184,7 @@ prueba("a Gemini no le van los nombres de los chicos", () => {
   const cuerpo = src.slice(i, k);
   assert.ok(!/familia\.ninos|ninoPorId|E\.familia/.test(cuerpo));
   // sugerir-16: lo dictado, los títulos de la agenda y los de los chicos salen escudados.
-  assert.match(cuerpo, /texto = escudarNombres\(texto, ninos\)/);
+  assert.match(cuerpo, /texto = escudarNombres\(sinDatosPersonales\(texto\), ninos\)/);
   assert.match(cuerpo, /titulo: escudarNombres\(a\.titulo, ninos\)/);
   assert.match(cuerpo, /chicosParaIA\(E\.eventos, ninos, hoy\)/);
   assert.match(cuerpo, /devolverNombres\(x, ninos\)/);
@@ -373,7 +373,9 @@ prueba("el caso real: dictado a las 19:23, la cita de las 19 pasa a mañana CON 
     { tipo: "actividad", titulo: "Odontólogo", dia: "2026-10-07", hi: "19:00", lugar: "Marindia", tipo_clase: "personal" },
     { tipo: "recordatorio", texto: "Ir al odontólogo", dia: "2026-10-07", hora: "20:00" },
     { tipo: "alarma", texto: "Salir hacia Marindia", dia: "2026-10-07", hora: "18:25", lugar: "Marindia", desde: "Atlántida", viaje: 25 } ] }), ahora);
-  const [act, rec, al] = p.acciones;
+  // nucleo-38: los dos avisos van adentro de la cita que crea el mismo plan.
+  const [act] = p.acciones, [rec, al] = act.avisos;
+  assert.equal(p.acciones.length, 1);
   assert.equal(act.dia, "2026-10-08"); assert.equal(rec.dia, "2026-10-08"); assert.equal(al.dia, "2026-10-08");
   assert.equal(rec.hora, "17:00", "el recordatorio va antes de la cita");
   assert.equal(al.hora, "18:25"); assert.equal(al.viaje, 25); assert.equal(al.desde, "Atlántida");
@@ -397,7 +399,7 @@ prueba("dictado un miércoles a la noche: «el miércoles» es el de la semana q
   const p = leerPlanIA(JSON.stringify({ acciones: [
     { tipo: "actividad", titulo: "Odontólogo", dia: "2026-10-07", hi: "19:00", lugar: "Marindia", tipo_clase: "personal" },
     { tipo: "alarma", texto: "Salir hacia Marindia", dia: "2026-10-07", hora: "18:25" } ] }), ahora, "el odontólogo es el miércoles a las 7 de la tarde en Marindia");
-  assert.equal(p.acciones[0].dia, "2026-10-14"); assert.equal(p.acciones[1].dia, "2026-10-14");
+  assert.equal(p.acciones[0].dia, "2026-10-14"); assert.equal(p.acciones[0].avisos[0].dia, "2026-10-14");
   assert.equal(diasHastaSiPaso("2026-10-07", "MIERCOLES"), 7); assert.equal(diasHastaSiPaso("2026-10-07", "mañana"), 1);
 });
 prueba("una actividad se cambia de día borrando y volviendo a crear su marca (la regla no deja editarla)", () => {
@@ -1900,6 +1902,44 @@ prueba("?solapa=tareas&abrir=f:<id> abre su ficha, despliega lo que la tapa y s�
   assert.match(f, /if \(!\/\^f:\[\\w-\]\{1,80\}\$\/\.test/);
   assert.match(f, /E\.abierta = clave;/);
   assert.match(f, /plegado\.delete\(k\)/, "lo que la tapa se despliega");
+});
+
+titulo("nucleo-38 / sugerir-20: lo pegado entra entero, con su alarma (13-oct)");
+prueba("una confirmación pegada: la actividad lleva su nota y la alarma va ADENTRO, con cuántos minutos antes", () => {
+  const ahora = new Date("2026-10-13T08:10:00").getTime();
+  const p = leerPlanIA(JSON.stringify({ acciones: [
+    { tipo: "actividad", titulo: "Atención Personas y Hogares", dia: "2026-10-13", hi: "16:00", hf: "17:00", lugar: "Aguada", tipo_clase: "personal", nota: "Serie C, número 1. Anunciarse en el Tótem." },
+    { tipo: "alarma", texto: "Salir para Aguada", dia: "2026-10-13", hora: "15:30", sobre: "Reserva Web Su reserva ha sido", lugar: "Aguada", viaje: 20, desde: "casa" }] }), ahora, "", []);
+  assert.equal(p.acciones.length, 1, "un solo renglón");
+  const a = p.acciones[0];
+  assert.equal(a.nota, "Serie C, número 1. Anunciarse en el Tótem.");
+  assert.equal(a.avisos.length, 1);
+  assert.equal(a.avisos[0].antes, 30);
+  assert.equal(a.avisos[0].sobre, "", "la basura del sobre no se guarda");
+  assert.equal(actividadDePropuesta({ ...a, tipo: a.clase }, "u1").actividad.nota, a.nota);
+});
+prueba("un aviso de algo que YA está en la agenda lleva su clave de pieza; uno sin a quién engancharse queda suelto", () => {
+  const ahora = new Date("2026-10-13T08:10:00").getTime();
+  const p = leerPlanIA(JSON.stringify({ acciones: [
+    { tipo: "recordatorio", texto: "Llevar la ropa", dia: "2026-10-14", hora: "08:00", sobre: "a9" },
+    { tipo: "actividad", titulo: "Uno", dia: "2026-10-15", hi: "10:00", hf: "11:00", lugar: "A", tipo_clase: "personal" },
+    { tipo: "actividad", titulo: "Dos", dia: "2026-10-15", hi: "12:00", hf: "13:00", lugar: "B", tipo_clase: "personal" },
+    { tipo: "alarma", texto: "Salir a B", dia: "2026-10-15", hora: "11:30", lugar: "b", viaje: 15 },
+    { tipo: "alarma", texto: "¿A cuál?", dia: "2026-10-15", hora: "09:00" },
+    { tipo: "alarma", texto: "Después", dia: "2026-10-16", hora: "09:00" }] }), ahora, "", ["a9"]);
+  assert.equal(p.acciones.find((x) => x.texto === "Llevar la ropa").sobre, "act:a9");
+  assert.equal(p.acciones.find((x) => x.titulo === "Dos").avisos[0].antes, 30, "por el lugar, sin importar mayúsculas");
+  assert.ok(p.acciones.some((x) => x.texto === "¿A cuál?"), "dos actividades ese día y sin lugar: queda suelta");
+  assert.ok(p.acciones.some((x) => x.texto === "Después"));
+});
+prueba("lo pegado sale sin cédula, teléfono ni mail, y con las fechas y horas intactas", () => {
+  const t = sinDatosPersonales("martes 13 de octubre de 202616:00 · Documento: 38576370 · Tel 099696333 / 099 696 333 · cédula 3.857.637-0 · a.b+c@gmail.com · 2026-10-13 16:00 · 12/10/2026 · Serie C · Número 1");
+  assert.doesNotMatch(t, /38576370|099696333|696 333|3\.857|gmail/);
+  assert.match(t, /202616:00/); assert.match(t, /2026-10-13 16:00/); assert.match(t, /12\/10\/2026/); assert.match(t, /Número 1/);
+  const sg = fs.readFileSync("sugerir.js", "utf8");
+  assert.match(sg, /escudarNombres\(sinDatosPersonales\(texto\), ninos\)/, "se limpia ANTES de mandar");
+  assert.match(sg, /sobre: "act:" \+ id/, "los avisos de la actividad se guardan atados a ella");
+  assert.match(sg, /nota: a\.nota/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

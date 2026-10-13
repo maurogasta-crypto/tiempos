@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-19
+// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-20
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -34,6 +34,13 @@
 // pide («✨ Explicar»), sólo los comenta. Y un gasto puede decir a qué CUENTA
 // fue (un lugar, un vehículo, su depósito) y para quién.
 //
+// sugerir-20 (13-oct-2026, Mauro: «hice el pedido a la IA para guardar un
+// evento en la agenda con alarma y propuso agregar dos cosas diferentes y no
+// anotó los detalles que le envié»). La actividad lleva su NOTA (lo que no es
+// título ni lugar: número de reserva, qué decir al llegar), la alarma de algo
+// nuevo viaja ADENTRO de su actividad (`unirAvisos` de nucleo.js) y se guarda
+// atada a ella (`sobre: act:<id>`, `antes`), y lo pegado sale sin cédula,
+// teléfono ni mail (`sinDatosPersonales`).
 // sugerir-19 (10-oct-2026, tiempos:V11): «📊 Análisis de Claude». Una
 // respuesta se puede mandar a Claude, que lee las dos bases —Tiempos y Casa
 // Verde, y remate— y devuelve un análisis en Pizarra (propuesta de clase
@@ -46,7 +53,7 @@ import { textoFrecuencia } from "./nucleo.js";
 import { dondeEstoy } from "./lugares.js";
 import { esc, leerPlanIA, agendaParaIA, lugaresParaIA, CLASES_ACTIVIDAD, esISO, limpiarDictado, listasDeCompras, listaParaCompra, idNuevo,
   escudarNombres, devolverNombres, chicosParaIA, CATEGORIAS, MONEDAS, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe,
-  actividadesDeChicos, horasPorCuenta, CONSULTAS, sumarDias } from "./nucleo.js";
+  actividadesDeChicos, horasPorCuenta, CONSULTAS, sumarDias, sinDatosPersonales } from "./nucleo.js";
 import { agendarMio } from "./propone.js";
 import { reprogramarActividad, sacarActividad } from "./agenda.js";
 import { E, $, aviso, repintar, fallo, otro } from "./estado.js";
@@ -136,7 +143,7 @@ async function interpretar(texto, archivo) {
   const listas = listasDeCompras(E.compras).map((l) => l.nombre);
   texto = limpiarDictado(texto);
   const dictadoReal = texto;
-  texto = escudarNombres(texto, ninos);
+  texto = escudarNombres(sinDatosPersonales(texto), ninos);
   const contenido = [];
   if (archivo) {
     const blob = await CV2.comprimirImagen(archivo);
@@ -152,10 +159,10 @@ Dónde está y sus lugares conocidos (JSON; "casa" es de donde sale si no hay ot
 Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin texto alrededor:
 {"resumen": una línea con lo que entendiste,
  "acciones": [ cada una con "tipo" y sus campos:
-   {"tipo":"actividad","titulo","dia":"AAAA-MM-DD","hi":"HH:MM","hf":"HH:MM" o "","lugar","tipo_clase":"trabajo"|"tarea"|"personal"|"ninos","quien":"yo"|"otro"|"los-dos"|"familia","chicos":true|false,"ninos":["Chico1"]}  — algo nuevo que ocupa tiempo;
+   {"tipo":"actividad","titulo","dia":"AAAA-MM-DD","hi":"HH:MM","hf":"HH:MM" o "","lugar","nota": los detalles útiles que no entran en el título ni en el lugar (número de reserva o de turno, serie, qué llevar, qué hacer al llegar), en una o dos líneas,"tipo_clase":"trabajo"|"tarea"|"personal"|"ninos","quien":"yo"|"otro"|"los-dos"|"familia","chicos":true|false,"ninos":["Chico1"]}  — algo nuevo que ocupa tiempo;
    {"tipo":"tarea","titulo","detalle"}  — algo CONCRETO que la persona tiene que hacer o preparar con sus manos (llevar algo, comprar, llamar, juntar papeles); va a su pizarra. NUNCA una tarea para guardar, agendar, marcar, anotar o registrar lo que este mismo plan ya hace: eso lo hace la app sola y no ocupa lugar en la pizarra;
    {"tipo":"recordatorio","texto","dia","hora":"HH:MM" (temprano ese día, SIEMPRE antes de lo que recuerda),"sobre": id de su agenda si se refiere a algo que ya tiene}  — un aviso ese día;
-   {"tipo":"alarma","texto","dia","hora","sobre","lugar": adónde va,"desde": de dónde sale,"viaje": minutos}  — la alarma de SALIR: si una actividad tiene lugar, la hora es la de la actividad menos el viaje menos 10 minutos de margen. "desde" es el lugar de la actividad anterior de ese mismo día (de la agenda o de este plan) o "casa" si no hay ninguna; "viaje" son los minutos en auto entre "desde" y "lugar", estimados con lo que sabés de las distancias reales (en Uruguay, por ejemplo, entre localidades de la Costa de Oro de Canelones). Si no sabés dónde queda alguno de los dos lugares, decilo en dudas;
+   {"tipo":"alarma","texto","dia","hora","sobre" (sólo el id de algo que YA está en su agenda; si es de una actividad de este mismo plan, dejalo vacío: se le engancha sola),"lugar": adónde va,"desde": de dónde sale,"viaje": minutos}  — la alarma de SALIR: si una actividad tiene lugar, la hora es la de la actividad menos el viaje menos 10 minutos de margen. "desde" es el lugar de la actividad anterior de ese mismo día (de la agenda o de este plan) o "casa" si no hay ninguna; "viaje" son los minutos en auto entre "desde" y "lugar", estimados con lo que sabés de las distancias reales (en Uruguay, por ejemplo, entre localidades de la Costa de Oro de Canelones). Si no sabés dónde queda alguno de los dos lugares, decilo en dudas;
    {"tipo":"deseo","titulo","detalle","para":"yo"|"chicos"|"familia","lugar","dias":["martes","jueves"] si se repite cada semana,"fecha":"AAAA-MM-DD" si es una sola vez,"hi":"HH:MM","hf":"HH:MM","cuando": en palabras si no hay días ni fecha}  — algo que quisiera hacer pero no está decidido (un flyer, una clase): va a la lista de deseos. Si el flyer dice que es semanal, poné los días; si es un evento con fecha, la fecha;
    {"tipo":"coordinar","texto"}  — una pregunta para ${otroN} si para hacerlo hay que acordar con él o ella;
    {"tipo":"compra","texto","lista"}  — algo para no olvidar comprar; va a la lista de compras de la casa. Listas que ya existen: ${JSON.stringify(listas)} (usá una de ésas si corresponde, o un nombre corto nuevo);
@@ -170,6 +177,7 @@ Elegí con criterio lo que corresponde, puede ser más de una acción: algo deci
 Entre las 00:00 y las 05:00, «mañana» quiere decir HOY por fecha (${hoy}): la persona todavía no se fue a dormir.
 Nada va en el pasado. «El jueves», «el miércoles»: es el PRÓXIMO día con ese nombre; si hoy es ese día y la hora ya pasó (son las ${ahoraHM}), es el de la semana que viene, nunca hoy ni mañana. Si una actividad de hoy tiene una hora que ya pasó y no se nombró el día, casi seguro es mañana: decilo en dudas.
 Si el texto trae un «Link (Instagram/Facebook/…)», es de una publicación que no podés abrir: sacá los datos de la captura y del texto, y poné el link en "detalle" de lo que propongas (actividad o deseo) para que se pueda volver a verlo.
+Si pega una confirmación (un turno, una reserva, una entrada), es UNA actividad: el título dice QUÉ es y DÓNDE con palabras de la confirmación (el servicio, la oficina), nunca «Reserva web» ni «Su reserva»; los datos para presentarse van en "nota". Si pide alarma, la alarma de salir va además, para esa misma actividad. Los datos personales (documento, teléfono, mail) no van en ningún lado.
 «Anotar/marcar/poner en la pizarra X» es UNA tarea cuyo título es X; la palabra «pizarra» nunca es el título. Si la frase no dice qué anotar, el título es lo que pidió hacer (por ejemplo «Preguntarle a ${otroN} la hora del dentista»).
 Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sobre"); no lo dupliques como actividad. Fechas relativas («mañana», «el jueves») desde hoy. Si un dato no se sabe, dejalo vacío y ponelo en dudas. No inventes.` });
   const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
@@ -179,7 +187,7 @@ Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sob
   });
   if (!r.ok) throw new Error("la IA contestó " + r.status);
   const j = await r.json();
-  const plan = leerPlanIA(((j.content || [])[0] || {}).text, Date.now(), dictadoReal);
+  const plan = leerPlanIA(((j.content || [])[0] || {}).text, Date.now(), dictadoReal, Object.keys(E.actividades || {}));
   if (!plan) return plan;
   // A la vuelta, «Chico1» vuelve a ser su nombre, en todo lo que se muestra o se guarda.
   const nombres = (x) => typeof x === "string" ? devolverNombres(x, ninos) : x;
@@ -277,9 +285,11 @@ export async function pedirAnalisis({ pregunta, que = "balance", cuenta = "", de
 const DIA_CORTO = (iso) => { try { return new Date(iso + "T12:00").toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }); } catch { return iso; } };
 function renglonAccion(a, n) {
   const ch = `<input type="checkbox" data-accion="${n}" checked>`;
-  const enAgenda = (id) => { const x = (E.actividades || {})[id]; return x ? ` · ${esc(x.titulo)}` : ""; };
+  const enAgenda = (id) => { const x = (E.actividades || {})[String(id || "").replace(/^act:/, "")]; return x ? ` · ${esc(x.titulo)}` : ""; };
+  // sugerir-20: la nota y los avisos de la actividad van en SU renglón.
+  const avisos = (a.avisos || []).map((v) => `${v.tipo === "alarma" ? "⏰" : "🔔"} ${esc(v.hora)}${v.antes ? ` (${esc(String(v.antes))} min antes)` : ""}: ${esc(v.texto)}${v.viaje ? ` · 🚗 ≈${esc(String(v.viaje))} min${v.desde ? " desde " + esc(v.desde) : ""}` : ""}`).join(" · ");
   if (a.tipo === "actividad") return `<label class="check accion">${ch} 📅 <span><b>${esc(a.titulo)}</b> · ${esc(DIA_CORTO(a.dia))} ${esc(a.hi)}${a.hf ? "–" + esc(a.hf) : ""}${a.lugar ? " · " + esc(a.lugar) : ""}
-    <small class="gris">${esc((CLASES_ACTIVIDAD[a.clase] || {}).nombre || "sin clase")} · ${esc(a.quien === "otro" ? "lo hace el otro" : a.quien === "yo" ? "vos" : a.quien)}</small></span></label>`;
+    <small class="gris">${esc((CLASES_ACTIVIDAD[a.clase] || {}).nombre || "sin clase")} · ${esc(a.quien === "otro" ? "lo hace el otro" : a.quien === "yo" ? "vos" : a.quien)}</small>${a.nota ? `<small class="gris" style="display:block">📝 ${esc(a.nota)}</small>` : ""}${avisos ? `<small class="gris" style="display:block">${avisos} · suena en la app</small>` : ""}</span></label>`;
   if (a.tipo === "tarea") return `<label class="check accion">${ch} 📝 <span>A tu pizarra: <b>${esc(a.titulo)}</b>${a.detalle ? ` <small class="gris">${esc(a.detalle)}</small>` : ""}</span></label>`;
   if (a.tipo === "recordatorio") return `<label class="check accion">${ch} 🔔 <span>Recordatorio ${esc(DIA_CORTO(a.dia))} ${esc(a.hora)}: <b>${esc(a.texto)}</b><small class="gris">${enAgenda(a.sobre)}</small></span></label>`;
   if (a.tipo === "alarma") return `<label class="check accion">${ch} ⏰ <span>Alarma ${esc(DIA_CORTO(a.dia))} ${esc(a.hora)}: <b>${esc(a.texto)}</b><small class="gris">${enAgenda(a.sobre)}${a.viaje ? ` · 🚗 ≈${esc(String(a.viaje))} min${a.desde ? " desde " + esc(a.desde) : ""}${a.lugar ? " a " + esc(a.lugar) : ""}, + 10 de margen` : ""} · suena en la app</small></span></label>`;
@@ -336,8 +346,14 @@ async function agendarPrecarga(tp) {
     for (const a of marcadas) {
       if (a.tipo === "actividad") {
         if (a.quien === "otro") { paraClaude.push(`Que lo agende el otro: ${a.titulo} ${a.dia} ${a.hi}`); continue; }
-        const id = await agendarMio({ titulo: a.titulo, dia: a.dia, hi: a.hi, hf: a.hf, lugar: a.lugar, tipo: a.clase, modo: a.modo, imagen }, { origen: "dictado" });
+        const id = await agendarMio({ titulo: a.titulo, dia: a.dia, hi: a.hi, hf: a.hf, lugar: a.lugar, nota: a.nota, tipo: a.clase, modo: a.modo, imagen }, { origen: "dictado" });
         if (id) hecho.push("📅 " + a.titulo);
+        // sugerir-20: sus avisos, atados a ella como los de «⏰ Avisarme».
+        for (const v of id ? a.avisos || [] : []) {
+          await F.addDoc(F.collection(db, "alertas"), { uid: E.yo.uid, tipo: v.tipo, texto: v.texto, dia: v.dia, hora: v.hora || "08:00",
+            antes: v.antes || 0, sobre: "act:" + id, avisada: false, creadoEn: F.serverTimestamp() });
+          hecho.push((v.tipo === "alarma" ? "⏰ " : "🔔 ") + v.texto);
+        }
         if (a.chicos && esISO(a.dia)) await F.addDoc(F.collection(db, "eventos"), { titulo: a.titulo.slice(0, 120), fecha: a.dia, hora: a.hi || "",
           horaFin: a.hf || "", semanal: false, ninos: ninosDe(a.ninos), quienes: [E.yo.uid], nota: a.lugar ? "En " + a.lugar.slice(0, 280) : "",
           excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });

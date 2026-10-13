@@ -170,6 +170,13 @@ la documentación diga la verdad.
   no salen hacia la IA**: lo dictado, los títulos de la agenda y los de los
   chicos pasan por `escudarNombres` («Chico1») y vuelven con `devolverNombres`;
   el banco lo comprueba.
+  **Y desde sugerir-20 / nucleo-38 (13-oct-2026)** —Mauro pegó una reserva
+  «con alarma» y salieron dos renglones sueltos sin sus datos—: la actividad
+  lleva `nota` (número de reserva, qué hacer al llegar); la alarma o el
+  recordatorio de una actividad NUEVA del mismo plan viaja adentro de ella
+  (`unirAvisos`) y se guarda con `sobre: act:<id>` y `antes`, como «⏰
+  Avisarme»; el de algo que ya está lleva `act:<id>`. Y lo pegado sale sin
+  documento, teléfono ni mail (`sinDatosPersonales`), antes de escudar nombres.
 - **Las CUENTAS y las CONSULTAS** (plata-7, sugerir-18, nucleo-24,
   10-oct-2026, `tiempos:V11`). Un movimiento lleva `cuenta` (un lugar, un
   vehículo o su parte, de `familia/cuentas`) y `para` (una persona o un
