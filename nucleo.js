@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-38
+// Sello: nucleo-39
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1118,7 +1118,7 @@ export function ordenarPlan(acciones, ahoraMs, dudas, dictado = "") {
   return acciones;
 }
 
-export function leerPlanIA(texto, ahoraMs, dictado = "", agendaIds = null) {
+export function leerPlanIA(texto, ahoraMs, dictado = "", agendaIds = null, ya = null) {
   let j = null;
   const t = String(texto || "").replace(/```(?:json)?/gi, "");
   const i = t.indexOf("{"), k = t.lastIndexOf("}");
@@ -1207,7 +1207,8 @@ export function leerPlanIA(texto, ahoraMs, dictado = "", agendaIds = null) {
     }
   }
   ordenarPlan(acciones, ahoraMs, dudas, dictado);
-  return { resumen: corto(j.resumen, 200), acciones: unirAvisos(acciones, agendaIds), dudas: [...new Set(dudas)] };
+  const podadas = podarPlan(acciones, dictado, ya, dudas);
+  return { resumen: corto(j.resumen, 200), acciones: unirAvisos(podadas, agendaIds, ya), dudas: [...new Set(dudas)] };
 }
 
 /* ── Las CUENTAS: lugares, vehículos y sus partes (nucleo-24, tiempos:V11) ────
@@ -1467,7 +1468,40 @@ export function listaParaCompra(listas, nombre) {
    ella: un renglón, y al agendar se guarda con `sobre: act:<id>` y `antes`,
    como «⏰ Avisarme» del editor (agenda-14). El que nombra algo que ya está
    lleva su clave de pieza (`act:<id>`), que es lo que lee la agenda. */
-export function unirAvisos(acciones, agendaIds = null) {
+/* nucleo-39 (13-oct-2026, Mauro: «hice un pedido a la IA que agregue a la
+   pizarra dos cosas… y marcó todo esto, ¿por qué?»). La IA recibe la agenda y
+   las actividades de los chicos como CONTEXTO, y las devolvía como acciones
+   nuevas, cada una con una alarma de salir que nadie pidió. El plan se poda
+   en el código, no sólo en el pedido:
+   · una actividad que ya está en la agenda (mismo día y misma hora) no vuelve;
+   · una de los chicos que ya está ese día a esa hora, tampoco;
+   · si lo dictado no pide un aviso (alarma, avisar, recordar, salir…), va
+     sólo el de una actividad NUEVA de este plan ese día —la alarma de salir
+     de nucleo-15, que viaja adentro de su renglón—; los demás no. Sin dictado
+     (sólo una captura) no se poda esto: la captura puede ser justamente lo
+     que hay que recordar.
+   Cada cosa sacada queda dicha en las dudas. */
+const PIDE_AVISO = /alarm|avis|record|acord|despert|suen[ea]|sonar|salir|salida/i;
+export function podarPlan(acciones, dictado = "", ya = null, dudas = []) {
+  const agenda = (ya && ya.agenda) || [], chicos = (ya && ya.chicos) || [];
+  const quitadas = [];
+  const fuera = (a) => {
+    if (a.tipo === "actividad" && a.dia && a.hi && agenda.some((x) => x.dia === a.dia && x.desde === a.hi)) return "ya estaba en tu agenda";
+    if (a.tipo === "chicos" && a.accion === "nueva" && a.fecha && chicos.some((e) => (e.hora || "") === (a.hora || "") &&
+      (e.fecha === a.fecha || (e.semanal && e.fecha <= a.fecha && diaSemana(e.fecha) === diaSemana(a.fecha))))) return "ya estaba en lo de los chicos";
+    if ((a.tipo === "alarma" || a.tipo === "recordatorio") && String(dictado || "").trim() && !PIDE_AVISO.test(dictado)) return "no pediste un aviso";
+    return "";
+  };
+  const pasa = (a) => { const m = fuera(a); if (m) quitadas.push(`«${String(a.titulo || a.texto || "").slice(0, 30)}»: ${m}`); return !m; };
+  // Primero lo que se repite; después los avisos, mirando las actividades que quedaron.
+  const sinRepetir = acciones.filter((a) => (a.tipo === "alarma" || a.tipo === "recordatorio") || pasa(a));
+  const nuevasDia = new Set(sinRepetir.filter((a) => a.tipo === "actividad" && a.dia).map((a) => a.dia));
+  const quedan = sinRepetir.filter((a) => !(a.tipo === "alarma" || a.tipo === "recordatorio") || nuevasDia.has(a.dia) || pasa(a));
+  if (quitadas.length) dudas.push(`no lo propongo: ${quitadas.slice(0, 4).join("; ")}${quitadas.length > 4 ? ` y ${quitadas.length - 4} más` : ""}`);
+  return quedan;
+}
+
+export function unirAvisos(acciones, agendaIds = null, ya = null) {
   // Sin la agenda (null) no se puede saber qué id existe: el `sobre` que
   // vino queda como está.
   const ids = new Set(agendaIds || []);
@@ -1482,7 +1516,16 @@ export function unirAvisos(acciones, agendaIds = null) {
     const mismoDia = acts.filter((x) => x.dia === a.dia);
     const mismoLugar = a.lugar ? mismoDia.filter((x) => plano(x.lugar) && plano(x.lugar) === plano(a.lugar)) : [];
     const act = mismoLugar.length === 1 ? mismoLugar[0] : mismoDia.length === 1 ? mismoDia[0] : null;
-    if (!act || !a.hora || a.hora > act.hi) continue;
+    if (!act) {
+      // nucleo-39: el aviso de algo que YA está en la agenda ese día (la
+      // actividad no se repropone) lleva su clave y queda en su renglón.
+      const yaDia = ((ya && ya.agenda) || []).filter((x) => x.dia === a.dia && x.desde && a.hora && a.hora <= x.desde);
+      const yaLugar = a.lugar ? yaDia.filter((x) => plano(x.lugar) === plano(a.lugar)) : [];
+      const y = yaLugar.length === 1 ? yaLugar[0] : yaDia.length === 1 ? yaDia[0] : null;
+      if (y && (!agendaIds || ids.has(y.id))) a.sobre = "act:" + y.id;
+      continue;
+    }
+    if (!a.hora || a.hora > act.hi) continue;
     const [h1, m1] = act.hi.split(":").map(Number), [h2, m2] = a.hora.split(":").map(Number);
     (act.avisos = act.avisos || []).push({ ...a, antes: (h1 * 60 + m1) - (h2 * 60 + m2) });
     fuera.add(a);

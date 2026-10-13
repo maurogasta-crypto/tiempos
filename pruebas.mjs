@@ -1942,5 +1942,34 @@ prueba("lo pegado sale sin cédula, teléfono ni mail, y con las fechas y horas 
   assert.match(sg, /nota: a\.nota/);
 });
 
+titulo("nucleo-39 / sugerir-21: el plan propone sólo lo pedido (13-oct)");
+prueba("«agregá a la pizarra id digital y deuda antel»: lo que ya está en la agenda o en los chicos no vuelve, y sin pedir aviso no hay alarmas", () => {
+  const ahora = new Date("2026-10-13T10:30:00").getTime();
+  const ya = { agenda: [{ id: "a1", titulo: "Aguada", dia: "2026-10-13", desde: "16:00", lugar: "Aguada" }],
+    chicos: [{ id: "e1", titulo: "Psicóloga", fecha: "2026-10-07", hora: "16:00", semanal: true }, { id: "e2", titulo: "Dentista", fecha: "2026-10-14", hora: "19:00" }] };
+  const plan = JSON.stringify({ acciones: [{ tipo: "tarea", titulo: "Id digital" }, { tipo: "tarea", titulo: "Deuda Antel" },
+    { tipo: "actividad", titulo: "Aguada", dia: "2026-10-13", hi: "16:00", hf: "17:00", lugar: "Aguada", tipo_clase: "trabajo" },
+    { tipo: "chicos", accion: "nueva", titulo: "Psicóloga", fecha: "2026-10-14", hora: "16:00" },
+    { tipo: "chicos", accion: "nueva", titulo: "Dentista", fecha: "2026-10-14", hora: "19:00" },
+    { tipo: "chicos", accion: "nueva", titulo: "Natación", fecha: "2026-10-15", hora: "17:00" },
+    { tipo: "alarma", texto: "Salir para Aguada", dia: "2026-10-13", hora: "15:50", lugar: "Aguada", viaje: 10 }] });
+  const p = leerPlanIA(plan, ahora, "agregá a la pizarra id digital y deuda antel", ["a1"], ya);
+  assert.deepEqual(p.acciones.map((a) => a.titulo || a.texto), ["Id digital", "Deuda Antel", "Natación"]);
+  // La alarma de salir de una actividad NUEVA de este plan sí va, adentro de ella (nucleo-15).
+  const n = leerPlanIA(JSON.stringify({ acciones: [{ tipo: "actividad", titulo: "Taller", dia: "2026-10-16", hi: "10:00", hf: "11:00", lugar: "Pando", tipo_clase: "trabajo" },
+    { tipo: "alarma", texto: "Salir para Pando", dia: "2026-10-16", hora: "09:20", lugar: "Pando", viaje: 30 }] }), ahora, "el taller es el viernes a las 10 en Pando", [], ya);
+  assert.equal(n.acciones.length, 1); assert.equal(n.acciones[0].avisos[0].antes, 40);
+  assert.ok(p.dudas.some((d) => d.includes("ya estaba en tu agenda") && d.includes("no pediste un aviso")));
+  // Si pide la alarma, va, atada a lo que YA está en la agenda.
+  const q = leerPlanIA(plan, ahora, "poneme una alarma para salir a Aguada", ["a1"], ya);
+  assert.equal(q.acciones.find((a) => a.tipo === "alarma").sobre, "act:a1");
+  // Sin dictado (sólo una captura) no se poda el aviso.
+  assert.ok(leerPlanIA(plan, ahora, "", ["a1"], ya).acciones.some((a) => a.tipo === "alarma"));
+  const sg = fs.readFileSync("sugerir.js", "utf8");
+  assert.match(sg, /NUNCA las vuelvas a proponer/);
+  assert.match(sg, /UNA por cosa/);
+  assert.match(sg, /\{ agenda, chicos \}\)/);
+});
+
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);

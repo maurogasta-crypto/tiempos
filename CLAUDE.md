@@ -177,6 +177,12 @@ la documentación diga la verdad.
   (`unirAvisos`) y se guarda con `sobre: act:<id>` y `antes`, como «⏰
   Avisarme»; el de algo que ya está lleva `act:<id>`. Y lo pegado sale sin
   documento, teléfono ni mail (`sinDatosPersonales`), antes de escudar nombres.
+  **Y desde sugerir-21 / nucleo-39** (Mauro pidió dos cosas para la pizarra y
+  la tarjeta le repropuso su agenda entera con alarmas): la agenda y los chicos
+  van a la IA como CONTEXTO, y `podarPlan` saca en el código lo que ya está
+  (mismo día y hora) y los avisos que no se pidieron —salvo la alarma de salir
+  de una actividad nueva del mismo plan—, y lo dice en las dudas. Una tarea por
+  cosa.
 - **Las CUENTAS y las CONSULTAS** (plata-7, sugerir-18, nucleo-24,
   10-oct-2026, `tiempos:V11`). Un movimiento lleva `cuenta` (un lugar, un
   vehículo o su parte, de `familia/cuentas`) y `para` (una persona o un
