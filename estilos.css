@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-28
+/* estilos.css — Tiempos. Sello: estilos-29
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -151,6 +151,16 @@ body.arrastrando-algo { user-select:none; -webkit-user-select:none; }
 .botones.grandes { margin:12px 0; } .botones.grandes .boton { flex:1; }
 .boton-archivo { cursor:pointer; display:inline-block; }
 .boleta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px; }
+/* plata-15: el gasto rápido abre con la foto primero, grande. */
+.boleta.grande { flex-direction:column; align-items:stretch; padding:10px 0; }
+.boleta.grande .boton { text-align:center; padding:14px; font-size:1.05rem; }
+.mas-detalles { margin:6px 0; }
+/* Un select con nombres largos no empuja la ficha fuera de la pantalla. */
+.dos > label, .tres > label { min-width:0; }
+.dos > label select, .tres > label select { max-width:100%; width:100%; }
+.mas-detalles > summary { cursor:pointer; color:var(--gris, #9aa0a8); padding:6px 0; }
+.factura-leida { margin-top:6px; font-size:.9rem; }
+.factura-leida small { color:var(--gris, #9aa0a8); margin-right:6px; }
 .monto-chico { width:90px; display:inline-block; padding:.4rem; margin:0; }
 .fila.mov { cursor:pointer; } .fila.mov.entro .num { color:var(--ok); }
 .fecha-chica { flex:0 0 26px; text-align:center; font-weight:700; color:var(--gris); }

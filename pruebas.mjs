@@ -15,7 +15,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          grillaDelMes, chicosDelDia, eventosDelDia, COTIDIANAS, progresoDia, alternarEncargado,
          pedir, responderPedido, pedidosPara, metasDeLaSemana, ubicarEnSemana, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, arbolOrganizado, puedeSoltar, conReloj, diasConChicos, proximosPorDia, horaDelAviso, AVISO_ANTES,
          separarEnCurso, estadoBloque, bloquesPorConfirmar, intervalosDe, balanceTiempo, msDeLocal,
-         validarMovimiento, disponible, automaticosPendientes, leerSugerencia, auditar, CATEGORIAS,
+         validarMovimiento, disponible, automaticosPendientes, leerSugerencia, datosDeFactura, MEDIOS_PAGO, auditar, CATEGORIAS,
          cotidianasDe, listasDeCompras, recorridoDeCompra, ajusteTrimestral, posiblesFijos, trimestreDe, mesesDelTrimestre, sumarTrimestres, firmaTrimestre, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
@@ -1717,6 +1717,24 @@ prueba("el cuadro de la IA ya no escribe: no hay plan, ni agenda, ni gasto desde
   const ap = fs.readFileSync("app.js", "utf8");
   assert.match(ap, /get\("dictar"\)[\s\S]{0,120}history\.replaceState[\s\S]{0,200}abrirConsulta\(/, "lo dictado en el teléfono es una pregunta");
   assert.match(fs.readFileSync("deseos.js", "utf8"), /abrirAgregar\(/, "un deseo se agenda con el ＋ de la agenda");
+});
+
+titulo("nucleo-41 / plata-15: el gasto rápido con toda la factura (15-oct)");
+prueba("de la factura se guarda RUT, número, medio y renglones; lo que no tiene forma, no", () => {
+  const a = leerSugerencia('{"monto":"1.250,00","moneda":"UYU","fecha":"2026-10-14","comercio":"Ferretería","categoria":"materiales","rut":"21 123456 0012","numero":"A 12345","medio":"Tarjeta de crédito","renglones":[{"detalle":"Tornillos","monto":"250"},{"detalle":"","monto":5},{"detalle":"Pintura","monto":"1.000,00"}]}');
+  assert.deepEqual(a.factura, { rut: "211234560012", numero: "A 12345", medio: "credito", renglones: [{ d: "Tornillos", m: 250 }, { d: "Pintura", m: 1000 }] });
+  assert.equal(leerSugerencia('{"monto":"10","medio":"cheque raro"}').factura, null);
+  assert.equal(datosDeFactura({ medio: "PIX" }).medio, "pix");
+  assert.ok(Object.keys(MEDIOS_PAGO).includes("efectivo"));
+});
+prueba("la ficha del gasto abre con la foto primero, guarda la factura y se abre con ?gasto=1", () => {
+  const pl = fs.readFileSync("plata.js", "utf8"), ap = fs.readFileSync("app.js", "utf8");
+  assert.match(pl, /📷 Foto de la factura<input type="file" accept="image\/\*" capture="environment" data-foto hidden>/);
+  assert.match(pl, /🖼 Elegir archivo<input type="file" accept="image\/\*" data-foto hidden>/, "los dos inputs, cámara y archivos");
+  assert.match(pl, /factura: fac/);
+  assert.match(pl, /porDefecto = new Set\(\["moneda", "fecha"\]\)/, "la moneda y la fecha de la factura ganan a las del formulario");
+  assert.match(pl, /"rut": el RUT o CNPJ/);
+  assert.match(ap, /params\.get\("gasto"\)[\s\S]{0,120}abrirGasto\(\)/);
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

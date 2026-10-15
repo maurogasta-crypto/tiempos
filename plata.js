@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-14
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-15
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -54,11 +54,20 @@
 // plata-13 (11-oct-2026, tiempos:V14): al leer una boleta se PROPONE la cuenta
 // (cuentaSugerida de nucleo.js: lo ya hecho, el Año, y lo que dijo la IA), y el
 // formulario dice por qué. Mauro: «que la IA proponga la cuenta sola».
+//
+// plata-15 (15-oct-2026): el GASTO RÁPIDO. Mauro: «así como se agrega
+// fácilmente una actividad en la agenda o un ítem de pizarra, quiero que sea
+// claro y fácil cargar un gasto, usando la foto de la IA para que recupere
+// toda la información posible de la factura». La ficha abre con la foto
+// primero; a la vista quedan monto, moneda, fecha, categoría, comercio y
+// proyecto, y lo demás en «Más detalles». La IA trae además RUT, número,
+// medio de pago y renglones (`datosDeFactura`), que se guardan en `factura`.
+// Se abre también desde afuera: `?gasto=1` (el $ del widget de la Pizarra).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, validarMovimiento, disponible, automaticosPendientes,
-         leerSugerencia, esISO, MESES, TIPOS } from "./nucleo.js";
+         leerSugerencia, esISO, MESES, TIPOS, MEDIOS_PAGO } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
 import { cuentasDe, idsDeCuenta, balanceDe, CLASES_CUENTA, idNuevo, balanceDelMes, firmaBalance, estadoCierre, trimestreDe } from "./nucleo.js";
 import { pedirAnalisis } from "./sugerir.js";
@@ -79,6 +88,16 @@ const categoriasDe = (tipo) => Object.entries(CATEGORIAS).filter(([, c]) => c.ti
 
 let sub = "dia";                  // plata-5: dia | fijos | anio | reparto
 const SUBS = { dia: "Día a día", proyectos: "Proyectos", analisis: "Análisis", cuentas: "Cuentas", extractos: "Extractos", fijos: "Fijos", anio: "Año", trimestre: "Trimestre", reparto: "Reparto" };
+
+/** plata-15: abrir el gasto desde afuera (`?gasto=1`, el $ del widget de la
+    Pizarra): Plata → Día a día con la ficha abierta, la foto primero. */
+export function abrirGasto() {
+  sub = "dia";
+  form = { tipo: "salio", datos: { categoria: "" } };
+  const b = document.querySelector('[data-solapa="plata"]');
+  if (b) b.click(); else repintar();
+  setTimeout(() => { const f = $("form-mov"); if (f) f.scrollIntoView({ block: "start" }); }, 80);
+}
 
 export function pintarPlata() {
   const v = $("v-plata");
@@ -161,17 +180,28 @@ function propuestaHTML(p) {
     <div class="botones"><button class="boton" data-aprobar-otra="${esc(p.id)}">Aprobar</button><button class="mini" data-descartar="${esc(p.id)}">Descartar</button></div></div>`;
 }
 
-function campos(d, tipo) {
+function campos(d, tipo, extra = "") {
   const hoy = E.hoy;
   return `<div class="dos"><label>Monto <input name="monto" type="number" step="0.01" min="0" required value="${esc(d.monto ?? "")}"></label>
       <label>Moneda <select name="moneda">${MONEDAS.map((m) => `<option${(d.moneda || "BRL") === m ? " selected" : ""}>${m}</option>`).join("")}</select></label></div>
     <div class="dos"><label>Fecha <input name="fecha" type="date" required value="${esc(esISO(d.fecha) ? d.fecha : hoy)}"></label>
       <label>Categoría <select name="categoria" required><option value="">—</option>${categoriasDe(tipo).map(([k, c]) => `<option value="${k}"${d.categoria === k ? " selected" : ""}>${esc(c.nombre)}</option>`).join("")}</select></label></div>
     <label>${tipo === "entro" ? "De dónde" : "Comercio"} <input name="comercio" maxlength="80" value="${esc(d.comercio || "")}"></label>
+    <label>Proyecto <select name="cuenta"><option value="">— la casa en general —</option>${cuentasDe(E.cuentasDoc).map((c) => `<option value="${esc(c.id)}"${d.cuenta === c.id ? " selected" : ""}>${c.nivel ? "   " : ""}${esc(c.ruta)}</option>`).join("")}</select></label>
+    <details class="mas-detalles" data-mas-detalles${form && form.detalles ? " open" : ""}><summary>Más detalles</summary>
     <label>Detalle <input name="detalle" maxlength="300" value="${esc(d.detalle || "")}" placeholder="qué fue, para quién"></label>
-    <label>${tipo === "entro" ? "Lo recibió" : "Pagó"} <select name="uid">${personas().map((p) => `<option value="${esc(p.id)}"${(d.uid || E.yo.uid) === p.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label>
-    <div class="dos"><label>Cuenta <select name="cuenta"><option value="">— la casa en general —</option>${cuentasDe(E.cuentasDoc).map((c) => `<option value="${esc(c.id)}"${d.cuenta === c.id ? " selected" : ""}>${c.nivel ? "   " : ""}${esc(c.ruta)}</option>`).join("")}</select></label>
-      <label>Para <select name="para"><option value="">— nadie en especial —</option>${[...personas().map((p) => [p.id, p.nombre]), ...((E.familia && E.familia.ninos) || []).map((n) => [n.id, n.nombre])].map(([id, nom]) => `<option value="${esc(id)}"${d.para === id ? " selected" : ""}>${esc(nom)}</option>`).join("")}</select></label></div>`;
+    <div class="dos"><label>${tipo === "entro" ? "Lo recibió" : "Pagó"} <select name="uid">${personas().map((p) => `<option value="${esc(p.id)}"${(d.uid || E.yo.uid) === p.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label>
+      <label>Para <select name="para"><option value="">— nadie en especial —</option>${[...personas().map((p) => [p.id, p.nombre]), ...((E.familia && E.familia.ninos) || []).map((n) => [n.id, n.nombre])].map(([id, nom]) => `<option value="${esc(id)}"${d.para === id ? " selected" : ""}>${esc(nom)}</option>`).join("")}</select></label></div>
+    ${extra}
+    ${d.factura ? facturaHTML(d.factura) : ""}
+    </details>`;
+}
+/* plata-15: lo que la IA sacó de la factura además del total, a la vista. */
+function facturaHTML(f) {
+  return `<div class="factura-leida"><small class="gris">De la factura:</small>
+    ${f.rut ? `<div><small>RUT/CNPJ</small> ${esc(f.rut)}</div>` : ""}${f.numero ? `<div><small>Número</small> ${esc(f.numero)}</div>` : ""}
+    ${f.medio ? `<div><small>Pago</small> ${esc(MEDIOS_PAGO[f.medio] || f.medio)}</div>` : ""}
+    ${(f.renglones || []).length ? `<ul class="resp-lista">${f.renglones.map((r) => `<li>${esc(r.d)}${r.m ? " · " + esc(fmt(r.m)) : ""}</li>`).join("")}</ul>` : ""}</div>`;
 }
 const rutaCuenta = (id) => (cuentasDe(E.cuentasDoc).find((c) => c.id === id) || {}).ruta || "";
 const nombrePara = (id) => (personas().find((p) => p.id === id) || ((E.familia && E.familia.ninos) || []).find((n) => n.id === id) || {}).nombre || "—";
@@ -251,13 +281,13 @@ function formHTML() {
   const tipo = form.tipo, d = form.datos || {};
   const hayCV2 = !!(CV && CV.CV2);
   return `<form class="tarjeta ficha" id="form-mov"><h3>${form.id ? "Editar" : tipo === "entro" ? "Entrada de plata" : "Gasto"}</h3>
-    ${tipo === "salio" ? `<div class="boleta">${hayCV2 ? `
-      <label class="mini boton-archivo">📷 Sacar foto<input type="file" accept="image/*" capture="environment" data-foto hidden></label>
-      <label class="mini boton-archivo">🖼 Elegir archivo<input type="file" accept="image/*" data-foto hidden></label>` : `<small class="gris">Sin Casa Verde no se pueden subir boletas.</small>`}
+    ${tipo === "salio" ? `<div class="boleta${form.id || form.archivo ? "" : " grande"}">${hayCV2 ? `
+      <label class="${form.id || form.archivo ? "mini" : "boton"} boton-archivo">📷 Foto de la factura<input type="file" accept="image/*" capture="environment" data-foto hidden></label>
+      <label class="mini boton-archivo">🖼 Elegir archivo<input type="file" accept="image/*" data-foto hidden></label>
+      ${form.id || form.archivo ? "" : `<small class="gris">La IA lee la factura y llena todo; vos revisás y guardás. Sin factura, completá el monto y listo.</small>`}` : `<small class="gris">Sin Casa Verde no se pueden subir boletas.</small>`}
       ${form.archivo ? `<small>${esc(form.archivo.name)} ${form.leyendo ? "· leyendo con IA…" : form.leida ? "· leída: revisá los datos" : ""}</small>${d.cuentaPorque ? `<small class="gris">📍 Cuenta propuesta: ${esc(rutaCuenta(d.cuenta))} — ${esc(d.cuentaPorque)}. Cambiala si no es.</small>` : ""}` : d.comprobanteUrl ? `<a href="${esc(d.comprobanteUrl)}" target="_blank" rel="noopener">📎 boleta</a>` : ""}
     </div>` : ""}
-    ${campos(d, tipo)}
-    ${!form.id && tipo === "salio" ? `<label class="check"><input type="checkbox" name="auto"> Es un pago automático: se repite todos los meses</label>` : ""}
+    ${campos(d, tipo, !form.id && tipo === "salio" ? `<label class="check"><input type="checkbox" name="auto"> Es un pago automático: se repite todos los meses</label>` : "")}
     <div class="botones"><button class="boton">Guardar</button><button type="button" class="mini" data-cerrar-form>Cancelar</button>
       ${form.id ? `<button type="button" class="mini" data-borrar-mov="${esc(form.id)}">Borrar</button>` : ""}</div></form>`;
 }
@@ -306,7 +336,8 @@ async function leerBoletaCon(contenido, escrito) {
     body: JSON.stringify({ model: MODELO_BOLETA, max_tokens: TOKENS_BOLETA, messages: [{ role: "user", content: [
       ...contenido,
       { type: "text", text: `${contenido.length ? "Es una boleta o comprobante" : "Es lo que alguien escribió sobre un pago"} de un gasto de una familia en Brasil o Uruguay.${escrito ? ` Lo que escribió: «${escrito}».` : ""} Hoy es ${E.hoy}. Devolvé SOLO un JSON, sin texto alrededor:
-{"monto": número total pagado, "moneda": "BRL" | "UYU" | "USD", "fecha": "AAAA-MM-DD", "comercio": nombre del comercio, "categoria": una de [${cats}], "detalle": qué se compró, en pocas palabras, "cuenta": a qué lugar o vehículo va, una de [${lista}], o "" si la boleta no lo deja claro}.
+{"monto": número total pagado, "moneda": "BRL" | "UYU" | "USD", "fecha": "AAAA-MM-DD", "comercio": nombre del comercio, "categoria": una de [${cats}], "detalle": qué se compró, en pocas palabras, "cuenta": a qué lugar o vehículo va, una de [${lista}], o "" si la boleta no lo deja claro,
+ "rut": el RUT o CNPJ del comercio, "numero": número o serie del comprobante, "medio": "efectivo" | "debito" | "credito" | "transferencia" | "pix" | "", "renglones": [{"detalle": cada cosa comprada, "monto": su importe}] (hasta 40)}.
 Si un dato no se lee con seguridad, dejalo vacío (""). No inventes.` }] }] }),
   });
   if (!r.ok) throw new Error("la IA contestó " + r.status);
@@ -325,7 +356,8 @@ async function guardarMovimiento(f) {
     try { comprobanteUrl = await CV.CV2.subirImagen(form.archivo, "tiempos"); }
     catch (e) { return aviso("No se pudo subir la boleta: " + e.message + ". No se guardó nada.", true); }
   }
-  const base = { ...d, comprobanteUrl, actualizadoEn: F.serverTimestamp() };
+  const fac = (form.datos || {}).factura;
+  const base = { ...d, comprobanteUrl, ...(fac ? { factura: fac } : {}), actualizadoEn: F.serverTimestamp() };
   if (form.id) await F.updateDoc(F.doc(db, "movimientos", form.id), { ...base, editadoPor: E.yo.uid });
   else {
     let automatico = null;
@@ -355,6 +387,7 @@ function enganchar(v, autos) {
     form = { tipo: b.dataset.nuevo, datos: { categoria: b.dataset.nuevo === "entro" ? "ingreso" : "" } }; repintar();
   });
   todos("[data-cerrar-form]", (b) => b.onclick = () => { form = null; repintar(); });
+  todos("[data-mas-detalles]", (d) => d.ontoggle = () => { if (form) form.detalles = d.open; });
   todos("[data-editar-mov]", (el) => el.onclick = (ev) => {
     if (ev.target.closest("a")) return;
     const m = (E.movs || []).find((x) => x.id === el.dataset.editarMov); if (!m) return;
@@ -372,7 +405,11 @@ function enganchar(v, autos) {
     try {
       const s = await leerBoleta(file);
       const cuentaIA = s ? s.cuenta : "";
-      if (s) { delete s.cuenta; for (const [k, val] of Object.entries(s)) if (val !== "" && !form.datos[k]) form.datos[k] = val; }
+      // plata-15: la moneda y la fecha del formulario son valores POR DEFECTO
+      // (BRL, hoy), no algo que alguien eligió: lo que lee la factura les gana.
+      // Antes una boleta en pesos quedaba en reales sin que nadie lo notara.
+      const porDefecto = new Set(["moneda", "fecha"]);
+      if (s) { delete s.cuenta; for (const [k, val] of Object.entries(s)) if (val !== "" && val !== null && (!form.datos[k] || porDefecto.has(k))) form.datos[k] = val; }
       if (s && !form.datos.cuenta) {
         const c = cuentaSugerida({ comercio: form.datos.comercio, cuentaIA },
           { conceptos: E.conceptos, movs: [...(E.movs || []), ...pendientesComoMovs(E.extractos)], cuentas: cuentasDe(E.cuentasDoc) });

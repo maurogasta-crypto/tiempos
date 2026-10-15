@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-40
+// Sello: nucleo-41
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -654,7 +654,34 @@ export function leerSugerencia(texto, cuentasValidas = null) {
     detalle: String(j.detalle || "").slice(0, 300),
     // nucleo-32: la cuenta que propone la IA, sólo si es una que existe.
     cuenta: cuentasValidas && cuentasValidas.has(String(j.cuenta || "")) ? String(j.cuenta) : "",
+    // nucleo-41: todo lo demás que trae la factura (ver `datosDeFactura`).
+    factura: datosDeFactura(j),
   };
+}
+
+/* ── Lo que trae una factura (nucleo-41, 15-oct-2026) ───────────────────────
+   Mauro: «usaremos la foto de la IA para que recupere toda la información
+   posible de la factura». Además del total: el RUT o CNPJ del comercio, el
+   número del comprobante, cómo se pagó y los renglones. Sirven para
+   reconocer después el mismo gasto en un estado de cuenta o en otra app sin
+   cargarlo dos veces. Lo que no tiene forma queda afuera; un objeto vacío es
+   null, para no guardar un campo que no dice nada. */
+export const MEDIOS_PAGO = { efectivo: "Efectivo", debito: "Débito", credito: "Crédito", transferencia: "Transferencia", pix: "PIX" };
+export function datosDeFactura(j) {
+  if (!j || typeof j !== "object") return null;
+  const txt = (x, n) => String(x ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+  const num = (x) => { const v = Number(String(x ?? "").replace(/[^\d.,-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")); return v > 0 ? Math.round(v * 100) / 100 : null; };
+  const medio = plano(j.medio).replace(/[^a-z]/g, "");
+  const f = {
+    rut: txt(j.rut, 30).replace(/[^\d./-]/g, ""),
+    numero: txt(j.numero, 40),
+    medio: MEDIOS_PAGO[medio] ? medio : medio.startsWith("tarjetadecredito") ? "credito" : medio.startsWith("tarjetadedebito") ? "debito" : "",
+    renglones: (Array.isArray(j.renglones) ? j.renglones : []).slice(0, 40)
+      .map((r) => ({ d: txt(r && (r.detalle ?? r.d), 80), m: num(r && (r.monto ?? r.m)) })).filter((r) => r.d),
+  };
+  if (!f.renglones.length) delete f.renglones;
+  for (const k of Object.keys(f)) if (f[k] === "") delete f[k];
+  return Object.keys(f).length ? f : null;
 }
 
 /* ── La auditoría ────────────────────────────────────────────────────────────

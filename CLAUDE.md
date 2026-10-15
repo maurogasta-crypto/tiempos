@@ -155,6 +155,16 @@ la documentación diga la verdad.
   `actividadDePropuesta`) siguen: las escribe el agente, no el globo, y si
   cambia la forma de una actividad (`guardarActividad` de agenda.js), cambia
   `actividadDePropuesta` en la misma tanda.
+- **El gasto rápido** (plata-15, nucleo-41, 15-oct-2026, Mauro: «claro y fácil
+  cargar un gasto, usando la foto de la IA para que recupere toda la
+  información posible de la factura»): ＋ Gasto abre con la foto primero, lo
+  poco usado va en «Más detalles», y la IA trae además RUT, número, medio de
+  pago y renglones al campo `factura` (`datosDeFactura`, leído con
+  desconfianza). `?gasto=1` la abre desde el widget. **Es el primer paso del
+  gestor central de gastos**: Plata de Tiempos es el lugar, separado por
+  proyecto (la `cuenta`), y lo que llegue de otras apps —la carga de la Hilux,
+  los gastos de los sitios— entrará solo, con su `origen`, como un gasto con
+  varias pruebas (factura, línea del extracto), no como gastos repetidos.
 - **Las CUENTAS y las CONSULTAS** (plata-7, sugerir-18, nucleo-24,
   10-oct-2026, `tiempos:V11`). Un movimiento lleva `cuenta` (un lugar, un
   vehículo o su parte, de `familia/cuentas`) y `para` (una persona o un

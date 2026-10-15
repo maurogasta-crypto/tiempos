@@ -152,6 +152,27 @@ la alarma quedó para el 6 (a las 00:37 «mañana» es el 5) y la tarea se llam�
 «Marcar la pizarra». Ahora Gemini recibe la hora, la regla de la madrugada y
 que «pizarra» es el lugar, nunca el título.
 
+### El gasto rápido (plata-15, nucleo-41, app-36, 15-oct-2026)
+
+Mauro: «así como se agrega fácilmente una actividad en la agenda o un ítem de
+pizarra, quiero que sea claro y fácil cargar un gasto, usando la foto de la IA
+para que recupere toda la información posible de la factura».
+
+- **＋ Gasto abre con la foto primero**: «📷 Foto de la factura» grande y
+  «🖼 Elegir archivo» (los dos inputs, cámara y archivos). La IA llena todo y
+  la persona revisa y guarda; sin factura, alcanza con el monto.
+- A la vista: monto, moneda, fecha, categoría, comercio y **proyecto** (la
+  cuenta). En **Más detalles**: detalle, quién pagó, para quién, pago
+  automático y lo que la IA sacó de la factura.
+- **La IA trae toda la factura**: además del total, el RUT o CNPJ, el número
+  del comprobante, el medio de pago y los renglones (`datosDeFactura`). Se
+  guarda en el campo `factura` del movimiento; sirve para reconocer el mismo
+  gasto en un estado de cuenta o en otra app sin cargarlo dos veces.
+- **La moneda y la fecha de la factura ganan** a las del formulario, que son
+  por defecto (BRL, hoy). Antes una boleta en pesos quedaba en reales.
+- **Se abre desde afuera** con `?gasto=1`: lo usa el botón $ del widget de la
+  Pizarra.
+
 ### La IA sólo contesta (sugerir-22, nucleo-40, app-35, 15-oct-2026)
 
 Mauro: «vamos a sacar y limpiar en el código el pedido a la IA; quiero que sea
@@ -542,9 +563,9 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-40` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-41` |
 | `estado.js` | lo que comparten las vistas | `estado-4` |
-| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-35` |
+| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-36` |
 | `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-3` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
@@ -552,7 +573,7 @@ Florencia la acuerden.
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-3` |
 | `sugerir.js` | el globo ❓: preguntarle a la IA (sólo contesta), sugerencias y fallas, a `reportes/` | `sugerir-22` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-14` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-15` |
 | `extractos.js` | Plata → Extractos: las líneas de cada banco, para clasificarlas y registrarlas de a muchas, con cuenta y para quién | `extractos-2` |
 | `proyectos.js` | Plata → Proyectos: la economía centralizada, cada destino con lo que se le dedica y su neto, y el libro propio de Casa Verde | `proyectos-1` |
 | `cifras.js` | Plata → Análisis: lo estimado en el Año contra lo real, por categoría, de la familia o de un proyecto | `cifras-1` |
@@ -561,8 +582,8 @@ Florencia la acuerden.
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-18` |
 | `familia.js` | Hoy y Chicos | `familia-6` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
-| `estilos.css` | | `estilos-28` |
-| `sw.js` | el cascarón sin señal | `tiempos-60` |
+| `estilos.css` | | `estilos-29` |
+| `sw.js` | el cascarón sin señal | `tiempos-61` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

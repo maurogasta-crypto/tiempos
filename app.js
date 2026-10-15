@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-35
+// Sello: app-36
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -70,7 +70,7 @@ import { TIPOS, TIPO_CASA_VERDE, arbolOrganizado, puedeSoltar, tipoHeredado, arb
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
 import { pintarAgenda, irAPieza, alternarEnAgenda, estaEnAgenda, guardarEnAgenda, agendaUnida } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
-import { pintarPlata } from "./plata.js";
+import { pintarPlata, abrirGasto } from "./plata.js";
 import { pintarBalance } from "./balance.js";
 import { pintarCompras, abrirSuper, escucharCompartidas } from "./compras.js";
 import { montarGlobo, abrirConsulta } from "./sugerir.js";
@@ -163,6 +163,8 @@ async function entrarAlaApp() {
     for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x.dataset.solapa === solapaPedida));
     pintar();
   }
+  // app-36: ?gasto=1 (el $ del widget de la Pizarra) abre la ficha del gasto.
+  if (params.get("gasto")) { history.replaceState(null, "", location.pathname); abrirGasto(); }
   const dictado = params.get("dictar");
   if (dictado) {
     history.replaceState(null, "", location.pathname);
