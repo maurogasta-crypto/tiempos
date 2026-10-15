@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// deseos.js — Lo que nos gustaría hacer, y lo que se puede hacer hoy. Sello: deseos-2
+// deseos.js — Lo que nos gustaría hacer, y lo que se puede hacer hoy. Sello: deseos-3
 //
 // Pedido de Mauro, 5-oct-2026: «Cuando lo que se guarda es un flyer de una
 // actividad de frecuencia semanal, que quede registrado que es algo con
@@ -22,7 +22,7 @@
 import { db, F, CV } from "./firebase-init.js";
 import { esc, DIAS, PARA_DESEO, posiblesDelDia, textoFrecuencia, frecuenciaDeseo, esISO } from "./nucleo.js";
 import { E, aviso, repintar, fallo } from "./estado.js";
-import { abrirDictado } from "./sugerir.js";
+import { abrirAgregar } from "./agenda.js";
 
 let borrador = null;          // { id ("" = uno nuevo), titulo, detalle, lugar, para, cual, dias, fecha, hi, hf, archivo, sacarFlyer }
 let verTodos = false;
@@ -149,9 +149,9 @@ export function enganchar(c) {
   todos("[data-deseo-no]", (b) => b.onclick = () => F.updateDoc(F.doc(db, "deseos", b.dataset.deseoNo), { estado: "descartado" }).catch(fallo));
   todos("[data-deseo-agendar]", (b) => b.onclick = () => {
     const d = (E.deseos || []).find((x) => x.id === b.dataset.deseoAgendar); if (!d) return;
-    // Se agenda dictando CUÁNDO: el globo abre con el deseo ya escrito. Al
-    // agendarse, el deseo pasa a «agendado» (sugerir.js).
-    abrirDictado(`Agendar «${d.titulo}»${d.lugar ? " en " + d.lugar : ""}${textoFrecuencia(d) ? " (" + textoFrecuencia(d) + ")" : ""}: `, d.id);
+    // deseos-3 (15-oct-2026): se agenda con el ＋ de la agenda, con el deseo
+    // ya escrito, en su fecha (o hoy). Al agregarlo pasa a «agendado».
+    abrirAgregar(d.fecha && d.fecha >= E.hoy ? d.fecha : E.hoy, d.titulo, d.id);
   });
   const f = c.querySelector("[data-form-deseo]");
   if (!f) return;

@@ -1,68 +1,41 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sugerir.js — El globo flotante: una sugerencia o una falla, al chat. Sello: sugerir-21
+// sugerir.js — El globo flotante: preguntarle a la IA, una sugerencia o una
+// falla. Sello: sugerir-22
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
-// sitios».
+// sitios». Es el MISMO circuito de los sitios (el molde es `REPORTES.md` de
+// remate): va a `reportes/` de ESTA base con un campo `tipo` —«pedido» o
+// «falla»—, y la ronda diaria lo convierte en un pendiente del panel. Una
+// falla tiene `gravedad`; un pedido, `urgencia`; nunca las dos. La nota de
+// abajo dice quién contesta y cuánto tarda ANTES de mandar.
 //
-// Es el MISMO circuito de los sitios (el molde es `REPORTES.md` de remate, y
-// la forma, la de CasaYourte `nucleo-20`): va a `reportes/` de ESTA base con un
-// campo `tipo` —«pedido» o «falla»—, y la ronda diaria lo cruza contra el
-// panel y lo convierte en un pendiente. No escribe en el panel: el panel vive
-// en otro proyecto de Firebase y un token sirve para uno solo.
+// sugerir-22 (15-oct-2026): LA IA SÓLO CONTESTA. Mauro: «vamos a sacar y
+// limpiar en el código el pedido a la IA; quiero que sea para hacer una
+// consulta, como qué día tengo odontólogo… no fue bueno editando». Desde
+// sugerir-3 hasta sugerir-21 el cuadro armaba un PLAN (actividades, tareas,
+// alarmas, gastos, compras, cambios de la agenda) y en la práctica proponía
+// de más, partía una cosa en dos y se olvidaba los detalles. Se sacó entero
+// —acá y en nucleo.js— y lo que se agrega va por la ficha de cada cosa.
+// Ahora la IA entiende la pregunta y dice qué buscar (`leerConsultaIA`); la
+// respuesta la arma la app con lo que ve esta sesión (`buscarEnAgenda`,
+// `actividadesDeChicos`, `balanceDe`, `horasPorCuenta`), y la IA, si se le
+// pide («✨ Explicar»), sólo comenta esos números. Nada se escribe.
 //
-// Una falla tiene `gravedad` («¿te deja seguir?»); un pedido, `urgencia`
-// («¿es para ya?»). Nunca las dos: un pedido no tiene gravedad.
-//
-// La nota de abajo dice quién contesta y cuánto tarda ANTES de mandar: quien
-// pide tiene derecho a saberlo.
-//
-// sugerir-16 (10-oct-2026, Mauro: «que agregar a la agenda sea pedir a la IA,
-// y pueda hacer cualquiera de las intervenciones… todo lo que puede registrar
-// el sistema en un solo lugar; más neutro el cuadro»). La primera solapa es
-// «✨ Pedile a la IA», y el plan suma: un GASTO (lo escribe la persona al
-// tocar «Hacer lo marcado», con su sesión, como en Plata), las ACTIVIDADES DE
-// LOS CHICOS (nueva, cambiar, sacar, saltear un día) y CAMBIAR o SACAR algo
-// de la propia agenda. Los nombres de los chicos no viajan: pasan a «Chico1»
-// antes de mandar y vuelven a la vuelta (`escudarNombres`).
-//
-// sugerir-18 (10-oct-2026, tiempos:V11): el cuadro también CONTESTA. «¿Qué
-// tienen los chicos esta semana?», «gastos de General Flores en materiales de
-// septiembre», «balance de la Hilux», «horas de octubre». La IA entiende la
-// pregunta (`consulta`); los números los saca la app (`balanceDe`,
-// `actividadesDeChicos`, `horasPorCuenta` de nucleo.js) y la IA, si se le
-// pide («✨ Explicar»), sólo los comenta. Y un gasto puede decir a qué CUENTA
-// fue (un lugar, un vehículo, su depósito) y para quién.
-//
-// sugerir-21 (13-oct-2026, Mauro: «pedí que agregue a la pizarra dos cosas y
-// marcó todo esto»). La agenda y lo de los chicos van a la IA como CONTEXTO y
-// volvían como acciones, con alarmas que nadie pidió: `podarPlan` de nucleo.js
-// las saca (y lo dice), y el pedido dice que va una tarea por cosa.
-// sugerir-20 (13-oct-2026, Mauro: «hice el pedido a la IA para guardar un
-// evento en la agenda con alarma y propuso agregar dos cosas diferentes y no
-// anotó los detalles que le envié»). La actividad lleva su NOTA (lo que no es
-// título ni lugar: número de reserva, qué decir al llegar), la alarma de algo
-// nuevo viaja ADENTRO de su actividad (`unirAvisos` de nucleo.js) y se guarda
-// atada a ella (`sobre: act:<id>`, `antes`), y lo pegado sale sin cédula,
-// teléfono ni mail (`sinDatosPersonales`).
-// sugerir-19 (10-oct-2026, tiempos:V11): «📊 Análisis de Claude». Una
-// respuesta se puede mandar a Claude, que lee las dos bases —Tiempos y Casa
-// Verde, y remate— y devuelve un análisis en Pizarra (propuesta de clase
-// «analisis», `herramientas/analisis.mjs` de datos). Va a reportes/ con el
-// campo `analisis` ({que, cuenta, desde, hasta, categorias}).
+// Lo que no cambió: los nombres de los chicos no viajan (pasan a «Chico1» y
+// vuelven, `escudarNombres`), lo pegado sale sin cédula, teléfono ni mail
+// (`sinDatosPersonales`), y «📊 Análisis de Claude» manda la consulta a
+// Claude, que la contesta en Pizarra (sugerir-19).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, auth, F, CV } from "./firebase-init.js";
-import { textoFrecuencia } from "./nucleo.js";
-import { dondeEstoy } from "./lugares.js";
-import { esc, leerPlanIA, agendaParaIA, lugaresParaIA, CLASES_ACTIVIDAD, esISO, limpiarDictado, listasDeCompras, listaParaCompra, idNuevo,
-  escudarNombres, devolverNombres, chicosParaIA, CATEGORIAS, MONEDAS, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe,
-  actividadesDeChicos, horasPorCuenta, CONSULTAS, sumarDias, sinDatosPersonales } from "./nucleo.js";
-import { agendarMio } from "./propone.js";
-import { reprogramarActividad, sacarActividad } from "./agenda.js";
-import { E, $, aviso, repintar, fallo, otro } from "./estado.js";
+import { esc, limpiarDictado, escudarNombres, devolverNombres, CATEGORIAS, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe,
+  actividadesDeChicos, horasPorCuenta, CONSULTAS, sumarDias, sinDatosPersonales, leerConsultaIA, buscarEnAgenda } from "./nucleo.js";
+import { agendaUnida } from "./agenda.js";
+import { E, $, aviso, fallo, otro } from "./estado.js";
 
 export const MODOS = {
+  consulta: { titulo: "Preguntale a la IA", que: "Tu pregunta", quePh: "¿Qué día tengo el odontólogo? · ¿Qué tienen los chicos el jueves? · ¿Cuánto gastamos en el súper en septiembre?" },
   pedido: { titulo: "Una sugerencia", que: "¿Qué te gustaría?", quePh: "Que en la agenda se vea también la semana de Florencia.",
             esp: "¿Para qué te serviría?", espPh: "Para no pisarnos los horarios.", campo: "urgencia",
             opciones: [["cuando-se-pueda", "Cuando se pueda"], ["pronto", "Pronto"], ["ya", "Lo necesito ya"]] },
@@ -70,137 +43,56 @@ export const MODOS = {
             esp: "¿Qué esperabas que pasara?", espPh: "Que el gasto apareciera en la lista.", campo: "gravedad",
             opciones: [["molesta", "Molesta, sigo"], ["traba", "Me traba algo"], ["no-anda", "No puedo usar la app"]] },
 };
-MODOS.agenda = { titulo: "Pedile a la IA", que: "Lo que sea, dictado o escrito", quePh: "Gasté 850 en la farmacia · el básquet pasa a las 18 · mañana alarma 7:30 · comprar yerba",
-  esp: "Algo más (opcional)", espPh: "Es para toda la familia / sólo Flor / para recordar.", campo: "urgencia",
-  opciones: [["pronto", "Para la IA"]] };
 export const NOMBRE_SOLAPA = { pizarra: "Pizarra", ahora: "Ahora", hoy: "Hoy", agenda: "Agenda", tareas: "Tareas", chicos: "Chicos", plata: "Plata", balance: "Balance" };
 
-let abierta = false, modo = "agenda", enviando = false;   // sugerir-3: lo primero es dictar
+let abierta = false, modo = "consulta", enviando = false;
+let pregunta = "";            // lo escrito, para que un repintado no lo borre
+let consulta = null;          // la última consulta contestada: { ...consulta, resultado }
+let preguntando = false;
 
-/* ── sugerir-3 (5-oct-2026): DICTAR A LA AGENDA ──────────────────────────────
-   Pedido de Mauro: «el pedido de agregar una tarea o actividad a la agenda se
-   tiene que hacer por dictado»; que el botón «simule ser una grabación» y que
-   el texto que se va a mandar se vea y se pueda corregir con el teclado; y que
-   también se pueda mandar la captura de un flyer o un anuncio.
-   El dictado lo hace el reconocimiento de voz del teléfono (Chrome): el audio
-   no se guarda ni viaja, viaja el TEXTO, y antes de mandarlo uno lo ve. Va a
-   reportes/ como un pedido más, con `agenda: true` y la imagen subida a
-   Cloudinary al MANDAR (nunca al elegir), igual que las boletas. Lo interpreta
-   Claude y devuelve una tarjeta en Pizarra: nada entra a la agenda sin aceptar. */
-/* sugerir-12 (7-oct-2026, app-16): sin botón de dictado propio. Mauro: «sacar
-   el dictado y dejar para introducir texto a partir del dictado del propio
-   teclado» — el reconocedor del navegador fallaba y el del teclado no. Se
-   escribe (o se dicta con el micrófono del teclado) y se corrige ahí mismo. */
-let foto = null;              // el archivo elegido, todavía sin subir
-let fotoSubida = "";          // sugerir-10: la URL si ya la subió la app del teléfono
-let precarga = null;          // sugerir-4: lo que entendió Gemini, para corregir y agendar
-let precargando = false;
-let textoDictado = "";
-
-/* ── sugerir-4 (5-oct-2026): PRECARGAR CON GEMINI ────────────────────────────
-   Mauro: «se puede usar la misma API de Gemini para que precargue todo en la
-   agenda en el momento». La app le pregunta a Gemini por claude-proxy (el de
-   las boletas) y llena la tarjeta al instante. Uno la corrige y agenda en SU
-   agenda; y el pedido igual le llega a Claude, que hace lo que Gemini no
-   puede: cruzar con el otro y preguntarle al que queda libre.
-   A Gemini no le van los nombres de los chicos (no entran al código ni a un
-   tercero): sólo si la actividad es con ellos. */
 /* Los chicos de la casa, de la base. Se usan SÓLO para escudar los nombres
    antes de que algo salga hacia la IA, y para traducirlos a la vuelta. */
 const chicosDeLaCasa = () => (E.familia && E.familia.ninos) || [];
-/* sugerir-17 (10-oct-2026, Mauro): una actividad «de los chicos» es de TODOS;
-   si nombra a uno, es de ése. Sin chicos marcados, van todos. */
-/* sugerir-18: para quién fue un gasto: «yo», «otro» o un chico. */
-const paraDe = (p) => {
-  if (p === "yo") return E.yo.uid;
-  if (p === "otro") return (otro() || {}).id || "";
-  const i = /^chico\s*(\d{1,2})$/i.exec(String(p || "").trim());
-  if (i) return (chicosDeLaCasa()[Number(i[1]) - 1] || {}).id || "";
-  const n = (chicosDeLaCasa().find((x) => String(x.nombre).toLowerCase() === String(p || "").toLowerCase()) || {}).id;
-  return n || "";
-};
-const ninosDe = (indices) => {
-  const ids = (indices || []).map((i) => (chicosDeLaCasa()[i] || {}).id).filter(Boolean);
-  return ids.length ? ids : chicosDeLaCasa().map((n) => n.id).filter(Boolean);
-};
+/* Lo que tengo con día en la agenda que no es una actividad: las tareas y lo
+   de Casa Verde que puse en un día, con su título. */
+function piezasConDia() {
+  const tareas = Object.fromEntries((E.tareas || []).map((t) => [t.id, t]));
+  const cv = Object.fromEntries((E.cvActs || []).map((a) => [a.id, a]));
+  return Object.entries(agendaUnida()).map(([k, m]) => ({ ...m, titulo: k.startsWith("f:") ? (tareas[k.slice(2)] || {}).titulo
+    : k.startsWith("cv:") ? (cv[k.slice(3)] || {}).titulo : "" })).filter((p) => p.titulo && p.dia);
+}
 
-async function interpretar(texto, archivo) {
+/* La IA entiende la pregunta: qué se busca, de cuándo, de qué cuenta. No ve
+   la agenda ni los gastos: la respuesta la arma la app. */
+async function preguntar(texto) {
   const CV2 = CV && CV.CV2;
   if (!CV2) throw new Error("sin Casa Verde no hay IA");
   const hoy = E.hoy;
   const dia = new Date(hoy + "T12:00").toLocaleDateString("es", { weekday: "long" });
-  // sugerir-9: la HORA también. A las 00:37 «mañana» es el día que empieza al
-  // despertarse, o sea HOY por fecha: sin la hora, la IA lo corría un día.
-  const ahoraHM = new Date().toTimeString().slice(0, 5);
-  const otroN = ((E.miembros || []).find((m) => m.id !== E.yo.uid) || {}).nombre || "la otra persona";
-  const yoN = (E.miembro && E.miembro.nombre) || "quien dicta";
-  // sugerir-5: MI agenda de las próximas dos semanas, para que pueda colgar un
-  // recordatorio de «el gimnasio de mañana». Es la mía y la manda mi sesión.
   const ninos = chicosDeLaCasa();
-  const agenda = agendaParaIA(E.actividades, hoy).map((a) => ({ ...a, titulo: escudarNombres(a.titulo, ninos) }));
-  // sugerir-16: las actividades de los chicos, para poder cambiarlas.
-  const chicos = chicosParaIA(E.eventos, ninos, hoy);
-  // sugerir-15: de dónde sale. La casa del país donde está ahora (ubicación
-  // aproximada, no se guarda) y sus lugares con dirección (lugares.js).
-  const pais = await dondeEstoy();
-  const lugares = lugaresParaIA(E.lugares, E.casas, pais);
-  const listas = listasDeCompras(E.compras).map((l) => l.nombre);
-  texto = limpiarDictado(texto);
-  const dictadoReal = texto;
-  texto = escudarNombres(sinDatosPersonales(texto), ninos);
-  const contenido = [];
-  if (archivo) {
-    const blob = await CV2.comprimirImagen(archivo);
-    const data = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = mal; r.readAsDataURL(blob); });
-    contenido.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } });
-  }
-  contenido.push({ type: "text", text: `Hoy es ${dia} ${hoy} y son las ${ahoraHM} (Uruguay/Brasil). ${yoN} vive con ${otroN} y sus hijos, y dictó algo para organizar su tiempo. ${archivo ? "Adjunta la captura de un flyer o anuncio. " : ""}Lo dictado (puede tener errores del dictado del teléfono y expresiones espontáneas): «${texto || "(nada: sólo la captura)"}».
-Su agenda de las próximas dos semanas (JSON): ${JSON.stringify(agenda)}
-Las actividades de los chicos (JSON; los chicos se llaman Chico1, Chico2…: usá esos nombres, nunca otros): ${JSON.stringify(chicos)}
-Las cuentas (lugares, vehículos y sus depósitos) para los gastos: ${JSON.stringify(cuentasDe(E.cuentasDoc).map((c) => c.ruta))}.
-Hay ${ninos.length} chicos: ${ninos.map((n, i) => "Chico" + (i + 1)).join(", ") || "ninguno cargado"}. «Los chicos» son TODOS ellos: en "ninos" van todos. Si nombra a uno solo, va sólo ése.
-Dónde está y sus lugares conocidos (JSON; "casa" es de donde sale si no hay otra actividad antes ese día): ${JSON.stringify(lugares)}. Para el viaje usá esas direcciones; si un lugar no está, estimalo y decilo en dudas.
-La agenda y las actividades de los chicos son CONTEXTO para ubicar lo que dicta: NUNCA las vuelvas a proponer como acciones, ni les agregues avisos que no pidió. Proponé SÓLO lo que este dictado pide; una alarma o un recordatorio, sólo si lo pide.
-Pensá qué necesita de verdad y devolvé un PLAN de acciones, SOLO un JSON sin texto alrededor:
-{"resumen": una línea con lo que entendiste,
- "acciones": [ cada una con "tipo" y sus campos:
-   {"tipo":"actividad","titulo","dia":"AAAA-MM-DD","hi":"HH:MM","hf":"HH:MM" o "","lugar","nota": los detalles útiles que no entran en el título ni en el lugar (número de reserva o de turno, serie, qué llevar, qué hacer al llegar), en una o dos líneas,"tipo_clase":"trabajo"|"tarea"|"personal"|"ninos","quien":"yo"|"otro"|"los-dos"|"familia","chicos":true|false,"ninos":["Chico1"]}  — algo nuevo que ocupa tiempo;
-   {"tipo":"tarea","titulo","detalle"}  — UNA por cosa: si nombra varias (separadas por «y», comas o renglones), va una tarea por cada una, cada una con su título. Algo CONCRETO que la persona tiene que hacer o preparar con sus manos (llevar algo, comprar, llamar, juntar papeles); va a su pizarra. NUNCA una tarea para guardar, agendar, marcar, anotar o registrar lo que este mismo plan ya hace: eso lo hace la app sola y no ocupa lugar en la pizarra;
-   {"tipo":"recordatorio","texto","dia","hora":"HH:MM" (temprano ese día, SIEMPRE antes de lo que recuerda),"sobre": id de su agenda si se refiere a algo que ya tiene}  — un aviso ese día;
-   {"tipo":"alarma","texto","dia","hora","sobre" (sólo el id de algo que YA está en su agenda; si es de una actividad de este mismo plan, dejalo vacío: se le engancha sola),"lugar": adónde va,"desde": de dónde sale,"viaje": minutos}  — la alarma de SALIR: si una actividad tiene lugar, la hora es la de la actividad menos el viaje menos 10 minutos de margen. "desde" es el lugar de la actividad anterior de ese mismo día (de la agenda o de este plan) o "casa" si no hay ninguna; "viaje" son los minutos en auto entre "desde" y "lugar", estimados con lo que sabés de las distancias reales (en Uruguay, por ejemplo, entre localidades de la Costa de Oro de Canelones). Si no sabés dónde queda alguno de los dos lugares, decilo en dudas;
-   {"tipo":"deseo","titulo","detalle","para":"yo"|"chicos"|"familia","lugar","dias":["martes","jueves"] si se repite cada semana,"fecha":"AAAA-MM-DD" si es una sola vez,"hi":"HH:MM","hf":"HH:MM","cuando": en palabras si no hay días ni fecha}  — algo que quisiera hacer pero no está decidido (un flyer, una clase): va a la lista de deseos. Si el flyer dice que es semanal, poné los días; si es un evento con fecha, la fecha;
-   {"tipo":"coordinar","texto"}  — una pregunta para ${otroN} si para hacerlo hay que acordar con él o ella;
-   {"tipo":"compra","texto","lista"}  — algo para no olvidar comprar; va a la lista de compras de la casa. Listas que ya existen: ${JSON.stringify(listas)} (usá una de ésas si corresponde, o un nombre corto nuevo);
-   {"tipo":"pedido","titulo","detalle","dia"}  — algo que le pide a ${otroN} que haga (va a la pizarra de ${otroN});
-   {"tipo":"gasto","monto": número,"moneda":"BRL"|"UYU"|"USD","fecha":"AAAA-MM-DD","categoria": una de ${JSON.stringify(Object.keys(CATEGORIAS))},"comercio","detalle","cuenta": una de las cuentas si es de un lugar o vehículo,"para":"yo"|"otro"|"Chico1" si es para alguien en particular}  — plata que se gastó o que entró («gasté 850 en la farmacia», «cobré los honorarios»). La moneda sólo si la dijo o es obvia (pesos en Uruguay = UYU, reales en Brasil = BRL); si no, vacía y en dudas. Nunca inventes un monto;
-   {"tipo":"chicos","accion":"nueva"|"cambiar"|"quitar"|"saltar","id": el de la lista si no es nueva,"titulo","fecha":"AAAA-MM-DD","hora","horaFin","semanal": true|false,"ninos":["Chico1"],"nota"}  — las actividades de los chicos, que ven los dos: una nueva; cambiar una que ya está (sólo los campos que cambian); quitarla del todo; o «saltar» para que no cuente UN día (en "fecha");
-   {"tipo":"mover","id": el de su agenda,"dia","hi","hf"}  — cambiar de día u hora algo que YA está en su agenda;
-   {"tipo":"quitar","id": el de su agenda}  — sacar algo de su agenda, sólo si lo pide;
-   {"tipo":"consulta","que":"chicos"|"agenda"|"gastos"|"balance"|"horas","desde":"AAAA-MM-DD","hasta":"AAAA-MM-DD","ninos":["Chico1"] si pregunta por uno,"cuenta": una de las cuentas,"categorias":[de la lista de arriba],"persona":"yo"|"otro"|"","pregunta": lo que quiere saber en una línea}  — si PREGUNTA algo en vez de pedir que se registre: actividades de los chicos de un día o una semana, su agenda, los gastos o entradas de una cuenta o categoría, el balance de una cuenta, las horas trabajadas. «Esta semana» es de lunes a domingo; «septiembre» es del 1 al 30; si no dice período, «desde» y «hasta» vacíos (todo). Una pregunta no se registra: sólo se contesta ],
- "dudas": [lo que no quedó claro]}.
-Elegí con criterio lo que corresponde, puede ser más de una acción: algo decidido con día y hora es una actividad (si es con los chicos, "chicos": true y va también al calendario compartido de los chicos); algo que quisiera pero no está decidido es un deseo; «no olvidar comprar…» es una compra; «pedirle a ${otroN}…» o «que ${otroN} …» es un pedido; «acordarme de…» es un recordatorio (y una alarma si hay una hora en que tiene que salir); preparar algo es una tarea.
-Entre las 00:00 y las 05:00, «mañana» quiere decir HOY por fecha (${hoy}): la persona todavía no se fue a dormir.
-Nada va en el pasado. «El jueves», «el miércoles»: es el PRÓXIMO día con ese nombre; si hoy es ese día y la hora ya pasó (son las ${ahoraHM}), es el de la semana que viene, nunca hoy ni mañana. Si una actividad de hoy tiene una hora que ya pasó y no se nombró el día, casi seguro es mañana: decilo en dudas.
-Si el texto trae un «Link (Instagram/Facebook/…)», es de una publicación que no podés abrir: sacá los datos de la captura y del texto, y poné el link en "detalle" de lo que propongas (actividad o deseo) para que se pueda volver a verlo.
-Si pega una confirmación (un turno, una reserva, una entrada), es UNA actividad: el título dice QUÉ es y DÓNDE con palabras de la confirmación (el servicio, la oficina), nunca «Reserva web» ni «Su reserva»; los datos para presentarse van en "nota". Si pide alarma, la alarma de salir va además, para esa misma actividad. Los datos personales (documento, teléfono, mail) no van en ningún lado.
-«Anotar/marcar/poner en la pizarra X» es UNA tarea cuyo título es X; la palabra «pizarra» nunca es el título. Si la frase no dice qué anotar, el título es lo que pidió hacer (por ejemplo «Preguntarle a ${otroN} la hora del dentista»).
-Si menciona algo que YA está en su agenda, usá su día y hora (y su id en "sobre"); no lo dupliques como actividad. Fechas relativas («mañana», «el jueves») desde hoy. Si un dato no se sabe, dejalo vacío y ponelo en dudas. No inventes.` });
+  const t = escudarNombres(sinDatosPersonales(limpiarDictado(texto)), ninos);
+  const prompt = `Hoy es ${dia} ${hoy}. Alguien de una familia pregunta algo sobre su agenda, la de sus hijos, sus gastos o sus horas: «${t}».
+Los chicos se llaman Chico1, Chico2… (hay ${ninos.length}). Cuentas de gastos: ${JSON.stringify(cuentasDe(E.cuentasDoc).map((c) => c.ruta))}. Categorías: ${JSON.stringify(Object.keys(CATEGORIAS))}.
+Devolvé SOLO un JSON, sin texto alrededor:
+{"que": "agenda" (cuándo tiene algo, qué tiene un día) | "chicos" (qué tienen los chicos) | "gastos" | "balance" | "horas",
+ "buscar": [palabras para encontrarlo en los títulos, con sinónimos y variantes: para «odontólogo» → ["odontólogo","dentista","odonto"]; vacío si pregunta por un día o un período entero],
+ "desde": "AAAA-MM-DD", "hasta": "AAAA-MM-DD" (vacíos si no dice cuándo; «esta semana» es de lunes a domingo, «el jueves» es el próximo jueves, «septiembre» del 1 al 30),
+ "ninos": ["Chico1"] si pregunta por uno, "cuenta": una de las cuentas o "", "categorias": [de la lista] o [], "persona": "yo" | "otro" | "",
+ "pregunta": la pregunta en una línea}
+No contestes la pregunta: sólo decí qué buscar.`;
   const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
     method: "POST", headers: { "Content-Type": "application/json" },
     // flash-lite: el que piensa se come los tokens y corta el JSON (plata-2).
-    body: JSON.stringify({ model: "gemini-2.5-flash-lite", max_tokens: 3000, messages: [{ role: "user", content: contenido }] }),
+    body: JSON.stringify({ model: "gemini-2.5-flash-lite", max_tokens: 600, messages: [{ role: "user", content: [{ type: "text", text: prompt }] }] }),
   });
   if (!r.ok) throw new Error("la IA contestó " + r.status);
   const j = await r.json();
-  const plan = leerPlanIA(((j.content || [])[0] || {}).text, Date.now(), dictadoReal, Object.keys(E.actividades || {}), { agenda, chicos });
-  if (!plan) return plan;
-  // A la vuelta, «Chico1» vuelve a ser su nombre, en todo lo que se muestra o se guarda.
-  const nombres = (x) => typeof x === "string" ? devolverNombres(x, ninos) : x;
-  plan.resumen = nombres(plan.resumen);
-  plan.dudas = plan.dudas.map(nombres);
-  plan.acciones = plan.acciones.map((a) => Object.fromEntries(Object.entries(a).map(([k, v]) => [k, k === "id" || k === "sobre" ? v : nombres(v)])));
-  for (const a of plan.acciones) if (a.tipo === "consulta") a.resultado = await contestar(a);
-  return plan;
+  const c = leerConsultaIA(((j.content || [])[0] || {}).text);
+  if (!c) throw new Error("no entendí la pregunta");
+  c.pregunta = devolverNombres(c.pregunta || texto, ninos);
+  c.buscar = c.buscar.map((w) => devolverNombres(w, ninos));
+  c.resultado = await contestar(c);
+  return c;
 }
 
 /* sugerir-18: la respuesta a una consulta, calculada acá con lo que ve esta
@@ -218,10 +110,12 @@ async function contestar(a) {
     const nino = (a.ninos || []).length === 1 ? (chicosDeLaCasa()[a.ninos[0]] || {}).id || "" : "";
     if (a.que === "chicos") return { tipo: "lista", desde: d0, hasta: d1, de: nino ? (chicosDeLaCasa()[a.ninos[0]] || {}).nombre : "los chicos",
       items: actividadesDeChicos({ eventos: E.eventos, actividades: E.actividades, ninos: chicosDeLaCasa(), desde: d0, hasta: d1, nino }) };
-    const items = Object.values(E.actividades || {}).filter((x) => x && x.dia >= d0 && x.dia <= d1)
-      .map((x) => ({ dia: x.dia, hora: String(x.desde || "").slice(11, 16), horaFin: x.hf || "", titulo: x.titulo || "", de: "" }))
-      .sort((p, q) => p.dia.localeCompare(q.dia) || p.hora.localeCompare(q.hora));
-    return { tipo: "lista", desde: d0, hasta: d1, de: "tu agenda", items };
+    // sugerir-22: con palabras («odontólogo», «dentista») se busca en toda la
+    // agenda —mía, las tareas con día y las de los chicos—, no sólo una semana.
+    const items = buscarEnAgenda({ actividades: E.actividades, piezas: piezasConDia(), eventos: E.eventos, ninos: chicosDeLaCasa(),
+      palabras: a.buscar || [], desde: a.desde, hasta: a.hasta, hoy });
+    const desdeR = items.length ? items[0].dia : d0, hastaR = items.length ? items[items.length - 1].dia : d1;
+    return { tipo: "lista", desde: a.desde || desdeR, hasta: a.hasta || hastaR, de: (a.buscar || []).length ? `«${a.buscar.join("», «")}»` : "tu agenda", items };
   }
   if (a.que === "horas") {
     let sesiones = [];
@@ -288,175 +182,6 @@ export async function pedirAnalisis({ pregunta, que = "balance", cuenta = "", de
 }
 
 const DIA_CORTO = (iso) => { try { return new Date(iso + "T12:00").toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }); } catch { return iso; } };
-function renglonAccion(a, n) {
-  const ch = `<input type="checkbox" data-accion="${n}" checked>`;
-  const enAgenda = (id) => { const x = (E.actividades || {})[String(id || "").replace(/^act:/, "")]; return x ? ` · ${esc(x.titulo)}` : ""; };
-  // sugerir-20: la nota y los avisos de la actividad van en SU renglón.
-  const avisos = (a.avisos || []).map((v) => `${v.tipo === "alarma" ? "⏰" : "🔔"} ${esc(v.hora)}${v.antes ? ` (${esc(String(v.antes))} min antes)` : ""}: ${esc(v.texto)}${v.viaje ? ` · 🚗 ≈${esc(String(v.viaje))} min${v.desde ? " desde " + esc(v.desde) : ""}` : ""}`).join(" · ");
-  if (a.tipo === "actividad") return `<label class="check accion">${ch} 📅 <span><b>${esc(a.titulo)}</b> · ${esc(DIA_CORTO(a.dia))} ${esc(a.hi)}${a.hf ? "–" + esc(a.hf) : ""}${a.lugar ? " · " + esc(a.lugar) : ""}
-    <small class="gris">${esc((CLASES_ACTIVIDAD[a.clase] || {}).nombre || "sin clase")} · ${esc(a.quien === "otro" ? "lo hace el otro" : a.quien === "yo" ? "vos" : a.quien)}</small>${a.nota ? `<small class="gris" style="display:block">📝 ${esc(a.nota)}</small>` : ""}${avisos ? `<small class="gris" style="display:block">${avisos} · suena en la app</small>` : ""}</span></label>`;
-  if (a.tipo === "tarea") return `<label class="check accion">${ch} 📝 <span>A tu pizarra: <b>${esc(a.titulo)}</b>${a.detalle ? ` <small class="gris">${esc(a.detalle)}</small>` : ""}</span></label>`;
-  if (a.tipo === "recordatorio") return `<label class="check accion">${ch} 🔔 <span>Recordatorio ${esc(DIA_CORTO(a.dia))} ${esc(a.hora)}: <b>${esc(a.texto)}</b><small class="gris">${enAgenda(a.sobre)}</small></span></label>`;
-  if (a.tipo === "alarma") return `<label class="check accion">${ch} ⏰ <span>Alarma ${esc(DIA_CORTO(a.dia))} ${esc(a.hora)}: <b>${esc(a.texto)}</b><small class="gris">${enAgenda(a.sobre)}${a.viaje ? ` · 🚗 ≈${esc(String(a.viaje))} min${a.desde ? " desde " + esc(a.desde) : ""}${a.lugar ? " a " + esc(a.lugar) : ""}, + 10 de margen` : ""} · suena en la app</small></span></label>`;
-  if (a.tipo === "deseo") return `<label class="check accion">${ch} ⭐ <span>A deseos${a.para === "chicos" ? " de los chicos" : a.para === "familia" ? " de la familia" : ""}: <b>${esc(a.titulo)}</b>${textoFrecuencia(a) ? ` <small class="gris">${esc(textoFrecuencia(a))}</small>` : ""}</span></label>`;
-  if (a.tipo === "compra") return `<label class="check accion">${ch} 🛒 <span>A la lista de compras${a.lista ? " «" + esc(a.lista) + "»" : ""}: <b>${esc(a.texto)}</b></span></label>`;
-  if (a.tipo === "pedido") return `<label class="check accion">${ch} 🙋 <span>Pedido para ${esc((otro() || {}).nombre || "el otro")}, a su pizarra: <b>${esc(a.titulo)}</b>${a.dia ? ` <small class="gris">${esc(DIA_CORTO(a.dia))}</small>` : ""}</span></label>`;
-  if (a.tipo === "gasto") {
-    const c = CATEGORIAS[a.categoria];
-    return `<label class="check accion">${a.faltan.length ? `<input type="checkbox" data-accion="${n}" disabled>` : ch} 💸 <span>${c && c.tipo === "entro" ? "Entró" : "Gasto"}: <b>${esc(a.monto)} ${esc(a.moneda || "¿moneda?")}</b>${a.comercio ? " · " + esc(a.comercio) : ""}${a.detalle ? " · " + esc(a.detalle) : ""}
-      <small class="gris">${esc(c ? c.nombre : "¿categoría?")} · ${esc(a.fecha ? DIA_CORTO(a.fecha) : "¿fecha?")}${a.cuenta ? " · " + esc(((cuentasDe(E.cuentasDoc).find((x) => x.id === cuentaPorNombre(cuentasDe(E.cuentasDoc), a.cuenta))) || {}).ruta || a.cuenta + " (no existe: queda sin cuenta)") : ""}${a.faltan.length ? ` · ⚠ ${esc(a.faltan.join(", "))}: cargalo en Plata` : " · a Plata, con tu nombre"}</small></span></label>`;
-  }
-  if (a.tipo === "chicos") {
-    const ev = (E.eventos || []).find((e) => e.id === a.id);
-    const nombres = (a.ninos || []).map((i) => chicosDeLaCasa()[i]).filter(Boolean).map((x) => x.nombre).join(" y ");
-    const cuando = [a.fecha && DIA_CORTO(a.fecha), a.hora && a.hora + (a.horaFin ? "–" + a.horaFin : ""), a.semanal && "cada semana"].filter(Boolean).join(" ");
-    if (a.accion !== "nueva" && !ev) return `<label class="check accion"><input type="checkbox" data-accion="${n}" disabled> 👦 <span>No encontré esa actividad de los chicos <small class="gris">cambiala en Chicos</small></span></label>`;
-    const que = { nueva: "Nueva", cambiar: "Cambiar", quitar: "Sacar", saltar: "Saltear" }[a.accion];
-    return `<label class="check accion">${ch} 👦 <span>${que}${a.accion === "nueva" ? "" : " «" + esc(ev.titulo) + "»"}: <b>${esc(a.accion === "nueva" || a.titulo ? a.titulo || "" : "")}</b> ${esc(a.accion === "saltar" ? "el " + DIA_CORTO(a.fecha) : a.accion === "quitar" ? "del todo" : cuando)}${nombres ? ` <small class="gris">${esc(nombres)}</small>` : ""}<small class="gris"> · la ven los dos</small></span></label>`;
-  }
-  if (a.tipo === "mover" || a.tipo === "quitar") {
-    const x = (E.actividades || {})[a.id];
-    if (!x) return `<label class="check accion"><input type="checkbox" data-accion="${n}" disabled> 📅 <span>No encontré eso en tu agenda <small class="gris">cambialo en Agenda</small></span></label>`;
-    return a.tipo === "mover"
-      ? `<label class="check accion">${ch} 📅 <span>Pasar <b>${esc(x.titulo)}</b> a ${esc(DIA_CORTO(a.dia))} ${esc(a.hi)}${a.hf ? "–" + esc(a.hf) : ""} <small class="gris">estaba ${esc(DIA_CORTO(x.dia))} ${esc(String(x.desde || "").slice(11, 16))}</small></span></label>`
-      : `<label class="check accion">${ch} 🗑 <span>Sacar de tu agenda: <b>${esc(x.titulo)}</b> <small class="gris">${esc(DIA_CORTO(x.dia))}</small></span></label>`;
-  }
-  if (a.tipo === "consulta") return respuestaHTML(a, n);
-  if (a.tipo === "coordinar") return `<label class="check accion">${ch} 💬 <span>Preguntarle a ${esc(((E.miembros || []).find((m) => m.id !== E.yo.uid) || {}).nombre || "el otro")}: <b>${esc(a.texto)}</b></span></label>`;
-  return "";
-}
-
-function tarjetaPrecarga(p) {
-  return `<div class="tarjeta ficha propone" data-precarga>
-    <p class="gris">✨ ${p.resumen ? "Entendí: «" + esc(p.resumen) + "»" : "Esto propongo"} — destildá lo que no va</p>
-    ${p.acciones.length ? p.acciones.map(renglonAccion).join("") : `<p class="aviso">No saqué nada claro. Volvé al texto y decilo de otra forma, o mandáselo a Claude.</p>`}
-    ${p.dudas.length ? `<p class="aviso">No estoy seguro de: ${p.dudas.map(esc).join(", ")}. Las actividades se corrigen después en Agenda.</p>` : ""}
-    <div class="botones">${p.acciones.some((a) => a.tipo !== "consulta") ? `<button type="button" class="boton" data-agendar>Hacer lo marcado</button>` : ""}<button type="button" class="mini" data-otra-vez>Volver al texto</button></div>
-    <p class="gris">Si hay que acordar con el otro, Claude le pregunta y te avisa.</p>
-  </div>`;
-}
-
-/* Hacer lo marcado: cada acción, con la sesión de quien dictó. Lo que necesita
-   al otro (coordinar, «lo hace el otro») va a Claude como un pedido. */
-async function agendarPrecarga(tp) {
-  if (enviando) return;
-  const marcadas = [...tp.querySelectorAll("[data-accion]")].filter((c) => c.checked).map((c) => precarga.acciones[Number(c.dataset.accion)])
-    .filter((a) => a && a.tipo !== "consulta");
-  if (!marcadas.length) return aviso("No marcaste nada.", true);
-  enviando = true;
-  const hecho = [], paraClaude = [];
-  try {
-    let imagen = "";
-    if (foto) imagen = fotoSubida || await CV.CV2.subirImagen(foto, "tiempos");      // al aceptar, nunca al elegir
-    for (const a of marcadas) {
-      if (a.tipo === "actividad") {
-        if (a.quien === "otro") { paraClaude.push(`Que lo agende el otro: ${a.titulo} ${a.dia} ${a.hi}`); continue; }
-        const id = await agendarMio({ titulo: a.titulo, dia: a.dia, hi: a.hi, hf: a.hf, lugar: a.lugar, nota: a.nota, tipo: a.clase, modo: a.modo, imagen }, { origen: "dictado" });
-        if (id) hecho.push("📅 " + a.titulo);
-        // sugerir-20: sus avisos, atados a ella como los de «⏰ Avisarme».
-        for (const v of id ? a.avisos || [] : []) {
-          await F.addDoc(F.collection(db, "alertas"), { uid: E.yo.uid, tipo: v.tipo, texto: v.texto, dia: v.dia, hora: v.hora || "08:00",
-            antes: v.antes || 0, sobre: "act:" + id, avisada: false, creadoEn: F.serverTimestamp() });
-          hecho.push((v.tipo === "alarma" ? "⏰ " : "🔔 ") + v.texto);
-        }
-        if (a.chicos && esISO(a.dia)) await F.addDoc(F.collection(db, "eventos"), { titulo: a.titulo.slice(0, 120), fecha: a.dia, hora: a.hi || "",
-          horaFin: a.hf || "", semanal: false, ninos: ninosDe(a.ninos), quienes: [E.yo.uid], nota: a.lugar ? "En " + a.lugar.slice(0, 280) : "",
-          excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
-        if (a.quien === "los-dos" || a.quien === "familia") paraClaude.push(`Agendé «${a.titulo}» ${a.dia} ${a.hi} para ${a.quien}`);
-      } else if (a.tipo === "tarea") {
-        await F.addDoc(F.collection(db, "tareas"), { titulo: a.titulo.slice(0, 120), tipo: "personal", alcance: "personal", duenio: E.yo.uid,
-          parentId: null, hecho: false, encargados: [E.yo.uid], meta: null, detalle: a.detalle || "", pizarra: { [E.yo.uid]: true },
-          origen: "dictado", creadoEn: F.serverTimestamp() });
-        hecho.push("📝 " + a.titulo);
-      } else if (a.tipo === "recordatorio" || a.tipo === "alarma") {
-        if (!esISO(a.dia)) { aviso(`«${a.texto}» no tiene día: no lo guardé.`, true); continue; }
-        await F.addDoc(F.collection(db, "alertas"), { uid: E.yo.uid, tipo: a.tipo, texto: a.texto, dia: a.dia, hora: a.hora || "08:00",
-          sobre: a.sobre || "", avisada: false, creadoEn: F.serverTimestamp() });
-        hecho.push((a.tipo === "alarma" ? "⏰ " : "🔔 ") + a.texto);
-      } else if (a.tipo === "deseo") {
-        const coordina = marcadas.some((x) => x.tipo === "coordinar");
-        const ref = await F.addDoc(F.collection(db, "deseos"), { uid: E.yo.uid, titulo: a.titulo, detalle: a.detalle || "", para: a.para,
-          lugar: a.lugar || "", cuando: a.cuando || "", dias: a.dias || [], fecha: a.fecha || "", hi: a.hi || "", hf: a.hf || "", imagen, estado: coordina ? "coordinando" : "deseo", creadoEn: F.serverTimestamp() });
-        hecho.push("⭐ " + a.titulo);
-        if (coordina) paraClaude.push(`Deseo deseos/${ref.id}: «${a.titulo}»`);
-      } else if (a.tipo === "coordinar") {
-        paraClaude.push("Coordinar: " + a.texto);
-      } else if (a.tipo === "compra") {
-        // A la lista que se llama así; si no hay, se crea (como «＋ Súper»).
-        let lid = listaParaCompra(listasDeCompras(E.compras), a.lista);
-        const nueva = lid ? {} : { nombre: (a.lista || "Súper").slice(0, 40), orden: Date.now() };
-        if (!lid) lid = idNuevo("l");
-        await F.setDoc(F.doc(db, "familia", "compras"), { listas: { [lid]: { ...nueva,
-          items: { [idNuevo("i")]: { texto: a.texto.slice(0, 80), hecho: false, por: E.yo.uid, orden: Date.now() } } } },
-          actualizadoEn: F.serverTimestamp() }, { merge: true });
-        hecho.push("🛒 " + a.texto);
-      } else if (a.tipo === "gasto") {
-        if (a.faltan && a.faltan.length) { aviso(`El gasto de ${a.monto}: ${a.faltan.join(", ")}. Cargalo en Plata.`, true); continue; }
-        const c = CATEGORIAS[a.categoria];
-        await F.addDoc(F.collection(db, "movimientos"), { monto: a.monto, moneda: a.moneda, fecha: a.fecha, categoria: a.categoria,
-          comercio: a.comercio || "", detalle: a.detalle || "", uid: E.yo.uid, comprobanteUrl: imagen || null, automatico: null,
-          cuenta: a.cuenta ? cuentaPorNombre(cuentasDe(E.cuentasDoc), a.cuenta) || "" : "", para: paraDe(a.para),
-          origen: "dictado", creadoPor: E.yo.uid, creadoEn: F.serverTimestamp(), actualizadoEn: F.serverTimestamp() });
-        hecho.push(`💸 ${a.monto} ${a.moneda}${c ? " " + c.nombre : ""}`);
-      } else if (a.tipo === "chicos") {
-        // sugerir-17 (Mauro): «los chicos» son los dos; si nombra a uno, sólo ése.
-        const ninosIds = ninosDe(a.ninos);
-        if (a.accion === "nueva") {
-          await F.addDoc(F.collection(db, "eventos"), { titulo: a.titulo.slice(0, 120), fecha: a.fecha, hora: a.hora || "", horaFin: a.horaFin || "",
-            semanal: !!a.semanal, ninos: ninosIds, quienes: [E.yo.uid], nota: a.nota || "", excepto: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
-          hecho.push("👦 " + a.titulo);
-        } else {
-          const ev = (E.eventos || []).find((e) => e.id === a.id);
-          if (!ev) { aviso("No encontré esa actividad de los chicos: cambiala en Chicos.", true); continue; }
-          const ref = F.doc(db, "eventos", a.id);
-          if (a.accion === "quitar") await F.deleteDoc(ref);
-          else if (a.accion === "saltar") await F.updateDoc(ref, { excepto: F.arrayUnion(a.fecha), titulo: ev.titulo || "" });
-          else {
-            // Cambiar: sólo lo que la IA trajo; lo demás queda como estaba.
-            const c = { titulo: (a.titulo || ev.titulo || "").slice(0, 120), actualizadoEn: F.serverTimestamp() };
-            if (a.fecha) c.fecha = a.fecha;
-            if (a.hora) c.hora = a.hora;
-            if (a.horaFin) c.horaFin = a.horaFin;
-            if (ninosIds.length) c.ninos = ninosIds;
-            if (a.nota) c.nota = a.nota;
-            await F.updateDoc(ref, c);
-          }
-          hecho.push(`👦 ${{ cambiar: "cambiada", quitar: "sacada", saltar: "salteada" }[a.accion]}: ${ev.titulo}`);
-        }
-      } else if (a.tipo === "mover") {
-        const mal = await reprogramarActividad(a.id, { dia: a.dia, hi: a.hi, hf: a.hf });
-        if (mal) { aviso("No la cambié: " + mal + ".", true); continue; }
-        hecho.push("📅 cambiada: " + ((E.actividades || {})[a.id] || {}).titulo);
-      } else if (a.tipo === "quitar") {
-        const t = ((E.actividades || {})[a.id] || {}).titulo || "";
-        await sacarActividad(a.id);
-        hecho.push("🗑 " + t);
-      } else if (a.tipo === "pedido") {
-        // Una tarea COMÚN a cargo del otro, marcada para su pizarra. Claude
-        // además le avisa por WhatsApp si el otro lo encendió.
-        const o = otro();
-        if (!o) { aviso(`«${a.titulo}»: no hay a quién pedírselo.`, true); continue; }
-        await F.addDoc(F.collection(db, "tareas"), { titulo: a.titulo.slice(0, 120), tipo: "casa", alcance: "comun", duenio: E.yo.uid,
-          parentId: null, hecho: false, encargados: [o.id], meta: null, pizarra: { [o.id]: true },
-          detalle: [`Pedido de ${(E.miembro && E.miembro.nombre) || ""}`, a.dia ? "para el " + a.dia : "", a.detalle || ""].filter(Boolean).join(" · ").slice(0, 300),
-          origen: "dictado", creadoEn: F.serverTimestamp() });
-        hecho.push("🙋 " + a.titulo);
-        paraClaude.push(`Pedido para ${o.nombre || "el otro"}: ${a.titulo}`);
-      }
-    }
-    // A Claude siempre le llega lo dictado (lo cruza con el otro); con lo que
-    // ya se hizo, para que no lo repita.
-    await mandarReporte({ texto: textoDictado || (precarga.resumen || "Lo de la captura."), agenda: true, imagen,
-      esperaba: [hecho.length ? "Ya hecho: " + hecho.join(" · ") : "", ...paraClaude].filter(Boolean).join(" | ").slice(0, 600),
-      extra: { yaAgendado: hecho.length ? "plan" : "", quien: paraClaude.length ? "coordinar" : "yo" } });
-    if (deseoAgendando && hecho.some((x) => x.startsWith("📅"))) await F.updateDoc(F.doc(db, "deseos", deseoAgendando), { estado: "agendado" }).catch(() => {});
-    deseoAgendando = null;
-    foto = null; fotoSubida = ""; precarga = null; textoDictado = ""; enviando = false; abierta = false; pintarHoja();
-    aviso(hecho.length ? "Listo: " + hecho.length + " cosa(s)." + (paraClaude.length ? " Claude coordina el resto." : "") : "Mandado a Claude.");
-    repintar();
-  } catch (e) { enviando = false; fallo(e); }
-}
-
 let mios = [];
 let escuchando = false;
 
@@ -474,9 +199,9 @@ function escucharMios() {
 
 export function montarGlobo() {
   if ($("globo")) return;
-  const b = Object.assign(document.createElement("button"), { id: "globo", className: "globo", title: "Sugerir algo o avisar una falla" });
-  b.innerHTML = "✏️";
-  b.title = "Pedirle algo a la IA, sugerir algo o avisar una falla";
+  const b = Object.assign(document.createElement("button"), { id: "globo", className: "globo", title: "Preguntar, sugerir algo o avisar una falla" });
+  b.innerHTML = "❓";
+  
   b.onclick = () => { abierta = true; escucharMios(); pintarHoja(); };
   document.body.append(b);
 }
@@ -486,112 +211,78 @@ function pintarHoja() {
   if (!abierta) { if (h) h.remove(); return; }
   if (!h) { h = Object.assign(document.createElement("div"), { id: "hoja-sugerir", className: "hoja" }); document.body.append(h); }
   const m = MODOS[modo];
-  const antes = h.querySelector("form") ? { t: h.querySelector("[name=texto]").value, e: h.querySelector("[name=esperaba]").value } : { t: "", e: "" };
+  const ia = modo === "consulta";
+  const antes = h.querySelector("form") ? { t: h.querySelector("[name=texto]").value, e: (h.querySelector("[name=esperaba]") || {}).value || "" } : { t: ia ? pregunta : "", e: "" };
   const marcado = (h.querySelector(".tira button.on") || {}).dataset;
-  h.innerHTML = `<div class="hoja-caja sugerir-ed${modo === "agenda" ? " modo-agenda" : ""}">
+  h.innerHTML = `<div class="hoja-caja sugerir-ed">
     <div class="hoja-cab"><b>${esc(m.titulo)}</b><button class="mas" data-cerrar aria-label="Cerrar">✕</button></div>
-    <nav class="solapas chicas"><button data-modo="agenda" aria-selected="${modo === "agenda"}">✨ Pedile a la IA</button><button data-modo="pedido" aria-selected="${modo === "pedido"}">Sugerencia</button><button data-modo="falla" aria-selected="${modo === "falla"}">Algo anda mal</button></nav>
-    ${modo === "agenda" && precarga ? tarjetaPrecarga(precarga) : ""}
-    <form ${modo === "agenda" && precarga ? "hidden" : ""}>
-      ${modo === "agenda" ? `<p class="gris">Escribí, o dictá con el 🎤 del teclado, y corregí ahí mismo.</p>` : ""}
-      <label>${esc(m.que)} <textarea name="texto" rows="${modo === "agenda" ? 4 : 3}" maxlength="2000" ${modo === "agenda" ? "" : "required"} placeholder="${esc(m.quePh)}">${esc(antes.t)}</textarea></label>
-      ${modo === "agenda" ? `<div class="boleta">${CV && CV.CV2 ? `
-        <label class="mini boton-archivo">📷 Sacar foto<input type="file" accept="image/*" capture="environment" data-flyer hidden></label>
-        <label class="mini boton-archivo">🖼 Elegir captura<input type="file" accept="image/*" data-flyer hidden></label>` : `<small class="gris">Sin Casa Verde no se pueden subir imágenes.</small>`}
-        ${foto ? `<small>${esc(foto.name)} · se sube al mandar</small>` : ""}</div>` : ""}
-      <label>${esc(m.esp)} <input name="esperaba" maxlength="600" placeholder="${esc(m.espPh)}" value="${esc(antes.e)}"></label>
+    <nav class="solapas chicas"><button data-modo="consulta" aria-selected="${ia}">❓ Preguntar</button><button data-modo="pedido" aria-selected="${modo === "pedido"}">Sugerencia</button><button data-modo="falla" aria-selected="${modo === "falla"}">Algo anda mal</button></nav>
+    <form>
+      ${ia ? `<p class="gris">Escribí, o dictá con el 🎤 del teclado. La IA busca en tu agenda, la de los chicos, los gastos y las horas, y te contesta acá. <b>No cambia nada</b>: para agregar, usá el ＋ de la agenda, de la pizarra o de Plata.</p>` : ""}
+      <label>${esc(m.que)} <textarea name="texto" rows="3" maxlength="2000" required placeholder="${esc(m.quePh)}">${esc(antes.t)}</textarea></label>
+      ${ia ? `<button class="boton" ${preguntando ? "disabled" : ""}>${preguntando ? "Buscando…" : "Preguntar"}</button>`
+      : `<label>${esc(m.esp)} <input name="esperaba" maxlength="600" placeholder="${esc(m.espPh)}" value="${esc(antes.e)}"></label>
       <div class="tira">${m.opciones.map(([v, t], i) => `<button type="button" data-v="${v}" class="mini${(marcado && m.opciones.some((o) => o[0] === marcado.v) ? marcado.v === v : i === 0) ? " on" : ""}">${esc(t)}</button>`).join("")}</div>
-      ${modo === "agenda" ? `<p class="gris">Lo interpreta <b>una IA</b> (Claude) y te deja una propuesta en <b>Pizarra</b> para aceptar o corregir: <b>nada entra a tu agenda ni a la de nadie sin que esa persona lo acepte</b>. Suele tardar unos minutos; si no, la ronda de la mañana. Va con tu nombre.</p>` : ""}
       <p class="gris nota-ia">Lo lee <b>una IA</b> (el agente de Claude) en la ronda de cada mañana, y lo pasa al panel de Mauro como pendiente. <b>Puede tardar hasta un día.</b> Si hace falta algo más, te va a preguntar en la app o en el chat. Va con tu nombre y la solapa en la que estás (${esc(NOMBRE_SOLAPA[E.solapa] || E.solapa)}).</p>
-      ${modo === "agenda" ? `<div class="botones"><button type="button" class="boton" data-precargar ${precargando ? "disabled" : ""}>${precargando ? "Leyendo…" : "✨ Precargar"}</button>
-        <button class="mini" ${enviando ? "disabled" : ""}>${enviando ? "Mandando…" : "Mandar a Claude sin precargar"}</button></div>`
-      : `<button class="boton" ${enviando ? "disabled" : ""}>${enviando ? "Mandando…" : "Mandar"}</button>`}
+      <button class="boton" ${enviando ? "disabled" : ""}>${enviando ? "Mandando…" : "Mandar"}</button>`}
     </form>
-    ${mios.length ? `<h4>Lo que mandaste</h4>${mios.slice(0, 8).map((r) => `<div class="mandado"><small class="gris">${esc(r.agenda ? "agenda" : r.tipo === "falla" ? "falla" : "sugerencia")} · ${esc(r.estado === "nuevo" ? "esperando la ronda" : r.estado || "")}</small><br>${esc(String(r.texto || "").slice(0, 140))}</div>`).join("")}` : ""}
+    ${ia && consulta ? respuestaHTML(consulta, 0) : ""}
+    ${!ia && mios.length ? `<h4>Lo que mandaste</h4>${mios.slice(0, 8).map((r) => `<div class="mandado"><small class="gris">${esc(r.tipo === "falla" ? "falla" : "sugerencia")} · ${esc(r.estado === "nuevo" ? "esperando la ronda" : r.estado || "")}</small><br>${esc(String(r.texto || "").slice(0, 140))}</div>`).join("")}` : ""}
   </div>`;
   h.onclick = (ev) => { if (ev.target === h) { abierta = false; pintarHoja(); } };
   h.querySelector("[data-cerrar]").onclick = () => { abierta = false; pintarHoja(); };
-  for (const b of h.querySelectorAll("[data-modo]")) b.onclick = () => { modo = b.dataset.modo; pintarHoja(); };
-  for (const i of h.querySelectorAll("[data-flyer]")) i.onchange = () => { foto = i.files && i.files[0] || null; fotoSubida = ""; pintarHoja(); };
-  const pre = h.querySelector("[data-precargar]");
-  if (pre) pre.onclick = async () => {
-    const texto = h.querySelector("[name=texto]").value.trim();
-    if (!texto && !foto) return aviso("Escribí algo o elegí una captura.", true);
-    textoDictado = texto;
-    precargando = true; pintarHoja();
-    try { precarga = await interpretar(texto, foto); }
-    catch (e) { precarga = null; aviso("No pude precargar (" + (e.message || e) + "): completalo a mano.", true); }
-    if (!precarga) precarga = leerPlanIA("{}");
-    precargando = false; pintarHoja();
-  };
-  const tp = h.querySelector("[data-precarga]");
-  if (tp) {
-    tp.querySelector("[data-otra-vez]").onclick = () => { precarga = null; pintarHoja(); };
-    const ag = tp.querySelector("[data-agendar]");
-    if (ag) ag.onclick = () => agendarPrecarga(tp).catch(fallo);
-    for (const b of tp.querySelectorAll("[data-analisis]")) b.onclick = async () => {
-      const a = precarga.acciones[Number(b.dataset.analisis)]; if (!a) return;
-      b.disabled = true;
-      try {
-        await pedirAnalisis({ pregunta: a.pregunta || CONSULTAS[a.que], que: a.que, cuenta: (a.resultado || {}).cuenta || a.cuenta || "",
-          desde: a.desde, hasta: a.hasta, categorias: a.categorias });
-        a.pedido = true; aviso("Pedido. Claude lo analiza y te lo deja en Pizarra.");
-      } catch (e) { fallo(e); }
-      pintarHoja();
-    };
-    for (const b of tp.querySelectorAll("[data-explicar]")) b.onclick = async () => {
-      const a = precarga.acciones[Number(b.dataset.explicar)]; if (!a) return;
-      b.disabled = true; b.textContent = "Pensando…";
-      try { a.explicacion = await explicar(a); } catch (e) { a.explicacion = "No pude explicarlo ahora (" + (e.message || e) + ")."; }
-      pintarHoja();
-    };
-  }
+  for (const b of h.querySelectorAll("[data-modo]")) b.onclick = () => { if (ia) pregunta = h.querySelector("[name=texto]").value; modo = b.dataset.modo; pintarHoja(); };
   for (const b of h.querySelectorAll(".tira button")) b.onclick = () => {
     for (const x of h.querySelectorAll(".tira button")) x.classList.toggle("on", x === b);
+  };
+  const ex = h.querySelector("[data-explicar]");
+  if (ex) ex.onclick = async () => {
+    ex.disabled = true; ex.textContent = "Pensando…";
+    try { consulta.explicacion = await explicar(consulta); } catch (e) { consulta.explicacion = "No pude explicarlo ahora (" + (e.message || e) + ")."; }
+    pintarHoja();
+  };
+  const an = h.querySelector("[data-analisis]");
+  if (an) an.onclick = async () => {
+    an.disabled = true;
+    try {
+      await pedirAnalisis({ pregunta: consulta.pregunta || CONSULTAS[consulta.que], que: consulta.que, cuenta: (consulta.resultado || {}).cuenta || consulta.cuenta || "",
+        desde: consulta.desde, hasta: consulta.hasta, categorias: consulta.categorias });
+      consulta.pedido = true; aviso("Pedido. Claude lo analiza y te lo deja en Pizarra.");
+    } catch (e) { fallo(e); }
+    pintarHoja();
   };
   const f = h.querySelector("form");
   f.onsubmit = async (ev) => {
     ev.preventDefault();
-    let texto = f.texto.value.trim();
-    if (!texto && !(modo === "agenda" && foto)) return aviso(modo === "agenda" ? "Escribí algo o elegí una captura." : "Escribí algo.", true);
-    if (!texto) texto = "Agendar lo de la captura.";
+    const texto = f.texto.value.trim();
+    if (!texto) return aviso("Escribí algo.", true);
+    if (ia) return hacerPregunta(texto);
     if (!E.yo || !E.yo.uid) return aviso("No hay sesión: volvé a entrar.", true);
     enviando = true; pintarHoja();
     try {
-      // La imagen se sube al MANDAR y ANTES del documento: un corte de red no
-      // deja un pedido apuntando a una imagen que no existe.
-      let imagen = "";
-      if (modo === "agenda" && foto) imagen = fotoSubida || await CV.CV2.subirImagen(foto, "tiempos");
-      await mandarReporte({ texto, esperaba: f.esperaba.value.trim(), tipo: modo === "agenda" ? "pedido" : modo,
-        agenda: modo === "agenda", imagen, [m.campo]: (h.querySelector(".tira button.on") || {}).dataset.v || m.opciones[0][0] });
-      foto = null;
+      await mandarReporte({ texto, esperaba: f.esperaba.value.trim(), tipo: modo,
+        [m.campo]: (h.querySelector(".tira button.on") || {}).dataset.v || m.opciones[0][0] });
       enviando = false; abierta = false; pintarHoja();
-      aviso(modo === "agenda" ? "Mandado. La propuesta te aparece en Pizarra." : "Mandado. Lo toma la ronda de mañana.");
+      aviso("Mandado. Lo toma la ronda de mañana.");
     } catch (e) { enviando = false; pintarHoja(); fallo(e); }
   };
 }
 
-/* Abrir el globo en Agenda con un texto ya escrito (un deseo que se agenda). */
-let deseoAgendando = null;
-export async function abrirDictado(texto, deseoId = null, { precargar = false, imagen = "" } = {}) {
-  // sugerir-10: la captura de un reel o un flyer que compartió la app del
-  // teléfono ya está en Cloudinary; se baja para que la lea la IA y NO se
-  // vuelve a subir. Sólo de nuestra cuenta: otra dirección no se toca.
-  if (imagenNuestra(imagen)) {
-    try {
-      const b = await (await fetch(imagen)).blob();
-      foto = new File([b], "captura.jpg", { type: b.type || "image/jpeg" }); fotoSubida = imagen;
-    } catch (e) { aviso("No pude traer la captura: mandala de nuevo desde la app.", true); }
-  }
-  modo = "agenda"; precarga = null; deseoAgendando = deseoId; abierta = true; escucharMios(); pintarHoja();
-  const t = document.querySelector("#hoja-sugerir [name=texto]");
-  if (t) { t.value = texto; t.focus(); }
-  // sugerir-8: lo que llega dictado desde la app del teléfono ya está
-  // corregido allá; se precarga solo y uno ve la tarjeta para marcar.
-  if (precargar && texto) { const b = document.querySelector("#hoja-sugerir [data-precargar]"); if (b) b.click(); }
+async function hacerPregunta(texto) {
+  pregunta = texto; preguntando = true; pintarHoja();
+  try { consulta = await preguntar(texto); }
+  catch (e) { consulta = null; aviso("No pude contestar (" + (e.message || e) + ").", true); }
+  preguntando = false; pintarHoja();
 }
 
-export const imagenNuestra = (u) => typeof u === "string" && u.startsWith("https://res.cloudinary.com/dnwfu8ffn/");
+/* Abrir el globo con una pregunta ya escrita: la que se dictó en la app del
+   teléfono (`?dictar=`) o en la Pizarra de Tiempos. Se pregunta sola. */
+export function abrirConsulta(texto) {
+  modo = "consulta"; consulta = null; abierta = true; escucharMios();
+  pregunta = String(texto || "").slice(0, 2000);
+  pintarHoja();
+  if (pregunta.trim()) hacerPregunta(pregunta);
+}
 
 /* Un pedido a reportes/, con la forma de los sitios, y el aviso en vivo. Lo
    usa también la tarjeta de Claude en Ahora para devolver una respuesta. */
@@ -602,7 +293,6 @@ export async function mandarReporte(c) {
     tipo: c.tipo || "pedido", imagen: c.imagen || "", agenda: !!c.agenda,
     ...(c.respondeA ? { respondeA: String(c.respondeA).slice(0, 60) } : {}),
     ...(c.analisis ? { analisis: c.analisis } : {}),
-    ...(c.extra ? { yaAgendado: String(c.extra.yaAgendado || "").slice(0, 60), quien: String(c.extra.quien || "").slice(0, 20) } : {}),
     ...(c.gravedad ? { gravedad: c.gravedad } : { urgencia: c.urgencia || "pronto" }),
     estado: "nuevo", creadoEn: F.serverTimestamp(),
   });

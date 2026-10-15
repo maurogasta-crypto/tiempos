@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// lugares.js — Mis lugares y dónde estoy. Sello: lugares-2
+// lugares.js — Mis lugares y dónde estoy. Sello: lugares-3
 //
 // 7-oct-2026, tiempos:V7 (Mauro): la alarma de salir cuenta el viaje; para eso
 // hace falta saber de dónde se sale. La casa depende del país en el que está
@@ -20,7 +20,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F } from "./firebase-init.js";
-import { esc, paisDe, PAISES_CASA, lugarNuevo, claveLugar } from "./nucleo.js";
+import { esc, PAISES_CASA, lugarNuevo, claveLugar } from "./nucleo.js";
 import { E, aviso, repintar, fallo } from "./estado.js";
 
 const guardar = (campos) => F.setDoc(F.doc(db, "agendas", E.yo.uid), { ...campos, actualizadoEn: F.serverTimestamp() }, { merge: true });
@@ -30,18 +30,6 @@ export function recordarLugar(nombre) {
   const n = lugarNuevo(E.lugares, nombre);
   if (!n) return;
   guardar({ lugares: { [n[0]]: n[1] } }).catch(() => {});
-}
-
-/** El país donde está ahora, por la ubicación aproximada. "" si no se puede (sin permiso, sin señal). */
-export function dondeEstoy(espera = 4000) {
-  return new Promise((ok) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return ok("");
-    const t = setTimeout(() => ok(E.pais || ""), espera);
-    navigator.geolocation.getCurrentPosition(
-      (p) => { clearTimeout(t); E.pais = paisDe(p.coords.latitude, p.coords.longitude); ok(E.pais); },
-      () => { clearTimeout(t); ok(E.pais || ""); },
-      { enableHighAccuracy: false, maximumAge: 3600e3, timeout: espera });
-  });
 }
 
 /** El interruptor de «Claude organiza mi agenda» (lugares-2). */

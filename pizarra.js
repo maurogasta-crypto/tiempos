@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// pizarra.js — La primera solapa: anotar, recordar y la pizarra. Sello: pizarra-web-2
+// pizarra.js — La primera solapa: anotar, recordar y la pizarra. Sello: pizarra-web-3
 //
 // app-16 (7-oct-2026, tiempos:V7, pedido de Mauro): «la primera corresponde a
 // las anotaciones rápidas con recordatorios, la edición de la pizarra, alarmas
@@ -19,7 +19,7 @@ import { esc, arbol, TIPOS, tipoHeredado, colorHeredado, bloquesPorConfirmar, au
          enMiPizarra, paraElegirPorCategoria } from "./nucleo.js";
 import { E, $, aviso, repintar, personas, fallo } from "./estado.js";
 import { tarjetasPropone, CLASES_PROPONE, alertasYDeseos } from "./propone.js";
-import { abrirDictado } from "./sugerir.js";
+import { abrirConsulta } from "./sugerir.js";
 
 let eligiendo = false;          // la ventana de elegir está abierta
 let categoria = "";             // la categoría abierta en esa ventana
@@ -33,18 +33,16 @@ export function pintarPizarra(irA) {
   const v = $("v-pizarra"); v.replaceChildren();
   const caja = (html, clase = "tarjeta") => { const d = document.createElement("div"); d.className = clase; d.innerHTML = html; v.append(d); return d; };
 
-  // 1 · Pedirle a la IA (pizarra-web-2, 10-oct-2026, Mauro: «más neutro el
-  // cuadro»): lo que sea que Tiempos registra —un gasto, los chicos, mover o
-  // sacar algo de la agenda, una alarma, un deseo, compras—. La IA arma el
-  // plan y la persona marca qué va (sugerir.js).
-  const an = caja(`<label>✨ Pedile a la IA <textarea id="anotar" rows="3" maxlength="2000" placeholder="Ej.: gasté 850 en la farmacia · el básquet pasa a las 18 · mañana alarma 7:30"></textarea></label>
-    <div class="botones"><button class="boton" data-armar>✨ Armar el plan</button></div>
-    <small class="gris">Escribí, o dictá con el 🎤 del teclado: un gasto, algo de los chicos, cambiar tu agenda, una alarma, un deseo, una compra. La IA propone y vos marcás qué va.</small>`, "tarjeta ficha");
+  // 1 · Preguntarle a la IA (pizarra-web-3, 15-oct-2026, Mauro: «quiero que
+  // sea para hacer una consulta… no fue bueno editando»). Contesta con lo que
+  // ve esta sesión y no cambia nada (sugerir.js).
+  const an = caja(`<label>❓ Preguntale a la IA <textarea id="anotar" rows="2" maxlength="2000" placeholder="Ej.: ¿qué día tengo el odontólogo? · ¿qué tienen los chicos el jueves?"></textarea></label>
+    <div class="botones"><button class="boton" data-armar>Preguntar</button></div>`, "tarjeta ficha");
   an.querySelector("[data-armar]").onclick = () => {
     const t = an.querySelector("#anotar").value.trim();
-    if (!t) return aviso("Escribí algo primero.", true);
+    if (!t) return aviso("Escribí la pregunta.", true);
     an.querySelector("#anotar").value = "";
-    abrirDictado(t, null, { precargar: true });
+    abrirConsulta(t);
   };
 
   // 2 · Lo que espera una decisión tuya, con un toque para ir.

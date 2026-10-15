@@ -135,54 +135,26 @@ la documentación diga la verdad.
   después de guardar, `avisarClaude` manda la base y el id —nunca el texto— a
   `avisar-claude` del Netlify de Casa Verde, que verifica `miembros/{uid}` y
   dispara la rutina «Consulta en vivo». Si falla, la ronda diaria lo trae igual.
-- **Dictar a la agenda y «Claude propone»** (app-12, 5-oct-2026, pedido de
-  Mauro). El globo abre en 🎙 Agenda: dictado con el reconocimiento de voz del
-  teléfono (el audio no viaja), texto corregible y captura opcional de un
-  flyer. Claude lo interpreta y deja `propuestas` de clase `agenda` (una por
-  persona, `datos.para`) o `consulta` (a quien queda libre). **Aceptar escribe
-  la agenda de quien acepta, con su sesión** — el agente sigue sin escribir
-  ni leer `agendas/`, y por eso no hizo falta abrirla. Si cambia la forma de
-  una actividad de agenda (`guardarActividad` de agenda.js), cambia
-  `actividadDePropuesta` de nucleo.js en la misma tanda.
-  **Y desde sugerir-4 la tarjeta se precarga con Gemini en el momento**
-  (claude-proxy, como las boletas; `leerAgendaIA` la lee con desconfianza),
-  uno corrige y agenda; Claude recibe igual el pedido (`yaAgendado`) para
-  cruzar con el otro. **A Gemini no le van los nombres de los chicos**, y el
-  banco lo comprueba.
-  **Y desde sugerir-5 un dictado es un PLAN de varias acciones** (`ACCIONES`
-  de nucleo.js: actividad, tarea, recordatorio, alarma, deseo, coordinar, y
-  desde sugerir-6 compra —a `familia/compras`— y pedido —tarea común a cargo
-  del otro, con `pizarra` marcada para él o ella—),
-  cada una con su casilla. Para encontrar «el gimnasio» Gemini recibe la
-  agenda de quien dicta (`agendaParaIA`: título, día, horas y clase, nada
-  más) — es su propia agenda, mandada por su sesión. Los recordatorios y
-  alarmas van a `alertas/` (de su dueño; el agente los LEE para avisar por
-  WhatsApp con el candado de «Mis avisos») y los deseos a `deseos/` (los ven
-  los dos). Reglas v9. **La alarma que suena a la hora es de la APK**
-  (`tiempos:V3`), no de la web.
-- **Pedirle a la IA es UN cuadro para todo** (sugerir-16, nucleo-22,
-  10-oct-2026, Mauro: «que agregar a la agenda sea pedir a la IA… todo lo que
-  puede registrar el sistema en un solo lugar; más neutro el cuadro»). El plan
-  suma `gasto`, `chicos` (nueva/cambiar/quitar/saltar), `mover` y `quitar`
-  (de la propia agenda). **El gasto lo escribe la PERSONA** al tocar «Hacer lo
-  marcado», con su sesión, como en Plata: el agente sigue sin escribir plata.
-  Un gasto al que le falta algo no se puede marcar. **Los nombres de los chicos
-  no salen hacia la IA**: lo dictado, los títulos de la agenda y los de los
-  chicos pasan por `escudarNombres` («Chico1») y vuelven con `devolverNombres`;
-  el banco lo comprueba.
-  **Y desde sugerir-20 / nucleo-38 (13-oct-2026)** —Mauro pegó una reserva
-  «con alarma» y salieron dos renglones sueltos sin sus datos—: la actividad
-  lleva `nota` (número de reserva, qué hacer al llegar); la alarma o el
-  recordatorio de una actividad NUEVA del mismo plan viaja adentro de ella
-  (`unirAvisos`) y se guarda con `sobre: act:<id>` y `antes`, como «⏰
-  Avisarme»; el de algo que ya está lleva `act:<id>`. Y lo pegado sale sin
-  documento, teléfono ni mail (`sinDatosPersonales`), antes de escudar nombres.
-  **Y desde sugerir-21 / nucleo-39** (Mauro pidió dos cosas para la pizarra y
-  la tarjeta le repropuso su agenda entera con alarmas): la agenda y los chicos
-  van a la IA como CONTEXTO, y `podarPlan` saca en el código lo que ya está
-  (mismo día y hora) y los avisos que no se pidieron —salvo la alarma de salir
-  de una actividad nueva del mismo plan—, y lo dice en las dudas. Una tarea por
-  cosa.
+- **La IA de Tiempos sólo CONTESTA** (sugerir-22, nucleo-40, 15-oct-2026,
+  Mauro: «vamos a sacar y limpiar en el código el pedido a la IA; quiero que
+  sea para hacer una consulta, como qué día tengo odontólogo… no fue bueno
+  editando»). De sugerir-3 a sugerir-21 el globo armaba un PLAN (agenda,
+  tareas, alarmas, gastos, compras, cambios de los chicos) y proponía de más,
+  partía una cosa en dos y se olvidaba los detalles; se sacó entero, acá y en
+  nucleo.js. Ahora el globo ❓ (y la tarjeta de la Pizarra, y `?dictar=` de la
+  app del teléfono) **pregunta**: Gemini dice qué buscar (`leerConsultaIA`,
+  leída con desconfianza) y la respuesta la arma el código con lo que ve la
+  sesión (`buscarEnAgenda` —mi agenda, lo agendado con día y lo de los chicos,
+  de dos meses atrás a seis adelante si no dice cuándo—, `actividadesDeChicos`,
+  `balanceDe`, `horasPorCuenta`). **No escribe nada**, y el banco lo comprueba.
+  Lo que se agrega va por la ficha de cada cosa (el ＋ de la agenda, el de la
+  pizarra, Plata); un deseo se agenda con el ＋ de la agenda (`abrirAgregar`).
+  **Los nombres de los chicos no salen hacia la IA** (`escudarNombres` /
+  `devolverNombres`) y lo pegado sale sin documento, teléfono ni mail
+  (`sinDatosPersonales`). Las `propuestas` de Claude («Claude propone»,
+  `actividadDePropuesta`) siguen: las escribe el agente, no el globo, y si
+  cambia la forma de una actividad (`guardarActividad` de agenda.js), cambia
+  `actividadDePropuesta` en la misma tanda.
 - **Las CUENTAS y las CONSULTAS** (plata-7, sugerir-18, nucleo-24,
   10-oct-2026, `tiempos:V11`). Un movimiento lleva `cuenta` (un lugar, un
   vehículo o su parte, de `familia/cuentas`) y `para` (una persona o un
@@ -343,9 +315,9 @@ la documentación diga la verdad.
   país y `lugares`, lugares-1, 7-oct-2026): sólo su dueño, ni el otro ni el
   agente (salvo que el dueño encienda «Claude organiza mi agenda», v11).
   **Ninguna dirección entra al código ni a las pruebas**: el
-  repositorio es público. Van a Gemini (por claude-proxy) sólo para estimar
-  el viaje de la alarma de salir. La ubicación del teléfono es aproximada, se
-  pide al armar un plan y no se guarda.
+  repositorio es público. Desde sugerir-22 no van a ninguna IA (iban para
+  estimar el viaje de la alarma de salir del plan, que ya no existe), y la app
+  no pide la ubicación.
 - **El buzón de avisos** (reglas v12, 9-oct-2026, `tiempos:V10`): lo que
   Claude le avisa a Mauro o a Florencia —de cualquier sitio— queda en
   `avisos/` y su **Pizarra** lo trae como notificación (`Avisos.kt` de

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-17
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-18
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -104,8 +104,7 @@ async function borrarActividad(id) {
   if (!confirm(`¿Sacar «${a.titulo}» de tu agenda? Sale también del balance.`)) return;
   try { await sacarActividad(id); } catch (e) { fallo(e); }
 }
-/** Sacar una actividad de MI agenda, con su marca. Sin preguntar: lo usa
- *  también el plan de la IA (sugerir.js), donde ya se marcó qué va. */
+/** Sacar una actividad de MI agenda, con su marca. Sin preguntar. */
 export async function sacarActividad(id) {
   if (!(E.actividades || {})[id]) throw new Error("esa actividad ya no está en tu agenda");
   await F.deleteDoc(F.doc(db, "marcas", id)).catch(() => {});
@@ -115,8 +114,8 @@ export async function sacarActividad(id) {
    de día y de hora. La marca del balance no se edita —la regla lo prohíbe: «se
    borra y se vuelve a marcar»—, así que se borra y se crea de nuevo con el
    mismo id y las horas nuevas, igual que al guardarla.
-   agenda-10 (10-oct-2026): la cuenta vive en `reprogramarActividad`, que usa
-   también el plan de la IA; devuelve el problema en palabras, o "". */
+   agenda-10 (10-oct-2026): la cuenta vive en `reprogramarActividad`, que
+   devuelve el problema en palabras, o "". */
 export async function reprogramarActividad(id, { dia, hi, hf = "", titulo, lugar, tipo, nota } = {}) {
   const a = (E.actividades || {})[id]; if (!a) return "esa actividad ya no está en tu agenda";
   if (!esISO(dia) || !hi) return "falta el día o la hora";
@@ -373,7 +372,18 @@ function candidatas() {
    actividad tiene que ser la primera opción; al agregar, revisar que no exista
    ya: si existe, me pregunta si es la misma o si agrega una nueva». Una nueva
    es una tarea (de su categoría; «Personal» la ve sólo uno) puesta en ese día. */
-let hoja = null;                // { dia, texto, cat, dudas: null | [parecidas] }
+let hoja = null;                // { dia, texto, cat, dudas: null | [parecidas], deseo? }
+/** Abrir el ＋ de un día desde afuera (un deseo que se agenda, deseos-2): va a
+    la agenda, a esa semana, con la hoja abierta y el texto escrito. */
+export function abrirAgregar(dia, texto = "", deseo = null) {
+  lunes = lunesDe(dia); vistaAg = "semana";
+  const b = document.querySelector('[data-solapa="agenda"]');
+  if (b) b.click();
+  hoja = { dia, texto: String(texto || "").slice(0, 120), cat: "personal", dudas: null, deseo };
+  pintarHoja();
+}
+/* El deseo que se estaba agendando pasa a «agendado». */
+const deseoAgendado = (id) => id ? F.updateDoc(F.doc(db, "deseos", id), { estado: "agendado" }).catch(() => {}) : null;
 const NOMBRE_CAT = (k) => k === "casaverde" ? "Casa Verde" : (TIPOS[k] || {}).nombre || k;
 function pintarHoja() {
   let h = $("hoja-agenda");
@@ -405,8 +415,8 @@ function pintarHoja() {
   h.querySelector("[data-h-cerrar]").onclick = () => { hoja = null; pintarHoja(); };
   for (const b of h.querySelectorAll("[data-h-cat]")) b.onclick = () => { leer(); hoja.cat = b.dataset.hCat; pintarHoja(); };
   for (const b of h.querySelectorAll("[data-h-poner]")) b.onclick = () => {
-    const dia = hoja.dia; hoja = null; pintarHoja();
-    guardarEnAgenda(b.dataset.hPoner, { dia }).then(() => aviso("Agendada.")).catch(fallo);
+    const { dia, deseo } = hoja; hoja = null; pintarHoja();
+    guardarEnAgenda(b.dataset.hPoner, { dia }).then(() => { deseoAgendado(deseo); aviso("Agendada."); }).catch(fallo);
   };
   const forzar = h.querySelector("[data-h-forzar]");
   if (forzar) forzar.onclick = () => { leer(); crearYPoner(); };
@@ -419,7 +429,7 @@ function pintarHoja() {
   };
 }
 async function crearYPoner() {
-  const { texto, cat, dia } = hoja;
+  const { texto, cat, dia, deseo } = hoja;
   const personal = cat === "personal";
   try {
     const r = await F.addDoc(F.collection(db, "tareas"), {
@@ -427,6 +437,7 @@ async function crearYPoner() {
       duenio: E.yo.uid, hecho: false, encargados: [E.yo.uid], meta: null, detalle: "", creadoEn: F.serverTimestamp() });
     hoja = null; pintarHoja();
     await guardarEnAgenda("f:" + r.id, { dia });
+    deseoAgendado(deseo);
     aviso("Agregada y agendada.");
   } catch (e) { fallo(e); }
 }

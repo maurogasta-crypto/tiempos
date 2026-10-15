@@ -17,7 +17,8 @@ Pizarra y Tareas**, y Ahora dejó de ser una solapa. Lo pidió Mauro para que la
 app del teléfono (la Pizarra) sea una sola app con todo Tiempos adentro:
 
 - **Pizarra** (`pizarra.js`): anotar rápido —sin botón de dictado: se escribe
-  o se dicta con el 🎤 del teclado— y «✨ Armar con la IA» arma el plan; lo
+  o se dicta con el 🎤 del teclado— y «❓ Preguntale a la IA» contesta (desde
+  sugerir-22 no arma planes: ver más abajo); lo
   que espera una decisión; **Mi pizarra**, la misma del widget del teléfono
   (`pizarra.<uid>`), con «＋ Elegir» que abre una ventana con las tareas por
   categoría (el ámbito heredado); lo que Claude propone, recordatorios,
@@ -151,12 +152,33 @@ la alarma quedó para el 6 (a las 00:37 «mañana» es el 5) y la tarea se llam�
 «Marcar la pizarra». Ahora Gemini recibe la hora, la regla de la madrugada y
 que «pizarra» es el lugar, nunca el título.
 
+### La IA sólo contesta (sugerir-22, nucleo-40, app-35, 15-oct-2026)
+
+Mauro: «vamos a sacar y limpiar en el código el pedido a la IA; quiero que sea
+para hacer una consulta, como qué día tengo odontólogo… no fue bueno
+editando». **El plan se sacó entero** (`leerPlanIA`, `ACCIONES`, `podarPlan`,
+`unirAvisos`, `agendaParaIA`, la tarjeta para marcar y «Hacer lo marcado»):
+lo que cuentan las secciones de abajo sobre el plan, el viaje de la alarma de
+salir y la ubicación del teléfono es historia. Ahora:
+
+- El globo ❓, la tarjeta de la Pizarra y `?dictar=` **preguntan**. Gemini
+  dice qué buscar (`leerConsultaIA`) y la app arma la respuesta con lo que ve
+  la sesión: la agenda —actividades, tareas con día y lo de los chicos, de dos
+  meses atrás a seis adelante si la pregunta no dice cuándo
+  (`buscarEnAgenda`)—, los gastos y balances, las horas. «✨ Explicar» y
+  «📊 Análisis de Claude» siguen.
+- **No escribe nada.** Lo que se agrega va por su ficha: el ＋ de la agenda, el
+  de la pizarra, Plata. Un deseo «Ya lo acordamos: agendar» abre el ＋ de la
+  agenda con el deseo escrito (`abrirAgregar`, deseos-3).
+- Los nombres de los chicos siguen sin salir hacia la IA, y lo pegado sale sin
+  documento, teléfono ni mail.
+
 ### La app del teléfono (app-14, sugerir-8 · pizarra-2)
 
 - **La Pizarra es la app de Tiempos en Android** (`maurogasta-crypto/pizarra`,
   decisión de Mauro del 5-oct-2026). Dicta con el reconocedor de Android —el
-  del teclado, que sí anda— y abre este sitio con `?dictar=<texto>`: el globo
-  se abre en Agenda con el texto y se precarga solo. La dirección se limpia al
+  del teclado, que sí anda— y abre este sitio con `?dictar=<texto>`: desde
+  app-35 el globo se abre con eso como PREGUNTA y contesta solo. La dirección se limpia al
   entrar y el service worker no la guarda en la caché.
 - **Las alarmas suenan desde la app**: lee `alertas/` y las programa en el
   teléfono. «⭐ Hoy se puede» también está ahí, con la misma cuenta
@@ -520,27 +542,27 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-39` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-40` |
 | `estado.js` | lo que comparten las vistas | `estado-4` |
-| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-34` |
-| `pizarra.js` | la solapa Pizarra: anotar, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-2` |
-| `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y dónde estoy, para el viaje, y el interruptor «Claude organiza mi agenda» | `lugares-2` |
+| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-35` |
+| `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-3` |
+| `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
 | `lista.html` + `lista.js` | la lista compartida sin cuenta (`?c=<token>`); fuera del SHELL | `lista-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
-| `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-2` |
-| `sugerir.js` | el globo ✏️: pedirle a la IA (sin dictado propio), sugerencias y fallas, a `reportes/` | `sugerir-21` |
+| `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-3` |
+| `sugerir.js` | el globo ❓: preguntarle a la IA (sólo contesta), sugerencias y fallas, a `reportes/` | `sugerir-22` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-14` |
 | `extractos.js` | Plata → Extractos: las líneas de cada banco, para clasificarlas y registrarlas de a muchas, con cuenta y para quién | `extractos-2` |
 | `proyectos.js` | Plata → Proyectos: la economía centralizada, cada destino con lo que se le dedica y su neto, y el libro propio de Casa Verde | `proyectos-1` |
 | `cifras.js` | Plata → Análisis: lo estimado en el Año contra lo real, por categoría, de la familia o de un proyecto | `cifras-1` |
 | `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-6` |
 | `balance.js` | el balance del tiempo (los chicos, del calendario), las salidas, los acuerdos, la auditoría | `balance-5` |
-| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-17` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-18` |
 | `familia.js` | Hoy y Chicos | `familia-6` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
 | `estilos.css` | | `estilos-28` |
-| `sw.js` | el cascarón sin señal | `tiempos-59` |
+| `sw.js` | el cascarón sin señal | `tiempos-60` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-34
+// Sello: app-35
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -73,7 +73,7 @@ import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 import { pintarPlata } from "./plata.js";
 import { pintarBalance } from "./balance.js";
 import { pintarCompras, abrirSuper, escucharCompartidas } from "./compras.js";
-import { montarGlobo, abrirDictado } from "./sugerir.js";
+import { montarGlobo, abrirConsulta } from "./sugerir.js";
 import { pintarPizarra } from "./pizarra.js";
 
 const SOLAPAS = ["pizarra", "tareas", "hoy", "agenda", "chicos", "plata", "balance"];
@@ -166,9 +166,8 @@ async function entrarAlaApp() {
   const dictado = params.get("dictar");
   if (dictado) {
     history.replaceState(null, "", location.pathname);
-    // app-15: y si compartiste una captura desde la app, viene subida (&imagen=).
-    const imagen = params.get("imagen") || "";
-    abrirDictado(dictado.slice(0, 2000), null, { precargar: true, imagen });
+    // app-35: lo dictado en la app del teléfono es una PREGUNTA (sugerir-22).
+    abrirConsulta(dictado.slice(0, 2000));
   }
   clearInterval(E.reloj);
   E.reloj = setInterval(() => {

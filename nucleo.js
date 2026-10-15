@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-39
+// Sello: nucleo-40
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -978,238 +978,12 @@ export function actividadDePropuesta(d, uid) {
   return { ok: true, actividad, marca, supuesto };
 }
 
-/* ── Lo que precarga Gemini al dictar (nucleo-9, 5-oct-2026) ─────────────────
-   Mauro: «se puede usar la misma API de Gemini para que precargue todo en la
-   agenda en el momento». La app le pregunta a Gemini (claude-proxy de Casa
-   Verde, como las boletas) y llena la tarjeta al instante; uno la corrige y
-   agenda. Esto lee su respuesta con DESCONFIANZA: lo que no tiene forma
-   válida va vacío y a `dudas`, nunca se inventa. */
-export const QUIENES_AGENDA = ["yo", "otro", "los-dos", "familia"];
-export function leerAgendaIA(texto) {
-  let j = null;
-  const t = String(texto || "").replace(/```(?:json)?/gi, "");
-  const i = t.indexOf("{"), k = t.lastIndexOf("}");
-  if (i !== -1 && k > i) { try { j = JSON.parse(t.slice(i, k + 1)); } catch { j = null; } }
-  if (!j || typeof j !== "object") return null;
-  const dudas = Array.isArray(j.dudas) ? j.dudas.map((x) => String(x).slice(0, 80)).slice(0, 5) : [];
-  const hora = (h) => HORA_RE.test(String(h || "")) ? h : "";
-  const r = {
-    titulo: String(j.titulo || "").trim().slice(0, 120),
-    dia: esISO(j.dia) ? j.dia : "",
-    hi: hora(j.hi), hf: hora(j.hf),
-    lugar: String(j.lugar || "").slice(0, 120),
-    // nucleo-38: los detalles que no son título ni lugar (un número de
-    // reserva, qué decir al llegar). Antes se perdían.
-    nota: String(j.nota || "").trim().slice(0, 300),
-    tipo: CLASES_ACTIVIDAD[j.tipo] ? j.tipo : "",
-    quien: QUIENES_AGENDA.includes(j.quien) ? j.quien : "yo",
-    chicos: j.chicos === true,
-    modo: MODOS_AGENDA[j.modo] ? j.modo : "recordar",
-    dudas,
-  };
-  if (!r.titulo) dudas.push("qué es");
-  if (!r.dia) dudas.push("el día");
-  if (!r.hi) dudas.push("la hora");
-  if (!r.tipo) dudas.push("si es trabajo, tarea, personal o con los chicos");
-  r.dudas = [...new Set(dudas)];
-  return r;
-}
-
-/* ── Un dictado es un PLAN de acciones (nucleo-10, 5-oct-2026) ───────────────
-   Mauro: «mañana tengo que recordar ir antes al gimnasio para llevar los
-   títulos del auto a Pedro» tiene que hacer que la IA busque la cita del
-   gimnasio en la agenda, anote en la pizarra «juntar títulos del auto para
-   Pedro», deje un recordatorio temprano ese día y una alarma un rato antes del
-   gimnasio. Y una foto con «me gustaría que los chicos vayan a esto» es un
-   DESEO, que se coordina con el otro hasta que se agenda.
-   Gemini devuelve una lista de acciones; esto la lee con desconfianza y
-   descarta la que no tiene forma, sin inventar nada. Cada tipo dice qué se
-   escribe al aceptar (ver sugerir.js). */
-export const ACCIONES = {
-  actividad:    "a tu agenda",
-  tarea:        "a tu pizarra",
-  recordatorio: "un recordatorio",
-  alarma:       "una alarma",
-  deseo:        "a la lista de deseos",
-  coordinar:    "preguntarle al otro",
-  // nucleo-11, 5-oct-2026: «no olvidar comprar tal cosa» va a la lista de
-  // compras de la casa, y «pedile a Flor que…» es una tarea en SU pizarra.
-  compra:       "a la lista de compras",
-  pedido:       "un pedido para el otro",
-  // nucleo-22, 10-oct-2026, Mauro: «que agregar a la agenda sea pedir a la IA,
-  // y pueda hacer cualquiera de las intervenciones: un gasto, las actividades
-  // de los chicos, actividades o deseos, notificaciones o alarmas… todo lo que
-  // puede registrar el sistema en un solo lugar».
-  gasto:        "un gasto o una entrada de plata",
-  chicos:       "las actividades de los chicos",
-  mover:        "cambiar algo de tu agenda",
-  quitar:       "sacar algo de tu agenda",
-  // nucleo-24 (tiempos:V11): no registra nada, CONTESTA.
-  consulta:     "una pregunta",
-};
-export const ACCIONES_CHICOS = ["nueva", "cambiar", "quitar", "saltar"];
+/* El pedido a la IA que EDITABA la agenda (nucleo-9 a nucleo-39) se sacó el
+   15-oct-2026. Mauro: «quiero que sea para hacer una consulta… no fue bueno
+   editando». Lo que se agrega va por la ficha de cada cosa; la IA sólo
+   contesta (ver las CONSULTAS, más abajo). */
 export const PARA_DESEO = ["yo", "chicos", "familia"];
-/* nucleo-13, 6-oct-2026 (tiempos:A18): «recordar traer el andamio», dictado
-   a las 14:23, quedó para las 08:00 de ESE día, y una alerta pasada no suena
-   nunca (la Pizarra no programa lo que ya fue). Con `ahoraMs`, un aviso que
-   cae en el pasado se corre y se dice en dudas: el recordatorio a la próxima
-   hora en punto (o mañana 08:00 si ya es tarde), la alarma —que tiene una hora
-   dicha— al día siguiente a esa hora. Sin `ahoraMs` no se toca nada. */
-export function correrSiPaso(x, ahoraMs, dudas) {
-  if (!Number.isFinite(ahoraMs) || !x.dia) return x;
-  const d = new Date(ahoraMs), hoy = isoDe(ahoraMs), manana = isoDe(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 12).getTime());
-  const ahora = `${dos(d.getHours())}:${dos(d.getMinutes())}`;
-  const hora = x.hora || "08:00";
-  if (x.dia > hoy || (x.dia === hoy && hora > ahora)) return x;
-  const antes = `${x.dia} ${hora}`;
-  if (x.tipo === "alarma" && x.hora) { x.dia = hora > ahora ? hoy : manana; }
-  else if (d.getHours() < 22) { x.dia = hoy; x.hora = `${dos(d.getHours() + 1)}:00`; }
-  else { x.dia = manana; x.hora = "08:00"; }
-  dudas.push(`«${x.texto.slice(0, 30)}» quedaba para ${antes}, que ya pasó: lo corrí a ${x.dia} ${x.hora}`);
-  return x;
-}
-/* nucleo-15 (7-oct-2026, Mauro): la IA proponía «Guardar actividades en la
-   agenda» y «Marcar actividades en el calendario» como tareas de la pizarra.
-   Eso lo hace la app sola: no es algo que la persona tenga que hacer. */
-export const esTareaDelSistema = (titulo) =>
-  /^\s*(guardar|registrar|marcar|anotar|agendar|poner|cargar|asegurar(se)?( de)?( que)?|verificar que)\b[\s\S]*\b(agenda|calendario|pizarra|recordatorio|alarma)s?\b/i.test(String(titulo || ""));
-
-const masMin = (hhmm, min) => { const [h, m] = hhmm.split(":").map(Number); const t = Math.max(0, Math.min(1439, h * 60 + m + min)); return `${dos(Math.floor(t / 60))}:${dos(t % 60)}`; };
-
-/* nucleo-15: que el plan sea coherente consigo mismo, ANTES de mostrarlo.
-   · Una actividad de hoy cuya hora ya pasó casi siempre es de mañana (se dictó
-     a la noche): se corre a mañana JUNTO con sus avisos de ese día, y se dice.
-     Antes (nucleo-13) se corrían sólo los avisos y la actividad quedaba en el
-     pasado: el odontólogo a las 19 de hoy con la alarma a las 18:45 de mañana.
-   · Un recordatorio es ANTES de lo que recuerda: si cae a la hora de la
-     actividad del mismo día o después, se adelanta dos horas (no antes de las 7).
-   · Lo que igual quede en el pasado, lo corre correrSiPaso. Sin `ahoraMs` no
-     se mueve nada de día. */
-/* nucleo-16 (7-oct-2026): «el odontólogo era para el miércoles», dictado un
-   miércoles a la noche. La IA lo puso hoy y nucleo-15 lo corría a mañana:
-   las dos mal. Si lo dictado nombra el día de la semana de esa actividad, y
-   ese día ya pasó, es el de la SEMANA QUE VIENE (+7); si no lo nombra, mañana. */
 const sinAcento = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-export function diasHastaSiPaso(diaIso, dictado) {
-  const nombre = sinAcento(DIAS[new Date(diaIso + "T12:00").getDay()]);
-  return new RegExp(`\\b${nombre}\\b`).test(sinAcento(dictado)) ? 7 : 1;
-}
-export function ordenarPlan(acciones, ahoraMs, dudas, dictado = "") {
-  const avisos = acciones.filter((a) => a.tipo === "recordatorio" || a.tipo === "alarma");
-  if (Number.isFinite(ahoraMs)) {
-    const d = new Date(ahoraMs), hoy = isoDe(ahoraMs), ahora = `${dos(d.getHours())}:${dos(d.getMinutes())}`;
-    const manana = isoDe(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 12).getTime());
-    for (const x of acciones) {
-      if (x.tipo !== "actividad" || !x.dia || !x.hi) continue;
-      if (!(x.dia < hoy || (x.dia === hoy && x.hi <= ahora))) continue;
-      const antes = x.dia;
-      const nuevo = x.dia < hoy && x.hi > ahora ? hoy : diasHastaSiPaso(x.dia, dictado) === 7 ? sumarDias(x.dia, 7) : manana;
-      x.dia = nuevo;
-      for (const a of avisos) if (a.dia === antes) a.dia = nuevo;
-      dudas.push(`«${x.titulo.slice(0, 30)}» quedaba para ${antes} ${x.hi}, que ya pasó: la pasé a ${nuevo} con sus avisos`);
-    }
-  }
-  for (const a of avisos) {
-    if (a.tipo !== "recordatorio" || !a.dia) continue;
-    const ese = acciones.filter((x) => x.tipo === "actividad" && x.dia === a.dia && x.hi).map((x) => x.hi).sort()[0];
-    if (ese && (a.hora || "08:00") >= ese) a.hora = masMin(ese, -120) < "07:00" ? "07:00" : masMin(ese, -120);
-  }
-  for (const a of avisos) correrSiPaso(a, ahoraMs, dudas);
-  return acciones;
-}
-
-export function leerPlanIA(texto, ahoraMs, dictado = "", agendaIds = null, ya = null) {
-  let j = null;
-  const t = String(texto || "").replace(/```(?:json)?/gi, "");
-  const i = t.indexOf("{"), k = t.lastIndexOf("}");
-  if (i !== -1 && k > i) { try { j = JSON.parse(t.slice(i, k + 1)); } catch { j = null; } }
-  if (!j || typeof j !== "object") return null;
-  const corto = (x, n) => String(x == null ? "" : x).trim().slice(0, n);
-  const hora = (h) => HORA_RE.test(String(h || "")) ? h : "";
-  const dia = (d) => esISO(d) ? d : "";
-  const dudas = Array.isArray(j.dudas) ? j.dudas.map((x) => corto(x, 80)).filter(Boolean).slice(0, 6) : [];
-  const acciones = [];
-  for (const a of Array.isArray(j.acciones) ? j.acciones.slice(0, 12) : []) {
-    if (!a || !ACCIONES[a.tipo]) continue;
-    if (a.tipo === "actividad") {
-      // La clase viene como «tipo_clase» (o «clase»): «tipo» es el de la acción.
-      const x = leerAgendaIA(JSON.stringify({ ...a, tipo: a.tipo_clase || a.clase }));
-      if (!x || !x.titulo) continue;
-      dudas.push(...x.dudas.map((d) => `${d} de «${x.titulo.slice(0, 30)}»`));
-      // nucleo-23: de qué chicos es (vacío = todos, lo decide sugerir.js).
-      acciones.push({ ...x, clase: x.tipo, tipo: "actividad", ninos: indicesDeChicos(a.ninos) });
-    } else if (a.tipo === "tarea") {
-      const titulo = corto(a.titulo, 120); if (!titulo) continue;
-      // nucleo-15: lo que el plan YA hace (agendar, marcar, guardar) no es una
-      // tarea para la persona ni ocupa lugar en su pizarra (Mauro, 7-oct).
-      if (esTareaDelSistema(titulo)) continue;
-      acciones.push({ tipo: "tarea", titulo, detalle: corto(a.detalle, 300) });
-    } else if (a.tipo === "recordatorio" || a.tipo === "alarma") {
-      const texto = corto(a.texto, 200); if (!texto) continue;
-      const x = { tipo: a.tipo, texto, dia: dia(a.dia), hora: hora(a.hora), sobre: corto(a.sobre, 60) };
-      // nucleo-15: la alarma de salir trae el viaje que estimó la IA: desde
-      // dónde y cuántos minutos. Se muestra para corregir; no se guarda.
-      if (a.tipo === "alarma") {
-        const v = Math.round(Number(a.viaje));
-        if (Number.isFinite(v) && v > 0 && v <= 600) { x.viaje = v; x.desde = corto(a.desde, 80); x.lugar = corto(a.lugar, 80); }
-      }
-      if (!x.dia) dudas.push(`el día de «${texto.slice(0, 30)}»`);
-      if (a.tipo === "alarma" && !x.hora) dudas.push(`la hora de la alarma «${texto.slice(0, 30)}»`);
-      acciones.push(x);
-    } else if (a.tipo === "deseo") {
-      const titulo = corto(a.titulo, 120); if (!titulo) continue;
-      // nucleo-12: un flyer de algo SEMANAL deja los días; uno de una sola vez,
-      // la fecha. Lo que no se entiende queda vacío (y se edita después).
-      const x = { tipo: "deseo", titulo, detalle: corto(a.detalle, 400), para: PARA_DESEO.includes(a.para) ? a.para : "yo",
-        lugar: corto(a.lugar, 120), cuando: corto(a.cuando, 120), ...frecuenciaDeseo(a) };
-      acciones.push(x);
-    } else if (a.tipo === "coordinar") {
-      const texto = corto(a.texto, 300); if (!texto) continue;
-      acciones.push({ tipo: "coordinar", texto });
-    } else if (a.tipo === "compra") {
-      const texto = corto(a.texto, 80); if (!texto) continue;
-      acciones.push({ tipo: "compra", texto, lista: corto(a.lista, 40) });
-    } else if (a.tipo === "pedido") {
-      const titulo = corto(a.titulo, 120); if (!titulo) continue;
-      acciones.push({ tipo: "pedido", titulo, detalle: corto(a.detalle, 300), dia: dia(a.dia) });
-    } else if (a.tipo === "gasto") {
-      // nucleo-22: la plata la escribe la persona al tocar «Hacer lo marcado»,
-      // con su sesión, como en Plata. Lo que falta no se adivina: el renglón
-      // sale sin marcar y diciendo qué falta, y así no se guarda.
-      const monto = Math.round(Number(String(a.monto == null ? "" : a.monto).replace(/\s/g, "").replace(",", ".")) * 100) / 100;
-      if (!(monto > 0)) { dudas.push("el monto" + (a.detalle ? ` de «${corto(a.detalle, 30)}»` : "")); continue; }
-      const x = { tipo: "gasto", monto, moneda: MONEDAS.includes(a.moneda) ? a.moneda : "", fecha: dia(a.fecha),
-        categoria: CATEGORIAS[a.categoria] ? a.categoria : "", comercio: corto(a.comercio, 80), detalle: corto(a.detalle, 200),
-        cuenta: corto(a.cuenta, 60), para: corto(a.para, 30) };
-      x.faltan = validarMovimiento({ monto: x.monto, moneda: x.moneda, fecha: x.fecha, categoria: x.categoria });
-      acciones.push(x);
-    } else if (a.tipo === "chicos") {
-      const accion = ACCIONES_CHICOS.includes(a.accion) ? a.accion : "nueva";
-      const id = corto(a.id, 40);
-      if (accion !== "nueva" && !id) { dudas.push("qué actividad de los chicos" + (a.titulo ? ` («${corto(a.titulo, 30)}»)` : "")); continue; }
-      const x = { tipo: "chicos", accion, id, titulo: corto(a.titulo, 120), fecha: dia(a.fecha), hora: hora(a.hora), horaFin: hora(a.horaFin),
-        semanal: a.semanal === true, ninos: indicesDeChicos(a.ninos), nota: corto(a.nota, 300) };
-      if (accion === "nueva" && (!x.titulo || !x.fecha)) { dudas.push(`el día de «${x.titulo || "la actividad de los chicos"}»`); continue; }
-      if (accion === "saltar" && !x.fecha) { dudas.push("qué día se saltea"); continue; }
-      acciones.push(x);
-    } else if (a.tipo === "mover") {
-      const id = corto(a.id, 40), d = dia(a.dia), hi = hora(a.hi);
-      if (!id || !d || !hi) { dudas.push("qué actividad mover, o a qué día y hora"); continue; }
-      acciones.push({ tipo: "mover", id, dia: d, hi, hf: hora(a.hf) });
-    } else if (a.tipo === "quitar") {
-      const id = corto(a.id, 40); if (!id) continue;
-      acciones.push({ tipo: "quitar", id });
-    } else if (a.tipo === "consulta") {
-      if (!CONSULTAS[a.que]) { dudas.push("qué querías saber"); continue; }
-      acciones.push({ tipo: "consulta", que: a.que, desde: dia(a.desde), hasta: dia(a.hasta), ninos: indicesDeChicos(a.ninos),
-        cuenta: corto(a.cuenta, 60), categorias: (Array.isArray(a.categorias) ? a.categorias : []).filter((c) => CATEGORIAS[c]).slice(0, 12),
-        persona: ["yo", "otro"].includes(a.persona) ? a.persona : "", pregunta: corto(a.pregunta, 200) });
-    }
-  }
-  ordenarPlan(acciones, ahoraMs, dudas, dictado);
-  const podadas = podarPlan(acciones, dictado, ya, dudas);
-  return { resumen: corto(j.resumen, 200), acciones: unirAvisos(podadas, agendaIds, ya), dudas: [...new Set(dudas)] };
-}
 
 /* ── Las CUENTAS: lugares, vehículos y sus partes (nucleo-24, tiempos:V11) ────
    Mauro, 10-oct-2026: «hay que poder tener un control de los gastos de cada
@@ -1364,6 +1138,59 @@ export function estadoCierre(guardado, actual) {
 
 export const CONSULTAS = { chicos: "las actividades de los chicos", agenda: "tu agenda", gastos: "gastos y entradas", balance: "un balance", horas: "horas registradas" };
 
+/* ── Preguntarle a la IA (nucleo-40, 15-oct-2026) ───────────────────────────
+   Mauro: «el pedido a la IA quiero que sea para hacer una consulta, como por
+   ejemplo qué día tengo odontólogo… no fue bueno editando». La IA sólo
+   ENTIENDE la pregunta y devuelve qué buscar; la respuesta la arma el código
+   con lo que ve la sesión, igual que las cuentas de plata. Nada se escribe. */
+const QUE_CONSULTA = Object.keys(CONSULTAS);
+export function leerConsultaIA(texto) {
+  let j = null;
+  const t = String(texto || "").replace(/```(?:json)?/gi, "");
+  try { j = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)); } catch { return null; }
+  if (!j || typeof j !== "object") return null;
+  const fecha = (x) => esISO(x) ? x : "";
+  const que = QUE_CONSULTA.includes(j.que) ? j.que : "agenda";
+  const buscar = [...new Set((Array.isArray(j.buscar) ? j.buscar : [j.buscar])
+    .map((x) => plano(x)).filter((x) => x.length >= 3))].slice(0, 8);
+  let desde = fecha(j.desde), hasta = fecha(j.hasta);
+  if (desde && hasta && desde > hasta) [desde, hasta] = [hasta, desde];
+  return { tipo: "consulta", que, buscar, desde, hasta,
+    ninos: (Array.isArray(j.ninos) ? j.ninos : []).map((x) => /^\s*chico\s*(\d{1,2})\s*$/i.exec(String(x))).filter(Boolean).map((m) => Number(m[1]) - 1),
+    cuenta: String(j.cuenta || "").slice(0, 60),
+    categorias: (Array.isArray(j.categorias) ? j.categorias : []).filter((c) => CATEGORIAS[c]).slice(0, 12),
+    persona: ["yo", "otro"].includes(j.persona) ? j.persona : "",
+    pregunta: String(j.pregunta || "").trim().slice(0, 200) };
+}
+
+/** Lo que cae en el período y nombra alguna de las palabras: mi agenda (actividades
+ *  y tareas con día) y las de los chicos. Sin palabras, todo el período. Sin
+ *  período y con palabras, de dos meses atrás a seis adelante: «¿qué día tengo
+ *  el odontólogo?» no dice cuándo. Una misma cosa no sale dos veces. */
+export function buscarEnAgenda({ actividades = {}, piezas = [], eventos = [], ninos = [], palabras = [], desde = "", hasta = "", hoy, nino = "" }) {
+  const d0 = desde || (palabras.length ? sumarDias(hoy, -60) : hoy);
+  const d1 = hasta || (palabras.length ? sumarDias(hoy, 180) : sumarDias(d0, 6));
+  const raiz = (w) => w.length > 4 ? w.replace(/(es|s)$/, "") : w;
+  const ps = palabras.map((w) => raiz(plano(w)));
+  const nombra = (x) => !ps.length || ps.some((w) => plano(`${x.titulo} ${x.lugar || ""} ${x.nota || ""}`).includes(w));
+  const out = [];
+  for (const a of Object.values(actividades || {})) {
+    if (!a || !esISO(a.dia) || a.dia < d0 || a.dia > d1) continue;
+    out.push({ dia: a.dia, hora: String(a.desde || "").slice(11, 16), horaFin: a.hf || String(a.hasta || "").slice(11, 16),
+      titulo: a.titulo || "", lugar: a.lugar || "", nota: a.nota || "", de: a.tipo === "ninos" ? "con los chicos" : "" });
+  }
+  for (const p of piezas || []) if (p && esISO(p.dia) && p.dia >= d0 && p.dia <= d1)
+    out.push({ dia: p.dia, hora: p.hora || "", horaFin: p.hasta || "", titulo: p.titulo || "", lugar: p.lugar || "", nota: p.nota || "", de: "tarea" });
+  for (const e of actividadesDeChicos({ eventos, actividades: {}, ninos, desde: d0, hasta: d1, nino }))
+    out.push({ ...e, de: e.de === "los dos" ? "los chicos" : e.de });
+  const vistos = new Set();
+  return out.filter(nombra).filter((x) => {
+    const k = `${x.dia}|${x.hora}|${plano(x.titulo)}`;
+    if (vistos.has(k)) return false;
+    vistos.add(k); return true;
+  }).sort((a, b) => a.dia.localeCompare(b.dia) || a.hora.localeCompare(b.hora)).slice(0, 60);
+}
+
 /* ── Los nombres de los chicos no viajan a la IA (nucleo-22) ─────────────────
    Con las actividades de los chicos, la IA necesita saber de quién es cada
    una, y lo dictado los nombra. Antes de mandar, cada nombre pasa a «Chico1»,
@@ -1383,23 +1210,6 @@ export function escudarNombres(texto, ninos) {
 export function devolverNombres(texto, ninos) {
   return String(texto || "").replace(/\bChico(\d{1,2})\b/g, (m, k) => ((ninos || [])[Number(k) - 1] || {}).nombre || m);
 }
-export function indicesDeChicos(lista) {
-  const out = [];
-  for (const x of Array.isArray(lista) ? lista : []) {
-    const m = /^\s*chico\s*(\d{1,2})\s*$/i.exec(String(x));
-    if (m && !out.includes(Number(m[1]) - 1)) out.push(Number(m[1]) - 1);
-  }
-  return out;
-}
-/** Las actividades de los chicos de las próximas semanas, para la IA: sin nombres. */
-export function chicosParaIA(eventos, ninos, hoy, dias = 21) {
-  const hasta = sumarDias(hoy, dias);
-  return (eventos || []).filter((e) => e && esISO(e.fecha) && (e.semanal ? !(esISO(e.hasta) && e.hasta < hoy) : e.fecha >= hoy && e.fecha <= hasta))
-    .slice(0, 40)
-    .map((e) => ({ id: e.id, titulo: escudarNombres(String(e.titulo || "").slice(0, 80), ninos), fecha: e.fecha, hora: e.hora || "", horaFin: e.horaFin || "",
-      semanal: !!e.semanal, ninos: (e.ninos || []).map((id) => (ninos || []).findIndex((n) => n.id === id)).filter((i) => i >= 0).map((i) => `Chico${i + 1}`) }));
-}
-
 /* ── Los deseos con frecuencia (nucleo-12, 5-oct-2026) ──────────────────────
    «Cuando lo que se guarda es un flyer de una actividad semanal, que quede
    registrado que es algo con frecuencia, y cuando yo quiera saber qué se
@@ -1445,93 +1255,7 @@ export function textoFrecuencia(d) {
   return [q, h].filter(Boolean).join(" · ") || d.cuando || "";
 }
 
-/* La lista de compras donde va una cosa: la que se llama como dijo la IA
-   (sin mayúsculas ni tildes), o null si no hay ninguna así. */
 const plano = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-export function listaParaCompra(listas, nombre) {
-  const n = plano(nombre);
-  if (!n) return null;
-  const l = (listas || []).find((x) => plano(x.nombre) === n)
-    || (listas || []).find((x) => plano(x.nombre).includes(n) || n.includes(plano(x.nombre)));
-  return l ? l.id : null;
-}
-
-/* nucleo-38 (13-oct-2026, Mauro: «hice el pedido a la IA para guardar un
-   evento en la agenda con alarma y propuso agregar dos cosas diferentes»).
-   La alarma de algo NUEVO del mismo plan no tenía cómo decir de quién era:
-   su `sobre` pide el id de la agenda, que todavía no existe, y la IA ponía
-   cualquier cosa. Quedaba suelta —no se corría con la actividad ni la abría
-   el widget— y se proponía como un renglón aparte.
-   Ahora el aviso que no nombra algo que YA está en la agenda se engancha a la
-   actividad del plan de ese mismo día (la del mismo lugar, si hay varias; si
-   no hay una sola que elegir, queda suelto como antes) y viaja ADENTRO de
-   ella: un renglón, y al agendar se guarda con `sobre: act:<id>` y `antes`,
-   como «⏰ Avisarme» del editor (agenda-14). El que nombra algo que ya está
-   lleva su clave de pieza (`act:<id>`), que es lo que lee la agenda. */
-/* nucleo-39 (13-oct-2026, Mauro: «hice un pedido a la IA que agregue a la
-   pizarra dos cosas… y marcó todo esto, ¿por qué?»). La IA recibe la agenda y
-   las actividades de los chicos como CONTEXTO, y las devolvía como acciones
-   nuevas, cada una con una alarma de salir que nadie pidió. El plan se poda
-   en el código, no sólo en el pedido:
-   · una actividad que ya está en la agenda (mismo día y misma hora) no vuelve;
-   · una de los chicos que ya está ese día a esa hora, tampoco;
-   · si lo dictado no pide un aviso (alarma, avisar, recordar, salir…), va
-     sólo el de una actividad NUEVA de este plan ese día —la alarma de salir
-     de nucleo-15, que viaja adentro de su renglón—; los demás no. Sin dictado
-     (sólo una captura) no se poda esto: la captura puede ser justamente lo
-     que hay que recordar.
-   Cada cosa sacada queda dicha en las dudas. */
-const PIDE_AVISO = /alarm|avis|record|acord|despert|suen[ea]|sonar|salir|salida/i;
-export function podarPlan(acciones, dictado = "", ya = null, dudas = []) {
-  const agenda = (ya && ya.agenda) || [], chicos = (ya && ya.chicos) || [];
-  const quitadas = [];
-  const fuera = (a) => {
-    if (a.tipo === "actividad" && a.dia && a.hi && agenda.some((x) => x.dia === a.dia && x.desde === a.hi)) return "ya estaba en tu agenda";
-    if (a.tipo === "chicos" && a.accion === "nueva" && a.fecha && chicos.some((e) => (e.hora || "") === (a.hora || "") &&
-      (e.fecha === a.fecha || (e.semanal && e.fecha <= a.fecha && diaSemana(e.fecha) === diaSemana(a.fecha))))) return "ya estaba en lo de los chicos";
-    if ((a.tipo === "alarma" || a.tipo === "recordatorio") && String(dictado || "").trim() && !PIDE_AVISO.test(dictado)) return "no pediste un aviso";
-    return "";
-  };
-  const pasa = (a) => { const m = fuera(a); if (m) quitadas.push(`«${String(a.titulo || a.texto || "").slice(0, 30)}»: ${m}`); return !m; };
-  // Primero lo que se repite; después los avisos, mirando las actividades que quedaron.
-  const sinRepetir = acciones.filter((a) => (a.tipo === "alarma" || a.tipo === "recordatorio") || pasa(a));
-  const nuevasDia = new Set(sinRepetir.filter((a) => a.tipo === "actividad" && a.dia).map((a) => a.dia));
-  const quedan = sinRepetir.filter((a) => !(a.tipo === "alarma" || a.tipo === "recordatorio") || nuevasDia.has(a.dia) || pasa(a));
-  if (quitadas.length) dudas.push(`no lo propongo: ${quitadas.slice(0, 4).join("; ")}${quitadas.length > 4 ? ` y ${quitadas.length - 4} más` : ""}`);
-  return quedan;
-}
-
-export function unirAvisos(acciones, agendaIds = null, ya = null) {
-  // Sin la agenda (null) no se puede saber qué id existe: el `sobre` que
-  // vino queda como está.
-  const ids = new Set(agendaIds || []);
-  const acts = acciones.filter((x) => x.tipo === "actividad" && x.dia && x.hi);
-  const fuera = new Set();
-  for (const a of acciones) {
-    if (a.tipo !== "alarma" && a.tipo !== "recordatorio") continue;
-    const id = String(a.sobre || "").replace(/^act:/, "");
-    if (ids.has(id)) { a.sobre = "act:" + id; continue; }
-    if (!agendaIds && id) continue;
-    a.sobre = "";
-    const mismoDia = acts.filter((x) => x.dia === a.dia);
-    const mismoLugar = a.lugar ? mismoDia.filter((x) => plano(x.lugar) && plano(x.lugar) === plano(a.lugar)) : [];
-    const act = mismoLugar.length === 1 ? mismoLugar[0] : mismoDia.length === 1 ? mismoDia[0] : null;
-    if (!act) {
-      // nucleo-39: el aviso de algo que YA está en la agenda ese día (la
-      // actividad no se repropone) lleva su clave y queda en su renglón.
-      const yaDia = ((ya && ya.agenda) || []).filter((x) => x.dia === a.dia && x.desde && a.hora && a.hora <= x.desde);
-      const yaLugar = a.lugar ? yaDia.filter((x) => plano(x.lugar) === plano(a.lugar)) : [];
-      const y = yaLugar.length === 1 ? yaLugar[0] : yaDia.length === 1 ? yaDia[0] : null;
-      if (y && (!agendaIds || ids.has(y.id))) a.sobre = "act:" + y.id;
-      continue;
-    }
-    if (!a.hora || a.hora > act.hi) continue;
-    const [h1, m1] = act.hi.split(":").map(Number), [h2, m2] = a.hora.split(":").map(Number);
-    (act.avisos = act.avisos || []).push({ ...a, antes: (h1 * 60 + m1) - (h2 * 60 + m2) });
-    fuera.add(a);
-  }
-  return acciones.filter((a) => !fuera.has(a));
-}
 
 /* nucleo-38: lo que se pega a la IA puede ser una confirmación entera, con
    la cédula, el teléfono y el mail de quien reservó (el 13-oct, una de una
@@ -1561,19 +1285,6 @@ export function limpiarDictado(texto) {
   const esComienzo = (x, y) => x.length <= y.length && x.every((w, i) => plano(w) === plano(y[i]));
   const quedan = tramos.filter((t, i) => !(i + 1 < tramos.length && esComienzo(t, tramos[i + 1])));
   return quedan.flat().join(" ");
-}
-
-/* Lo que se le manda a la IA de MI agenda: lo de las próximas dos semanas, con
-   su id, para que pueda decir «el gimnasio de mañana» y colgarle algo. Es MI
-   agenda, la manda MI sesión: la del otro nunca viaja. */
-export function agendaParaIA(actividades, hoy, dias = 14) {
-  const hasta = sumarDias(hoy, dias);
-  return Object.entries(actividades || {})
-    .filter(([, a]) => a && esISO(a.dia) && a.dia >= hoy && a.dia <= hasta)
-    .sort((x, y) => String(x[1].desde).localeCompare(String(y[1].desde)))
-    .slice(0, 40)
-    .map(([id, a]) => ({ id, titulo: String(a.titulo || "").slice(0, 80), dia: a.dia,
-      desde: String(a.desde || "").slice(11, 16), hasta: String(a.hasta || "").slice(11, 16), lugar: a.lugar || "" }));
 }
 
 /* ── La pizarra del teléfono y el mes de la agenda (nucleo-14, app-16) ──────
@@ -1632,15 +1343,6 @@ export function lugarNuevo(lugares, nombre) {
   const n = String(nombre || "").trim().slice(0, 80), k = claveLugar(n);
   if (!k || (lugares || {})[k]) return null;
   return [k, { nombre: n, direccion: "" }];
-}
-
-/** Lo que va a la IA para estimar el viaje: la casa del país donde está y los lugares con dirección. */
-export function lugaresParaIA(lugares, casas, pais) {
-  const out = { lugares: Object.values(lugares || {}).filter((l) => l && l.nombre && l.direccion)
-    .map((l) => ({ nombre: String(l.nombre).slice(0, 80), direccion: String(l.direccion).slice(0, 160) })).slice(0, 40) };
-  const casa = pais && (casas || {})[pais];
-  if (casa) out.casa = { pais: PAISES_CASA[pais] || pais, direccion: String(casa).slice(0, 160) };
-  return out;
 }
 
 /* ── ¿Ya existe? (nucleo-18, 8-oct-2026, tiempos:V7) ───────────────────────
