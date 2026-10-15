@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-36
+// Sello: app-37
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -164,7 +164,7 @@ async function entrarAlaApp() {
     pintar();
   }
   // app-36: ?gasto=1 (el $ del widget de la Pizarra) abre la ficha del gasto.
-  if (params.get("gasto")) { history.replaceState(null, "", location.pathname); abrirGasto(); }
+  if (params.get("gasto")) { const im = params.get("imagen") || ""; history.replaceState(null, "", location.pathname); abrirGasto(im); }
   const dictado = params.get("dictar");
   if (dictado) {
     history.replaceState(null, "", location.pathname);

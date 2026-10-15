@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-41
+// Sello: nucleo-42
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -666,6 +666,9 @@ export function leerSugerencia(texto, cuentasValidas = null) {
    reconocer después el mismo gasto en un estado de cuenta o en otra app sin
    cargarlo dos veces. Lo que no tiene forma queda afuera; un objeto vacío es
    null, para no guardar un campo que no dice nada. */
+/** Una imagen que ya está en NUESTRA cuenta de Cloudinary (la subió la app del
+    teléfono): sólo ésas se bajan. Otra dirección no se toca. */
+export const imagenNuestra = (u) => typeof u === "string" && u.startsWith("https://res.cloudinary.com/dnwfu8ffn/");
 export const MEDIOS_PAGO = { efectivo: "Efectivo", debito: "Débito", credito: "Crédito", transferencia: "Transferencia", pix: "PIX" };
 export function datosDeFactura(j) {
   if (!j || typeof j !== "object") return null;

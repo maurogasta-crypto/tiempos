@@ -171,7 +171,13 @@ para que recupere toda la información posible de la factura».
 - **La moneda y la fecha de la factura ganan** a las del formulario, que son
   por defecto (BRL, hoy). Antes una boleta en pesos quedaba en reales.
 - **Se abre desde afuera** con `?gasto=1`: lo usa el botón $ del widget de la
-  Pizarra.
+  Pizarra. Y con `&imagen=` (plata-16, app-37): la foto de una factura que se
+  compartió a la Pizarra —desde WhatsApp, la galería— ya viene subida a
+  nuestro Cloudinary; se lee con la IA y no se vuelve a subir
+  (`imagenNuestra`, que vive en nucleo.js).
+- **El banco comprueba los imports entre archivos**: un nombre que un archivo
+  importa y el otro no exporta deja la app en blanco, y `node --check` no lo
+  ve (pasó en esta misma tanda con `imagenNuestra`).
 
 ### La IA sólo contesta (sugerir-22, nucleo-40, app-35, 15-oct-2026)
 
@@ -563,9 +569,9 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-41` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-42` |
 | `estado.js` | lo que comparten las vistas | `estado-4` |
-| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-36` |
+| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-37` |
 | `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-3` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
@@ -573,7 +579,7 @@ Florencia la acuerden.
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-3` |
 | `sugerir.js` | el globo ❓: preguntarle a la IA (sólo contesta), sugerencias y fallas, a `reportes/` | `sugerir-22` |
-| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-15` |
+| `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-16` |
 | `extractos.js` | Plata → Extractos: las líneas de cada banco, para clasificarlas y registrarlas de a muchas, con cuenta y para quién | `extractos-2` |
 | `proyectos.js` | Plata → Proyectos: la economía centralizada, cada destino con lo que se le dedica y su neto, y el libro propio de Casa Verde | `proyectos-1` |
 | `cifras.js` | Plata → Análisis: lo estimado en el Año contra lo real, por categoría, de la familia o de un proyecto | `cifras-1` |
@@ -583,7 +589,7 @@ Florencia la acuerden.
 | `familia.js` | Hoy y Chicos | `familia-6` |
 | `firebase-init.js` | el único contacto con las dos bases | `init-3` |
 | `estilos.css` | | `estilos-29` |
-| `sw.js` | el cascarón sin señal | `tiempos-61` |
+| `sw.js` | el cascarón sin señal | `tiempos-62` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

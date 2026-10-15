@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-15
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-16
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -62,12 +62,14 @@
 // primero; a la vista quedan monto, moneda, fecha, categoría, comercio y
 // proyecto, y lo demás en «Más detalles». La IA trae además RUT, número,
 // medio de pago y renglones (`datosDeFactura`), que se guardan en `factura`.
-// Se abre también desde afuera: `?gasto=1` (el $ del widget de la Pizarra).
+// Se abre también desde afuera: `?gasto=1` (el $ del widget de la Pizarra), y
+// `&imagen=` con la foto de una factura que se compartió a la Pizarra (ya
+// subida a nuestro Cloudinary: se lee y no se vuelve a subir).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F, CV } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, validarMovimiento, disponible, automaticosPendientes,
-         leerSugerencia, esISO, MESES, TIPOS, MEDIOS_PAGO } from "./nucleo.js";
+         leerSugerencia, esISO, MESES, TIPOS, MEDIOS_PAGO, imagenNuestra } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
 import { cuentasDe, idsDeCuenta, balanceDe, CLASES_CUENTA, idNuevo, balanceDelMes, firmaBalance, estadoCierre, trimestreDe } from "./nucleo.js";
 import { pedirAnalisis } from "./sugerir.js";
@@ -89,14 +91,50 @@ const categoriasDe = (tipo) => Object.entries(CATEGORIAS).filter(([, c]) => c.ti
 let sub = "dia";                  // plata-5: dia | fijos | anio | reparto
 const SUBS = { dia: "Día a día", proyectos: "Proyectos", analisis: "Análisis", cuentas: "Cuentas", extractos: "Extractos", fijos: "Fijos", anio: "Año", trimestre: "Trimestre", reparto: "Reparto" };
 
+/* La foto de una factura, leída por la IA: completa lo que está vacío (y la
+   moneda y la fecha, que son por defecto) y propone el proyecto. `subida` es
+   la dirección si la imagen ya está en Cloudinary (la compartió la Pizarra):
+   entonces no se vuelve a subir. */
+async function leerFoto(file, subida = "") {
+  if (!form) return;
+  const f = $("form-mov");
+  if (f) form.datos = { ...form.datos, ...leerCamposSueltos(f) };
+  form.archivo = file; form.subida = subida; form.leyendo = true; form.leida = false; repintar();
+  try {
+    const s = await leerBoleta(file);
+    const cuentaIA = s ? s.cuenta : "";
+    // plata-15: la moneda y la fecha del formulario son valores POR DEFECTO
+    // (BRL, hoy), no algo que alguien eligió: lo que lee la factura les gana.
+    // Antes una boleta en pesos quedaba en reales sin que nadie lo notara.
+    const porDefecto = new Set(["moneda", "fecha"]);
+    if (s) { delete s.cuenta; for (const [k, val] of Object.entries(s)) if (val !== "" && val !== null && (!form.datos[k] || porDefecto.has(k))) form.datos[k] = val; }
+    if (s && !form.datos.cuenta) {
+      const c = cuentaSugerida({ comercio: form.datos.comercio, cuentaIA },
+        { conceptos: E.conceptos, movs: [...(E.movs || []), ...pendientesComoMovs(E.extractos)], cuentas: cuentasDe(E.cuentasDoc) });
+      if (c) { form.datos.cuenta = c.cuenta; form.datos.cuentaPorque = c.porque; }
+    }
+    form.leida = !!s;
+    if (!s) aviso("La IA no pudo leer la boleta: completala a mano.", true);
+  } catch (e) { aviso("No se pudo leer con IA (" + e.message + "): completala a mano.", true); }
+  form.leyendo = false; repintar();
+}
+
 /** plata-15: abrir el gasto desde afuera (`?gasto=1`, el $ del widget de la
     Pizarra): Plata → Día a día con la ficha abierta, la foto primero. */
-export function abrirGasto() {
+export async function abrirGasto(imagen = "") {
   sub = "dia";
   form = { tipo: "salio", datos: { categoria: "" } };
   const b = document.querySelector('[data-solapa="plata"]');
   if (b) b.click(); else repintar();
   setTimeout(() => { const f = $("form-mov"); if (f) f.scrollIntoView({ block: "start" }); }, 80);
+  // La foto de una factura compartida desde la Pizarra ya viene subida; se
+  // baja para que la lea la IA. Sólo de nuestra cuenta de Cloudinary.
+  if (imagenNuestra(imagen)) {
+    try {
+      const bl = await (await fetch(imagen)).blob();
+      await leerFoto(new File([bl], "factura.jpg", { type: bl.type || "image/jpeg" }), imagen);
+    } catch (e) { aviso("No pude traer la foto: cargala de nuevo acá.", true); }
+  }
 }
 
 export function pintarPlata() {
@@ -351,7 +389,8 @@ async function guardarMovimiento(f) {
   const err = validarMovimiento({ ...d, tipo });
   if (err.length) return aviso("Falta: " + err.join("; ") + ".", true);
   let comprobanteUrl = (form.datos || {}).comprobanteUrl || null;
-  if (form.archivo) {
+  if (form.archivo && form.subida) comprobanteUrl = form.subida;
+  else if (form.archivo) {
     aviso("Subiendo la boleta…");
     try { comprobanteUrl = await CV.CV2.subirImagen(form.archivo, "tiempos"); }
     catch (e) { return aviso("No se pudo subir la boleta: " + e.message + ". No se guardó nada.", true); }
@@ -397,28 +436,9 @@ function enganchar(v, autos) {
     if (!confirm("¿Borrar este movimiento?")) return;
     F.deleteDoc(F.doc(db, "movimientos", b.dataset.borrarMov)).then(() => { form = null; repintar(); }).catch(fallo);
   });
-  todos("[data-foto]", (inp) => inp.onchange = async () => {
+  todos("[data-foto]", (inp) => inp.onchange = () => {
     const file = inp.files && inp.files[0]; if (!file) return;
-    const f = $("form-mov");
-    form.datos = { ...form.datos, ...leerCamposSueltos(f) };
-    form.archivo = file; form.leyendo = true; form.leida = false; repintar();
-    try {
-      const s = await leerBoleta(file);
-      const cuentaIA = s ? s.cuenta : "";
-      // plata-15: la moneda y la fecha del formulario son valores POR DEFECTO
-      // (BRL, hoy), no algo que alguien eligió: lo que lee la factura les gana.
-      // Antes una boleta en pesos quedaba en reales sin que nadie lo notara.
-      const porDefecto = new Set(["moneda", "fecha"]);
-      if (s) { delete s.cuenta; for (const [k, val] of Object.entries(s)) if (val !== "" && val !== null && (!form.datos[k] || porDefecto.has(k))) form.datos[k] = val; }
-      if (s && !form.datos.cuenta) {
-        const c = cuentaSugerida({ comercio: form.datos.comercio, cuentaIA },
-          { conceptos: E.conceptos, movs: [...(E.movs || []), ...pendientesComoMovs(E.extractos)], cuentas: cuentasDe(E.cuentasDoc) });
-        if (c) { form.datos.cuenta = c.cuenta; form.datos.cuentaPorque = c.porque; }
-      }
-      form.leida = !!s;
-      if (!s) aviso("La IA no pudo leer la boleta: completala a mano.", true);
-    } catch (e) { aviso("No se pudo leer con IA (" + e.message + "): completala a mano.", true); }
-    form.leyendo = false; repintar();
+    leerFoto(file);
   });
   const f = $("form-mov");
   if (f) f.onsubmit = (ev) => { ev.preventDefault(); guardarMovimiento(f).catch(fallo); };

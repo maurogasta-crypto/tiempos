@@ -1734,7 +1734,26 @@ prueba("la ficha del gasto abre con la foto primero, guarda la factura y se abre
   assert.match(pl, /factura: fac/);
   assert.match(pl, /porDefecto = new Set\(\["moneda", "fecha"\]\)/, "la moneda y la fecha de la factura ganan a las del formulario");
   assert.match(pl, /"rut": el RUT o CNPJ/);
-  assert.match(ap, /params\.get\("gasto"\)[\s\S]{0,120}abrirGasto\(\)/);
+  assert.match(ap, /params\.get\("gasto"\)[\s\S]{0,160}abrirGasto\(im\)/);
+});
+
+prueba("cada nombre que un archivo importa de otro existe allá (un import roto deja la app en blanco)", () => {
+  const exportsDe = {};
+  const nombres = (f) => {
+    if (exportsDe[f]) return exportsDe[f];
+    const src = fs.readFileSync(f, "utf8"), set = new Set();
+    for (const m of src.matchAll(/export\s+(?:async\s+)?(?:function\*?|class)\s+([\w$]+)/g)) set.add(m[1]);
+    for (const m of src.matchAll(/export\s+(?:const|let|var)\s+([\w$][\w$\s,]*?)\s*(?:=|;|\/\/|\n)/g)) for (const n of m[1].split(",")) set.add(n.trim());
+    for (const m of src.matchAll(/export\s*\{([^}]*)\}/g)) for (const x of m[1].split(",")) { const n = x.trim().split(/\s+as\s+/).pop(); if (n) set.add(n); }
+    return (exportsDe[f] = set);
+  };
+  for (const f of fs.readdirSync(".").filter((x) => x.endsWith(".js") && x !== "sw.js")) {
+    const src = fs.readFileSync(f, "utf8");
+    for (const m of src.matchAll(/import\s*\{([^}]*)\}\s*from\s*"\.\/([\w-]+\.js)(?:\?v=\d+)?"/g)) {
+      if (!fs.existsSync(m[2])) continue;
+      for (const x of m[1].split(",")) { const n = x.trim().split(/\s+as\s+/)[0]; if (n) assert.ok(nombres(m[2]).has(n), `${f} importa ${n} de ${m[2]}, que no lo exporta`); }
+    }
+  }
 });
 
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
