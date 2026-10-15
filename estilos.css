@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-29
+/* estilos.css — Tiempos. Sello: estilos-30
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -180,6 +180,14 @@ body.arrastrando-algo { user-select:none; -webkit-user-select:none; }
 .hoja { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; justify-content:center; }
 .hoja-caja { background:var(--tinta); width:100%; max-width:680px; max-height:88vh; overflow:auto; border-radius:16px 16px 0 0;
   padding:12px 16px calc(var(--piso) + 8px); }
+/* proyecto-1: la pantalla de un proyecto tapa todo, como una app. */
+.hoja.pantalla { align-items:stretch; background:var(--tinta); }
+.hoja.pantalla .hoja-caja { max-height:none; height:100%; border-radius:0; padding-top:calc(var(--techo, 0px) + 10px); }
+.proyecto-titulo { margin:4px 0 2px; font-size:1.5rem; }
+.proyecto-caja section, .proyecto-caja details.tarjeta { margin-top:12px; }
+.proyecto-caja a.txt { color:var(--acento); text-decoration:none; }
+.nota-bitacora { border-top:1px solid var(--linea); padding:6px 0; }
+.nota-bitacora p { margin:2px 0; white-space:pre-wrap; }
 .hoja-cab { display:flex; align-items:center; justify-content:space-between; }
 .tira { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 10px; }
 .nota-ia { font-size:.84rem; }

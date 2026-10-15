@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-16
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-17
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -121,9 +121,10 @@ async function leerFoto(file, subida = "") {
 
 /** plata-15: abrir el gasto desde afuera (`?gasto=1`, el $ del widget de la
     Pizarra): Plata → Día a día con la ficha abierta, la foto primero. */
-export async function abrirGasto(imagen = "") {
+export async function abrirGasto(imagen = "", cuenta = "") {
   sub = "dia";
-  form = { tipo: "salio", datos: { categoria: "" } };
+  // proyecto-1: desde la pantalla de un proyecto, el gasto ya lleva su cuenta.
+  form = { tipo: "salio", datos: { categoria: "", ...(cuenta ? { cuenta } : {}) } };
   const b = document.querySelector('[data-solapa="plata"]');
   if (b) b.click(); else repintar();
   setTimeout(() => { const f = $("form-mov"); if (f) f.scrollIntoView({ block: "start" }); }, 80);

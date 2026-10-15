@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// proyectos.js — Plata → Proyectos: la economía centralizada. Sello: proyectos-1
+// proyectos.js — Plata → Proyectos: la economía centralizada. Sello: proyectos-2
 //
 // Mauro, 10-oct-2026 (tiempos:V13): «quiero que la economía esté centralizada
 // para poder, de un solo lugar, saber cómo se están derivando los gastos…
@@ -22,6 +22,7 @@ import { CV } from "./firebase-init.js";
 import { esc, CATEGORIAS, MESES, cuentasDe, economiaFamiliar, pendientesComoMovs, libroDeNegocio,
          trimestreDe, mesesDelTrimestre, sumarMeses } from "./nucleo.js";
 import { E, repintar, personas } from "./estado.js";
+import { abrirProyecto } from "./proyecto.js";
 
 let periodo = "anio";             // mes | trimestre | anio (los 12 meses hasta el visto)
 let libroCV = null;               // null = sin pedir · { movs } · { error }
@@ -72,12 +73,14 @@ export function pintarProyectos(v, mes) {
     h += `<div class="tarjeta proyecto"><h3>${ICONO[d.clase] || "📁"} ${esc(d.nombre)} <small class="gris">${d.n} mov.${d.sinRegistrar ? `, ${d.sinRegistrar} sin registrar` : ""}</small></h3>
       ${Object.entries(d.porMoneda).map(([mon, o]) => lineaMoneda(mon, o, true)).join("")}
       ${esCV ? libroCVHTML(r) : ""}
-      <details><summary class="gris">en qué</summary><p class="gris chica">${cats.join("<br>")}</p></details></div>`;
+      <details><summary class="gris">en qué</summary><p class="gris chica">${cats.join("<br>")}</p></details>
+      ${d.id.startsWith("c:") ? `<button type="button" class="mini" data-abrir-proyecto="${esc(d.id.slice(2))}">Abrir ${esc(d.nombre)} ▸</button>` : ""}</div>`;
   }
   if (!eco.destinos.some((d) => d.id === "c:casa-verde") && libroCV && libroCV.movs)
     h += `<div class="tarjeta proyecto"><h3>🏠 Casa Verde <small class="gris">sin gastos de la familia en el período</small></h3>${libroCVHTML(r)}</div>`;
   v.insertAdjacentHTML("beforeend", h);
   for (const b of v.querySelectorAll("[data-periodo]")) b.onclick = () => { periodo = b.dataset.periodo; repintar(); };
+  for (const b of v.querySelectorAll("[data-abrir-proyecto]")) b.onclick = () => abrirProyecto(b.dataset.abrirProyecto);
 }
 
 function libroCVHTML(r) {

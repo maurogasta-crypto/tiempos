@@ -19,7 +19,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          cotidianasDe, listasDeCompras, recorridoDeCompra, ajusteTrimestral, posiblesFijos, trimestreDe, mesesDelTrimestre, sumarTrimestres, firmaTrimestre, balanceDelMes, firmaBalance, estadoCierre, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe, actividadesDeChicos, horasPorCuenta, escudarNombres, devolverNombres, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA, colorHeredado, COLORES_TAREA, idNuevo,
          intervalosDeMarcas, validarMarca, marcasQueSePisan, CLASES_ACTIVIDAD,
          UNIDADES_SALIDA, unidadDe, marcaDeSalida, saldoSalidas, estaCorriendo,
-         actividadDePropuesta, paraMi, MODOS_AGENDA, sinDatosPersonales, leerConsultaIA, buscarEnAgenda, limpiarDictado, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
+         actividadDePropuesta, paraMi, MODOS_AGENDA, sinDatosPersonales, leerConsultaIA, buscarEnAgenda, fichaDeProyecto, limpiarDictado, leerDias, posiblesDelDia, textoFrecuencia, frecuenciaDeseo,
          enMiPizarra, paraElegirPorCategoria, cuentaDelDia,
          paisDe, lugarNuevo, claveLugar, parecidas,
          CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, cuentaSugerida, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
@@ -1735,6 +1735,43 @@ prueba("la ficha del gasto abre con la foto primero, guarda la factura y se abre
   assert.match(pl, /porDefecto = new Set\(\["moneda", "fecha"\]\)/, "la moneda y la fecha de la factura ganan a las del formulario");
   assert.match(pl, /"rut": el RUT o CNPJ/);
   assert.match(ap, /params\.get\("gasto"\)[\s\S]{0,160}abrirGasto\(im\)/);
+});
+
+titulo("nucleo-43 / proyecto-1: la pantalla de un proyecto (15-oct)");
+prueba("la ficha junta lo de su cuenta y sus partes: tareas del árbol o que lo nombran, agenda, avisos, plata, documentos y bitácora", () => {
+  const cuentasDoc = { cuentas: {
+    gf: { nombre: "General Flores", clase: "lugar", pais: "UY", tareaId: "raiz",
+      enlaces: { e1: { titulo: "Bosquejo del acuerdo", url: "https://claude.ai/x" }, e2: { titulo: "malo", url: "javascript:alert(1)" } },
+      notas: { n1: { texto: "Reunión con el gimnasio", fecha: "2026-10-15T15:00:00Z", uid: "u" }, n2: { texto: "Vino el electricista", fecha: "2026-10-10T10:00:00Z" }, n3: { texto: "" } } },
+    dep: { nombre: "Depósito", clase: "lugar", padre: "gf" },
+    hx: { nombre: "Hilux", clase: "vehiculo" } } };
+  const tareas = [{ id: "raiz", titulo: "General Flores" }, { id: "a", titulo: "Cerrar el muro", parentId: "raiz" },
+    { id: "b", titulo: "Pintar el frente", parentId: "a", hecho: true }, { id: "c", titulo: "Llevar caja a General Flores" }, { id: "d", titulo: "Cambiar aceite" }];
+  const movs = [{ monto: 1000, moneda: "UYU", fecha: "2026-10-01", categoria: "materiales", cuenta: "dep" },
+    { monto: 500, moneda: "UYU", fecha: "2026-09-01", categoria: "materiales", cuenta: "gf" },
+    { monto: 300, moneda: "UYU", fecha: "2026-10-01", categoria: "combustible", cuenta: "hx" }];
+  const actividades = { r: { titulo: "Reunión con los inquilinos", dia: "2026-10-15", desde: "2026-10-15T12:00", lugar: "General Flores 2073" },
+    x: { titulo: "Gimnasio", dia: "2026-10-16", desde: "2026-10-16T18:00" } };
+  const alertas = [{ dia: "2026-10-15", hora: "11:00", texto: "Salir para la reunión en General Flores 2073", tipo: "alarma" }, { dia: "2026-10-01", texto: "General Flores viejo" }];
+  const f = fichaDeProyecto({ id: "gf", cuentasDoc, tareas, movs, actividades, alertas, hoy: "2026-10-15" });
+  assert.deepEqual(f.partes.map((x) => x.id), ["dep"]);
+  assert.deepEqual(f.pendientes.map((t) => t.id), ["a", "c"], "la raíz no, la del árbol y la que lo nombra sí");
+  assert.deepEqual(f.hechas.map((t) => t.id), ["b"]);
+  assert.deepEqual(f.agenda.map((x) => x.titulo), ["Reunión con los inquilinos"], "lo nombra el lugar");
+  assert.equal(f.avisos.length, 1, "un aviso pasado no");
+  assert.equal(f.movimientos.length, 2, "el depósito suma, la Hilux no");
+  assert.equal(f.plata.UYU.salio, 1500);
+  assert.deepEqual(f.enlaces.map((e) => e.id), ["e1"], "sólo enlaces https");
+  assert.deepEqual(f.notas.map((n) => n.id), ["n1", "n2"], "la más nueva primero, las vacías no");
+  assert.equal(fichaDeProyecto({ id: "nada", cuentasDoc, hoy: "2026-10-15" }), null);
+});
+prueba("la pantalla del proyecto escribe SÓLO enlaces y notas de su cuenta, con merge, y se abre con ?proyecto=", () => {
+  const pr = fs.readFileSync("proyecto.js", "utf8"), ap = fs.readFileSync("app.js", "utf8");
+  assert.match(pr, /F\.setDoc\(F\.doc\(db, "familia", "cuentas"\), \{ cuentas: \{ \[abierto\]: campos \}[^}]*\}, \{ merge: true \}\)/);
+  assert.equal((pr.match(/F\.(setDoc|updateDoc|addDoc|deleteDoc)\(/g) || []).length, 1, "un solo lugar que escribe");
+  assert.match(pr, /guardar\(\{ enlaces: \{ \[idNuevo\("e"\)\]/); assert.match(pr, /guardar\(\{ notas: \{ \[idNuevo\("n"\)\]/, "el id lleva su prefijo (sin él salía «undefined…»)");
+  assert.match(ap, /params\.get\("proyecto"\)[\s\S]{0,80}esCuentaValida\(proy\)[\s\S]{0,120}abrirProyecto\(proy\)/);
+  assert.match(fs.readFileSync("sw.js", "utf8"), /"proyecto\.js"/, "el archivo nuevo está en el SHELL");
 });
 
 prueba("cada nombre que un archivo importa de otro existe allá (un import roto deja la app en blanco)", () => {

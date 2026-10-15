@@ -165,6 +165,15 @@ la documentación diga la verdad.
   proyecto (la `cuenta`), y lo que llegue de otras apps —la carga de la Hilux,
   los gastos de los sitios— entrará solo, con su `origen`, como un gasto con
   varias pruebas (factura, línea del extracto), no como gastos repetidos.
+- **Cada proyecto tiene su PANTALLA** (proyecto-1, nucleo-43, app-38,
+  15-oct-2026, Mauro: «una pantalla por proyecto, como General Flores, con toda
+  la información que se va acumulando… como si fuera una app»). Un proyecto es
+  una cuenta de `familia/cuentas`; `fichaDeProyecto` junta tareas (su árbol por
+  `tareaId` y las que lo nombran), agenda, avisos y plata, sin copiarlos. Lo
+  único que escribe son `enlaces` y `notas` de esa cuenta, como mapas y con
+  merge: sin colección ni regla nueva, y el banco comprueba que no escribe otra
+  cosa. Se abre con `?proyecto=<cuenta>`. **No está en el panel a propósito**:
+  el panel es otra base y no puede leer ésta.
 - **Las CUENTAS y las CONSULTAS** (plata-7, sugerir-18, nucleo-24,
   10-oct-2026, `tiempos:V11`). Un movimiento lleva `cuenta` (un lugar, un
   vehículo o su parte, de `familia/cuentas`) y `para` (una persona o un

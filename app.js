@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-37
+// Sello: app-38
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -71,6 +71,7 @@ import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from
 import { pintarAgenda, irAPieza, alternarEnAgenda, estaEnAgenda, guardarEnAgenda, agendaUnida } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
 import { pintarPlata, abrirGasto } from "./plata.js";
+import { pintarProyecto, abrirProyecto, esCuentaValida } from "./proyecto.js";
 import { pintarBalance } from "./balance.js";
 import { pintarCompras, abrirSuper, escucharCompartidas } from "./compras.js";
 import { montarGlobo, abrirConsulta } from "./sugerir.js";
@@ -163,6 +164,9 @@ async function entrarAlaApp() {
     for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x.dataset.solapa === solapaPedida));
     pintar();
   }
+  // app-38: ?proyecto=<cuenta> abre la pantalla de ese proyecto (acceso directo).
+  const proy = params.get("proyecto");
+  if (proy && esCuentaValida(proy)) { history.replaceState(null, "", location.pathname); abrirProyecto(proy); }
   // app-36: ?gasto=1 (el $ del widget de la Pizarra) abre la ficha del gasto.
   if (params.get("gasto")) { const im = params.get("imagen") || ""; history.replaceState(null, "", location.pathname); abrirGasto(im); }
   const dictado = params.get("dictar");
@@ -473,11 +477,14 @@ function pintar() {
   if (E.solapa === "chicos") pintarChicos();
   if (E.solapa === "plata") pintarPlata();
   if (E.solapa === "balance") pintarBalance();
+  pintarProyecto();                             // app-38: la pantalla de un proyecto, si está abierta
   $("cv-estado").textContent = !CV ? errorCasaVerde
     : !E.cv ? `Casa Verde: sin sesión para ${E.yo.email}.` : "";
   $("form-cv").hidden = !CV || !!E.cv;
 }
 ganchos.pintar = pintar;
+ganchos.irATarea = (clave) => { irA("tareas"); irATarea(clave); };
+ganchos.abrirGasto = abrirGasto;
 
 function pintarCrono() {
   const s = E.enCursoCV || E.enCursoFam;

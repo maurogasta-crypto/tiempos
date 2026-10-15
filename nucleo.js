@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-42
+// Sello: nucleo-43
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1191,6 +1191,48 @@ export function leerConsultaIA(texto) {
     categorias: (Array.isArray(j.categorias) ? j.categorias : []).filter((c) => CATEGORIAS[c]).slice(0, 12),
     persona: ["yo", "otro"].includes(j.persona) ? j.persona : "",
     pregunta: String(j.pregunta || "").trim().slice(0, 200) };
+}
+
+/* ── La FICHA DE UN PROYECTO (nucleo-43, 15-oct-2026) ───────────────────────
+   Mauro: «una interfaz para los proyectos como el de General Flores, donde se
+   pueda visualizar toda la información que se va acumulando, en una pantalla
+   por proyecto». Un proyecto es una CUENTA de `familia/cuentas` (con sus
+   partes, como el depósito) y junta lo que ya existe en Tiempos, sin copiarlo:
+   · las tareas de su árbol (la raíz es `tareaId` de la cuenta) y las que lo
+     nombran en el título;
+   · lo que la agenda y los chicos tienen que lo nombra, de un mes atrás a
+     seis adelante, y los avisos que lo nombran;
+   · la plata: los movimientos y las líneas de extracto de esa cuenta, con lo
+     de los últimos doce meses por moneda;
+   · lo que se le anota a la cuenta misma: `enlaces` (documentos) y `notas`
+     (la bitácora: charlas, trabajos, compromisos), MAPAS en `familia/cuentas`
+     para que dos teléfonos no se pisen. Sin colección ni regla nuevas. */
+export function fichaDeProyecto({ id, cuentasDoc = {}, tareas = [], movs = [], actividades = {}, piezas = [], eventos = [], ninos = [], alertas = [], hoy }) {
+  const cuentas = cuentasDe(cuentasDoc);
+  const c = cuentas.find((x) => x.id === id);
+  if (!c) return null;
+  const crudo = ((cuentasDoc && cuentasDoc.cuentas) || {})[id] || {};
+  const ids = idsDeCuenta(cuentas, id);
+  const nombre = plano(c.nombre);
+  const nombra = (t) => nombre.length >= 3 && plano(t).includes(nombre);
+  const porId = Object.fromEntries((tareas || []).map((t) => [t.id, t]));
+  const raizDe = (t) => { let x = t, n = 0; while (x && x.parentId && porId[x.parentId] && n++ < 30) x = porId[x.parentId]; return x; };
+  const suyas = (tareas || []).filter((t) => t && t.id !== c.tareaId && ((c.tareaId && (raizDe(t) || {}).id === c.tareaId) || nombra(t.titulo)));
+  const deLaCuenta = (movs || []).filter((m) => m && ids.has(m.cuenta)).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const lista = (m) => Object.entries(m && typeof m === "object" ? m : {}).map(([k, v]) => ({ id: k, ...(v || {}) }));
+  return {
+    cuenta: c,
+    partes: cuentas.filter((x) => x.padre === id),
+    pendientes: suyas.filter((t) => !t.hecho).sort((a, b) => String(a.titulo).localeCompare(String(b.titulo))),
+    hechas: suyas.filter((t) => t.hecho).slice(0, 30),
+    agenda: buscarEnAgenda({ actividades, piezas, eventos, ninos, palabras: nombre.length >= 3 ? [c.nombre] : [], desde: sumarDias(hoy, -30), hasta: sumarDias(hoy, 180), hoy }),
+    avisos: (alertas || []).filter((a) => a && esISO(a.dia) && a.dia >= hoy && nombra(`${a.texto || ""} ${a.lugar || ""}`))
+      .sort((a, b) => `${a.dia}${a.hora}`.localeCompare(`${b.dia}${b.hora}`)),
+    movimientos: deLaCuenta.slice(0, 40),
+    plata: balanceDe(deLaCuenta, { desde: sumarDias(hoy, -365) }).porMoneda,
+    enlaces: lista(crudo.enlaces).filter((e) => /^https:\/\//.test(String(e.url || ""))).sort((a, b) => String(a.titulo).localeCompare(String(b.titulo))),
+    notas: lista(crudo.notas).filter((n) => n.texto).sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || ""))),
+  };
 }
 
 /** Lo que cae en el período y nombra alguna de las palabras: mi agenda (actividades
