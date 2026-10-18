@@ -319,6 +319,14 @@ la documentación diga la verdad.
   lugar**: la lista no se copia, se muda. `lista.html` no está en el SHELL y
   no baja Casa Verde (`cargar({ casaVerde: false })`). Probado contra el
   emulador de Firestore (23 casos, el 9-oct).
+- **Los MENSAJES entre Mauro y Florencia** (reglas v15, pizarra-40,
+  18-oct-2026, Mauro: «los mensajes entre los usuarios de pizarra… pudiendo
+  diferenciar cuál dispositivo»): `mensajes/` es UNA charla de los dos, cada
+  mensaje con `de`, `nombre`, `dispositivo` (el teléfono del que salió: Mauro
+  tiene la Pizarra en más de uno) y `texto`. Se escribe y se lee desde la
+  Pizarra (✎ del widget «Mensajes y novedades»); no se edita, cada uno borra
+  los suyos, y el agente la lee y no escribe. Esta app web todavía no la
+  muestra. **Hay que publicar las reglas v15.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco

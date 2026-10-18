@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v14, 10-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v15, 18-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -52,6 +52,12 @@ rules_version = '2';
 //      pendientes; una persona las REGISTRA (la app escribe el movimiento con
 //      su sesión) o las excluye. El agente no toca una línea ya decidida, ni
 //      cambia lo que dijo el banco: monto, moneda, fecha y medio quedan.
+//  v15: los MENSAJES entre las personas (`mensajes`, pizarra-40, 18-oct,
+//      Mauro: «los mensajes entre los usuarios de pizarra… pudiendo
+//      diferenciar cuál dispositivo»). Una charla de la familia: la leen y
+//      escriben los dos, cada mensaje a nombre de quien lo manda y con el
+//      teléfono desde el que salió. No se editan; cada uno borra los suyos.
+//      El agente los lee (para ayudar a coordinar) y no escribe.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -410,6 +416,23 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid', 'sitio', 'tema', 'texto', 'creadoEn', 'leido'])
         && request.resource.data.texto is string
         && request.resource.data.texto.size() <= 600;
+    }
+
+    // ── v15 · Los mensajes entre Mauro y Florencia ──────────────────────
+    match /mensajes/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if esPersona()
+        && request.resource.data.keys().hasOnly(['de', 'nombre', 'dispositivo', 'texto', 'creadoEn'])
+        && request.resource.data.de == request.auth.uid
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() > 0
+        && request.resource.data.texto.size() <= 2000
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() <= 40
+        && request.resource.data.dispositivo is string
+        && request.resource.data.dispositivo.size() <= 60
+        && request.resource.data.creadoEn == request.time;
+      allow delete: if esPersona() && resource.data.de == request.auth.uid;
     }
 
     match /alertas/{id} {
