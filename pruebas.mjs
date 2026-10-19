@@ -1651,6 +1651,19 @@ prueba("?abrir= sólo acepta una clave de pieza, y app.js la pasa a la agenda", 
   assert.match(a, /if \(clave\.startsWith\("ev:"\)\) return clave\.split\("\|"\)\[1\]/);
 });
 
+titulo("agenda-19: al guardar una pieza en otra semana, la vista la sigue (19-oct, Florencia)");
+prueba("de domingo a lunes es la semana siguiente, y la agenda va ahí y lo dice", () => {
+  // La semana va de lunes a domingo: el lunes que sigue al domingo 18 es el 19, otra semana.
+  assert.equal(lunesDe("2026-10-18"), "2026-10-12");
+  assert.equal(lunesDe("2026-10-19"), "2026-10-19");
+  const a = fs.readFileSync("agenda.js", "utf8");
+  const g = a.slice(a.indexOf("async function guardarPieza("), a.indexOf("async function moverEvento("));
+  assert.match(g, /const otra = esISO\(dia\) && lunesDe\(dia\) !== lunes;\s*if \(otra\) lunes = lunesDe\(dia\);/);
+  assert.match(g, /Pasó a la semana del/);
+  // y se cambia la semana ANTES de repintar, no después
+  assert.ok(g.indexOf("if (otra) lunes = lunesDe(dia);") < g.lastIndexOf("repintar();"));
+});
+
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");
 prueba("?solapa=tareas&abrir=f:<id> abre su ficha, despliega lo que la tapa y sólo acepta una tarea", () => {
   const a = fs.readFileSync("app.js", "utf8");

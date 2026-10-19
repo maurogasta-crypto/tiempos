@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-18
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-19
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -289,8 +289,19 @@ async function guardarPieza(p, f) {
   const extra = await guardarAvisos(p, nueva, f, esISO(dia) ? dia : E.hoy, hi, titulo, lugar);
   if (extra.startsWith("El aviso")) return aviso(extra, true);
   editando = null; delete borrador[k];
-  aviso((p.clase === "chicos" ? "Guardada. La ven los dos." : "Guardada.") + (extra ? " " + extra : ""));
+  // agenda-19 (19-oct-2026, Florencia: «cambio para el lunes… no actualiza
+  // automáticamente esa actividad y me la pasa para el lunes de la semana
+  // siguiente»). La semana va de lunes a domingo: el lunes que sigue a un
+  // domingo es de la semana que viene. La pieza se guardaba bien, pero la
+  // vista se quedaba en la semana vieja y parecía que no se había movido.
+  // Ahora la vista la sigue, y se dice adónde fue.
+  const otra = esISO(dia) && lunesDe(dia) !== lunes;
+  if (otra) lunes = lunesDe(dia);
+  aviso((p.clase === "chicos" ? "Guardada. La ven los dos." : "Guardada.")
+    + (otra ? ` Pasó a la semana del ${lunes.split("-").reverse().slice(0, 2).join("/")}.` : "")
+    + (extra ? " " + extra : ""));
   repintar();
+  if (otra) setTimeout(() => { const z = document.querySelector(`[data-zona^="${dia}|"]`); if (z) z.scrollIntoView({ block: "center" }); }, 50);
 }
 
 /* Mover una actividad de los chicos de un día a otro. Si se repite todas las
