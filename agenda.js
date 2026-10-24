@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-19
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-20
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -102,7 +102,7 @@ async function guardarActividad(f) {
 async function borrarActividad(id) {
   const a = (E.actividades || {})[id]; if (!a) return;
   if (!confirm(`¿Sacar «${a.titulo}» de tu agenda? Sale también del balance.`)) return;
-  try { await sacarActividad(id); } catch (e) { fallo(e); }
+  try { await sacarActividad(id); return true; } catch (e) { fallo(e); return false; }
 }
 /** Sacar una actividad de MI agenda, con su marca. Sin preguntar. */
 export async function sacarActividad(id) {
@@ -595,13 +595,31 @@ function pieza(p) {
     ${abierto ? editorPieza(p) : ""}</div>`;
 }
 
+/* agenda-20 (24-oct-2026, revisión pedida por Mauro): al sacar una pieza se
+   van también sus avisos. Hasta agenda-19 quedaban en `alertas/` y la Pizarra
+   los seguía sonando para algo que ya no estaba. Se borran los MÍOS: la regla
+   no deja tocar los del otro (una de los chicos que también se avisó él). De
+   una de los chicos, todos sus días: si se repite, se borra la serie entera. */
+async function sacarAvisos(p) {
+  const deLaPieza = (a) => (p.clase === "chicos" ? String(a.sobre || "").startsWith(`ev:${p.id}|`) : a.sobre === p.clave);
+  const ids = (E.alertas || []).filter(deLaPieza).map((a) => a.id);
+  for (const id of ids) await F.deleteDoc(F.doc(db, "alertas", id)).catch(() => {});
+  return ids.length ? ` Se sacaron también sus avisos (${ids.length}).` : "";
+}
 async function sacarPieza(p) {
-  if (p.clase === "act") { editando = null; return borrarActividad(p.id); }
+  if (p.clase === "act") {
+    editando = null;
+    if (await borrarActividad(p.id)) { const ya = await sacarAvisos(p); if (ya) aviso("Salió de tu agenda." + ya); }
+    return;
+  }
   if (p.clase === "chicos") {
     if (!confirm("¿Borrar esta actividad de los chicos? La dejan de ver los dos. Si se repite, se borra entera.")) return;
-    editando = null; return F.deleteDoc(F.doc(db, "eventos", p.id));
+    editando = null; await F.deleteDoc(F.doc(db, "eventos", p.id));
+    const ya = await sacarAvisos(p); if (ya) aviso("Borrada." + ya);
+    return;
   }
-  editando = null; return guardarEnAgenda(p.clave, null).then(() => aviso("Salió de tu agenda."));
+  editando = null; await guardarEnAgenda(p.clave, null);
+  aviso("Salió de tu agenda." + await sacarAvisos(p));
 }
 
 /* ── El arrastre, a mano ──────────────────────────────────────────────────────

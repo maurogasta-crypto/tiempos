@@ -1664,6 +1664,22 @@ prueba("de domingo a lunes es la semana siguiente, y la agenda va ahí y lo dice
   assert.ok(g.indexOf("if (otra) lunes = lunesDe(dia);") < g.lastIndexOf("repintar();"));
 });
 
+titulo("agenda-20: al sacar una pieza se van sus avisos (24-oct, revisión)");
+prueba("sacar una tarea, una actividad o una de los chicos borra también mis alertas atadas a ella", () => {
+  const a = fs.readFileSync("agenda.js", "utf8");
+  const g = a.slice(a.indexOf("async function sacarAvisos("), a.indexOf("/* ── El arrastre"));
+  assert.match(g, /String\(a\.sobre \|\| ""\)\.startsWith\(`ev:\$\{p\.id\}\|`\)/, "de los chicos, todos sus días");
+  assert.match(g, /a\.sobre === p\.clave/);
+  assert.match(g, /F\.deleteDoc\(F\.doc\(db, "alertas", id\)\)/);
+  assert.equal((g.match(/await sacarAvisos\(p\)/g) || []).length, 3, "las tres clases");
+  // la actividad sólo si de verdad se borró (el confirm puede decir que no)
+  assert.match(g, /if \(await borrarActividad\(p\.id\)\)/);
+  assert.match(a, /try \{ await sacarActividad\(id\); return true; \}/);
+  // y la Pizarra desprograma lo que se borró de la base (Alarmas.kt, aCancelar), así que con borrar alcanza
+  const pz = "../pizarra/app/src/main/java/com/maurogasta/pizarra/Alarmas.kt";
+  if (fs.existsSync(pz)) assert.match(fs.readFileSync(pz, "utf8"), /aCancelar\(antes, enLaBase\)/);
+});
+
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");
 prueba("?solapa=tareas&abrir=f:<id> abre su ficha, despliega lo que la tapa y sólo acepta una tarea", () => {
   const a = fs.readFileSync("app.js", "utf8");
