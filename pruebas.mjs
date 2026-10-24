@@ -1727,7 +1727,7 @@ prueba("audios/: lo leen los dos y el agente, lo crea cada uno a su nombre con f
   assert.match(a, /datos\.size\(\) <= 400000/);
   assert.match(a, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);
   const m = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /audios/{id}"));
-  assert.match(m, /'para', 'audio', 'dur'\]/);
+  assert.match(m, /'para', 'audio', 'dur'/);
   assert.match(r, /v18: los mensajes de VOZ/);
 });
 
@@ -1740,7 +1740,22 @@ prueba("llamadas/: la crea quien llama, la atiende o rechaza el otro, la corta c
   assert.match(b, /request\.auth\.uid != resource\.data\.de/);
   assert.match(b, /\['cortada', 'cancelada'\]/);
   assert.ok(!/allow (create|update|delete)[^;]*esAgente/.test(b));
-  assert.match(r, /v19, 24-oct-2026/);
+  assert.match(r, /v19: las LLAMADAS entre Pizarras/);
+});
+
+titulo("v20: fotos y documentos por la charla (pizarra-64, 24-oct)");
+prueba("archivos/: por partes de hasta 700 KB, lo leen los dos y el agente, lo borra quien lo mandó; un instalador no", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  const b = r.slice(r.indexOf("match /archivos/{id}"), r.indexOf("match /llamadas/{id}"));
+  assert.match(b, /allow read: if esPersona\(\) \|\| esAgente\(\);/);
+  assert.match(b, /datos\.size\(\) <= 700000/);
+  assert.match(b, /parte < request\.resource\.data\.partes/);
+  assert.match(b, /package-archive/);
+  assert.match(b, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);
+  assert.ok(!/allow (create|delete)[^;]*esAgente/.test(b));
+  const m = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /audios/{id}"));
+  assert.match(m, /'archivo', 'nombreArchivo', 'partes'\]/);
+  assert.match(r, /v20, 24-oct-2026/);
 });
 
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");

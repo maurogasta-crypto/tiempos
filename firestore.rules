@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v19, 24-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v20, 24-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -83,6 +83,12 @@ rules_version = '2';
 //      encuentran (`llamadas/`): quien llama la crea con su oferta, el otro
 //      atiende con su respuesta o rechaza, y cualquiera de los dos la corta.
 //      No se graba nada. El agente lee quién llamó a quién y cuándo.
+//  v20: FOTOS y DOCUMENTOS por la charla (pizarra-64, 24-oct, Mauro: «enviar
+//      archivos… fotos o algún documento que se vaya a guardar temporalmente
+//      en la base»). Van a `archivos/` en partes de hasta 700 KB (hasta 10:
+//      unos 6 MB), y el mensaje los nombra (`archivo`, `nombreArchivo`,
+//      `partes`). Lo leen los dos y el agente; lo borra quien lo mandó (la
+//      Pizarra, a los 7 días). Un instalador de Android no entra.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -447,7 +453,13 @@ service cloud.firestore {
     match /mensajes/{id} {
       allow read: if esPersona() || esAgente();
       allow create: if esPersona()
-        && request.resource.data.keys().hasOnly(['de', 'nombre', 'dispositivo', 'texto', 'creadoEn', 'para', 'audio', 'dur'])
+        && request.resource.data.keys().hasOnly(['de', 'nombre', 'dispositivo', 'texto', 'creadoEn', 'para', 'audio', 'dur',
+                                                  'archivo', 'nombreArchivo', 'partes'])
+        // v20: un mensaje con un archivo lo nombra y dice en cuántas partes está.
+        && (!('archivo' in request.resource.data)
+            || (request.resource.data.archivo is string && request.resource.data.archivo.size() <= 40
+                && request.resource.data.nombreArchivo is string && request.resource.data.nombreArchivo.size() <= 120
+                && request.resource.data.partes is int && request.resource.data.partes >= 1 && request.resource.data.partes <= 10))
         // v18: un mensaje de voz nombra su audio y dice cuánto dura.
         && (!('audio' in request.resource.data)
             || (request.resource.data.audio is string && request.resource.data.audio.size() <= 40))
@@ -480,6 +492,24 @@ service cloud.firestore {
         && request.resource.data.dur >= 1
         && request.resource.data.dur <= 60
         && request.resource.data.tipo in ['audio/ogg', 'audio/mp4']
+        && request.resource.data.creadoEn == request.time;
+      allow delete: if esPersona() && resource.data.de == request.auth.uid;
+    }
+
+    // ── v20 · Fotos y documentos de la charla, por partes ───────────────
+    match /archivos/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if esPersona()
+        && request.resource.data.keys().hasOnly(['de', 'datos', 'parte', 'partes', 'nombre', 'tipo', 'creadoEn'])
+        && request.resource.data.de == request.auth.uid
+        && request.resource.data.datos is bytes
+        && request.resource.data.datos.size() <= 700000
+        && request.resource.data.partes is int && request.resource.data.partes >= 1 && request.resource.data.partes <= 10
+        && request.resource.data.parte is int && request.resource.data.parte >= 0
+        && request.resource.data.parte < request.resource.data.partes
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() <= 120
+        && request.resource.data.tipo is string && request.resource.data.tipo.size() <= 100
+        && request.resource.data.tipo != 'application/vnd.android.package-archive'
         && request.resource.data.creadoEn == request.time;
       allow delete: if esPersona() && resource.data.de == request.auth.uid;
     }

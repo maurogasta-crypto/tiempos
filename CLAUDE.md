@@ -359,6 +359,12 @@ la documentación diga la verdad.
   cómo se encuentran, `llamadas/` (quien llama la crea con su oferta, el otro
   atiende con su respuesta o rechaza, cualquiera la corta). No se graba nada;
   el agente lee quién llamó a quién. **Hay que publicar las reglas v19.**
+  **Y desde la v20** (pizarra-64) FOTOS y DOCUMENTOS por la charla:
+  `archivos/` en partes de hasta 700 KB (hasta 10, unos 6 MB; la foto se
+  achica en el teléfono antes), y el mensaje los nombra (`archivo`,
+  `nombreArchivo`, `partes`). Lo leen los dos y el agente; lo borra quien lo
+  mandó —la Pizarra, a los 7 días: es TEMPORAL—; un instalador de Android no
+  entra. **Hay que publicar las reglas v20.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco
