@@ -1711,10 +1711,24 @@ titulo("v17: un mensaje puede ir a UN teléfono (pizarra-61, 24-oct)");
 prueba("la regla de mensajes acepta `para` (texto corto) y sin él sigue como la v15", () => {
   const r = fs.readFileSync("firestore.rules", "utf8");
   const b = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /alertas/{id}"));
-  assert.match(b, /hasOnly\(\['de', 'nombre', 'dispositivo', 'texto', 'creadoEn', 'para'\]\)/);
+  assert.match(b, /hasOnly\(\['de', 'nombre', 'dispositivo', 'texto', 'creadoEn', 'para'/);
   assert.match(b, /!\('para' in request\.resource\.data\)/);
   assert.match(b, /para\.size\(\) <= 140/);
-  assert.match(r, /v17, 24-oct-2026/);
+  assert.match(r, /v17: un mensaje puede llevar `para`/);
+});
+
+titulo("v18: los mensajes de voz del handy (pizarra-62, 24-oct)");
+prueba("audios/: lo leen los dos, lo crea cada uno a su nombre con forma fija y tope, lo borra sólo quien lo mandó; el agente no", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  const a = r.slice(r.indexOf("match /audios/{id}"), r.indexOf("match /alertas/{id}"));
+  assert.match(a, /allow read: if esPersona\(\);/);
+  assert.ok(!/esAgente/.test(a), "el agente no lee los audios");
+  assert.match(a, /hasOnly\(\['de', 'datos', 'dur', 'tipo', 'creadoEn'\]\)/);
+  assert.match(a, /datos\.size\(\) <= 400000/);
+  assert.match(a, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);
+  const m = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /audios/{id}"));
+  assert.match(m, /'para', 'audio', 'dur'\]/);
+  assert.match(r, /v18, 24-oct-2026/);
 });
 
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");

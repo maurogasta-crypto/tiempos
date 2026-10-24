@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v17, 24-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v18, 24-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -68,6 +68,12 @@ rules_version = '2';
 //      Florencia, con el Redmi 15, el Redmi 13»): va a ESE teléfono. Sin
 //      `para` es para todos, como en la v15. Lo leen los dos igual: es una
 //      charla de la familia, `para` dice a quién, no esconde nada.
+//  v18: los mensajes de VOZ (pizarra-62, general:C2 Fase A, 24-oct, Mauro:
+//      «un sistema de comunicación tipo handy»). El audio va a `audios/`
+//      (bytes, duración de 1 a 60 s, tipo Ogg o MP4, hasta 400 KB) y el
+//      mensaje lo nombra (`audio`, `dur`). Lo leen los dos; lo borra sólo
+//      quien lo mandó (la Pizarra lo hace a los 30 días). El agente no lo
+//      lee: no le hace falta para coordinar, y es la voz de alguien.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -432,7 +438,12 @@ service cloud.firestore {
     match /mensajes/{id} {
       allow read: if esPersona() || esAgente();
       allow create: if esPersona()
-        && request.resource.data.keys().hasOnly(['de', 'nombre', 'dispositivo', 'texto', 'creadoEn', 'para'])
+        && request.resource.data.keys().hasOnly(['de', 'nombre', 'dispositivo', 'texto', 'creadoEn', 'para', 'audio', 'dur'])
+        // v18: un mensaje de voz nombra su audio y dice cuánto dura.
+        && (!('audio' in request.resource.data)
+            || (request.resource.data.audio is string && request.resource.data.audio.size() <= 40))
+        && (!('dur' in request.resource.data)
+            || (request.resource.data.dur is int && request.resource.data.dur >= 1 && request.resource.data.dur <= 60))
         // v17: a qué teléfono va («<uid>|<teléfono>»); sin él, a todos.
         && (!('para' in request.resource.data)
             || (request.resource.data.para is string && request.resource.data.para.size() <= 140))
@@ -444,6 +455,22 @@ service cloud.firestore {
         && request.resource.data.nombre.size() <= 40
         && request.resource.data.dispositivo is string
         && request.resource.data.dispositivo.size() <= 60
+        && request.resource.data.creadoEn == request.time;
+      allow delete: if esPersona() && resource.data.de == request.auth.uid;
+    }
+
+    // ── v18 · Los audios del handy ──────────────────────────────────────
+    match /audios/{id} {
+      allow read: if esPersona();
+      allow create: if esPersona()
+        && request.resource.data.keys().hasOnly(['de', 'datos', 'dur', 'tipo', 'creadoEn'])
+        && request.resource.data.de == request.auth.uid
+        && request.resource.data.datos is bytes
+        && request.resource.data.datos.size() <= 400000
+        && request.resource.data.dur is int
+        && request.resource.data.dur >= 1
+        && request.resource.data.dur <= 60
+        && request.resource.data.tipo in ['audio/ogg', 'audio/mp4']
         && request.resource.data.creadoEn == request.time;
       allow delete: if esPersona() && resource.data.de == request.auth.uid;
     }

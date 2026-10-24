@@ -339,7 +339,13 @@ la documentación diga la verdad.
   muestra. **Hay que publicar las reglas v15.** **Desde la v17** (pizarra-61,
   24-oct) un mensaje puede llevar `para` = «<uid>|<teléfono>»: va a ese
   teléfono y la Pizarra lo muestra como una conversación aparte; sin `para`,
-  a todos. **Hay que publicar las reglas v17.**
+  a todos. **Hay que publicar las reglas v17.** **Y desde la v18** (pizarra-62,
+  `general:C2` Fase A, 24-oct, Mauro: «un sistema de comunicación tipo handy»)
+  un mensaje puede ser de VOZ: el audio va a `audios/` (bytes, 1 a 60 s, Ogg o
+  MP4, hasta 400 KB) y el mensaje lo nombra (`audio`, `dur`); lo leen los dos,
+  lo borra sólo quien lo mandó —la Pizarra, a los 30 días— y el agente no lo
+  lee. Vive acá y no en Cloudinary: ésa es la cuenta de las fotos de Casa
+  Verde y borrar ahí pide el secreto. **Hay que publicar las reglas v18.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco
