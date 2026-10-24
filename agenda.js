@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-20
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-21
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -238,6 +238,12 @@ function avisosDePieza(p, v) {
       <label>Cuándo <select name="antes">${AVISO_ANTES.map(([m, t]) => `<option value="${m}"${String(v("antes", "30")) === String(m) ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label></div>
     <small class="gris">Suena en la Pizarra del teléfono. Si la pieza no tiene hora, a las 08:00 de ese día.</small></fieldset>`;
 }
+/* agenda-21 (24-oct-2026, Mauro: «el aviso que quedaría para la otra persona…
+   tendría que por lo menos modificar la alarma y aclarar que fue una actividad
+   cancelada por el otro usuario»). Un aviso sobre una actividad de los chicos
+   —que ven los dos— nace COMPARTIDO y atado al evento: así, si el otro la
+   borra, puede encontrarlo y marcarlo cancelado (reglas v16: sólo eso). */
+const deEvento = (clave) => (String(clave).startsWith("ev:") ? { compartida: true, evento: String(clave).slice(3).split("|")[0] } : {});
 /** Los avisos de una pieza la siguen: a su día y hora nuevos y, si cambió de
     clave (una de los chicos que pasó a otro día), a su clave nueva (agenda-15). */
 async function correrAvisos(deClave, aClave, dia, hi) {
@@ -245,7 +251,7 @@ async function correrAvisos(deClave, aClave, dia, hi) {
     const n = horaDelAviso(dia, hi, a.antes ?? 0);
     if (!n) continue;
     if (n.dia !== a.dia || n.hora !== a.hora || aClave !== deClave)
-      await F.updateDoc(F.doc(db, "alertas", a.id), { ...n, avisada: false, sobre: aClave });
+      await F.updateDoc(F.doc(db, "alertas", a.id), { ...n, avisada: false, sobre: aClave, ...deEvento(aClave) });
   }
 }
 /** Después de guardar la pieza: corre los avisos que ya tenía y crea el nuevo, si se pidió. */
@@ -257,7 +263,7 @@ async function guardarAvisos(p, nueva, f, dia, hi, titulo, lugar) {
   const n = horaDelAviso(dia, hi, antes);
   if (!n) return "El aviso necesita un día.";
   const texto = (titulo + (lugar ? " · " + lugar : "")).slice(0, 200);
-  await F.addDoc(F.collection(db, "alertas"), { uid: E.yo.uid, tipo, texto, ...n, antes, sobre: nueva, avisada: false, creadoEn: F.serverTimestamp() });
+  await F.addDoc(F.collection(db, "alertas"), { uid: E.yo.uid, tipo, texto, ...n, antes, sobre: nueva, ...deEvento(nueva), avisada: false, creadoEn: F.serverTimestamp() });
   return `${tipo === "alarma" ? "⏰ Alarma" : "🔔 Recordatorio"} el ${n.dia.split("-").reverse().slice(0, 2).join("/")} a las ${n.hora}.`;
 }
 
@@ -606,6 +612,24 @@ async function sacarAvisos(p) {
   for (const id of ids) await F.deleteDoc(F.doc(db, "alertas", id)).catch(() => {});
   return ids.length ? ` Se sacaron también sus avisos (${ids.length}).` : "";
 }
+/* agenda-21: los avisos del OTRO sobre esa actividad no se borran (son suyos):
+   pasan a decir quién la canceló, y de alarma a recordatorio, para que no
+   suene la sirena por algo que ya no existe. La regla v16 deja sólo eso. */
+async function cancelarAvisosDelOtro(p) {
+  let n = 0;
+  try {
+    const q = await F.getDocs(F.query(F.collection(db, "alertas"), F.where("compartida", "==", true), F.where("evento", "==", p.id)));
+    const quien = nombreDe(E.yo.uid) || "El otro";
+    for (const d of q.docs) {
+      const a = d.data();
+      if (a.uid === E.yo.uid || a.cancelada) continue;
+      const texto = `❌ ${quien} canceló toda la actividad: ${p.titulo || a.texto || ""}`.slice(0, 200);
+      await F.updateDoc(F.doc(db, "alertas", d.id), { texto, tipo: "recordatorio", cancelada: true, canceladaPor: E.yo.uid });
+      n++;
+    }
+  } catch (e) { console.warn("avisos del otro:", e); return " (No se pudo avisar en las alarmas del otro: ¿se publicaron las reglas v16?)"; }
+  return n ? ` A ${n === 1 ? "su aviso" : "sus " + n + " avisos"} del otro se le avisó que la cancelaste.` : "";
+}
 async function sacarPieza(p) {
   if (p.clase === "act") {
     editando = null;
@@ -615,7 +639,8 @@ async function sacarPieza(p) {
   if (p.clase === "chicos") {
     if (!confirm("¿Borrar esta actividad de los chicos? La dejan de ver los dos. Si se repite, se borra entera.")) return;
     editando = null; await F.deleteDoc(F.doc(db, "eventos", p.id));
-    const ya = await sacarAvisos(p); if (ya) aviso("Borrada." + ya);
+    const ya = await sacarAvisos(p), otros = await cancelarAvisosDelOtro(p);
+    if (ya || otros) aviso("Borrada." + ya + otros);
     return;
   }
   editando = null; await guardarEnAgenda(p.clave, null);

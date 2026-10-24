@@ -1625,11 +1625,11 @@ prueba("la hora del aviso: cuánto antes, cruzando la medianoche, y sin hora a l
 });
 prueba("el aviso se guarda en alertas/ con la forma que suena la Pizarra, atado a la pieza, y se corre con ella", () => {
   const a = fs.readFileSync("agenda.js", "utf8");
-  assert.match(a, /F\.addDoc\(F\.collection\(db, "alertas"\), \{ uid: E\.yo\.uid, tipo, texto, \.\.\.n, antes, sobre: nueva, avisada: false/);
+  assert.match(a, /F\.addDoc\(F\.collection\(db, "alertas"\), \{ uid: E\.yo\.uid, tipo, texto, \.\.\.n, antes, sobre: nueva, \.\.\.deEvento\(nueva\), avisada: false/);
   assert.match(a, /\$\{avisosDePieza\(p, v\)\}/);
   assert.match(a, /horaDelAviso\(dia, hi, a\.antes \?\? 0\)/, "al mover la pieza, sus avisos se corren");
   // agenda-15: también al arrastrar, y una de los chicos que cambia de día lleva su aviso a la clave nueva.
-  assert.match(a, /\{ \.\.\.n, avisada: false, sobre: aClave \}/);
+  assert.match(a, /\{ \.\.\.n, avisada: false, sobre: aClave, \.\.\.deEvento\(aClave\) \}/);
   assert.match(a, /return `ev:\$\{r\.id\}\|\$\{aDia\}`;/);
   assert.match(a, /const nueva = await moverEvento\(e, p\.dia, dia, cambios\);\s*if \(nueva\) await correrAvisos\(clave, nueva, dia, hi\);/);
   assert.equal((a.match(/correrAvisos\(clave, clave/g) || []).length, 3, "arrastrar una tarea, una actividad o una de los chicos en su día");
@@ -1678,6 +1678,24 @@ prueba("sacar una tarea, una actividad o una de los chicos borra también mis al
   // y la Pizarra desprograma lo que se borró de la base (Alarmas.kt, aCancelar), así que con borrar alcanza
   const pz = "../pizarra/app/src/main/java/com/maurogasta/pizarra/Alarmas.kt";
   if (fs.existsSync(pz)) assert.match(fs.readFileSync(pz, "utf8"), /aCancelar\(antes, enLaBase\)/);
+});
+
+titulo("agenda-21: si borro una de los chicos, el aviso del otro dice que la cancelé (24-oct, Mauro)");
+prueba("el aviso de una de los chicos nace compartido; al borrarla, el del otro pasa a recordatorio con quién la canceló", () => {
+  const a = fs.readFileSync("agenda.js", "utf8"), r = fs.readFileSync("firestore.rules", "utf8");
+  assert.match(a, /const deEvento = \(clave\) => \(String\(clave\)\.startsWith\("ev:"\) \? \{ compartida: true, evento:/);
+  assert.match(a, /sobre: nueva, \.\.\.deEvento\(nueva\)/, "al crear");
+  assert.match(a, /sobre: aClave, \.\.\.deEvento\(aClave\)/, "al moverse a otra clave");
+  const g = a.slice(a.indexOf("async function cancelarAvisosDelOtro("), a.indexOf("async function sacarPieza("));
+  assert.match(g, /F\.where\("compartida", "==", true\), F\.where\("evento", "==", p\.id\)/);
+  assert.match(g, /if \(a\.uid === E\.yo\.uid \|\| a\.cancelada\) continue;/);
+  assert.match(g, /canceló toda la actividad/);
+  assert.match(g, /\{ texto, tipo: "recordatorio", cancelada: true, canceladaPor: E\.yo\.uid \}/);
+  // la regla deja exactamente eso y nada más
+  assert.match(r, /allow read: if esPersona\(\) && resource\.data\.compartida == true;/);
+  assert.match(r, /affectedKeys\(\)\.hasOnly\(\['texto', 'tipo', 'cancelada', 'canceladaPor'\]\)/);
+  assert.match(r, /request\.resource\.data\.tipo == 'recordatorio'/);
+  assert.match(r, /v16, 24-oct-2026/);
 });
 
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");

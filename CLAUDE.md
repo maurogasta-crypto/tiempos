@@ -85,7 +85,7 @@ la documentación diga la verdad.
   antes (`AVISO_ANTES`, `horaDelAviso` de nucleo.js). Va a `alertas/` con la
   forma de siempre —la que suena la Pizarra— más `sobre` (la clave de la
   pieza) y `antes` (minutos); al guardar la pieza con otra hora, sus avisos
-  se corren con ella, y cada uno se saca con ✕. **Desde agenda-20, sacar una pieza saca también sus avisos** (los propios: la regla no deja tocar los del otro), y la Pizarra los desprograma. Sin regla nueva: la de
+  se corren con ella, y cada uno se saca con ✕. **Desde agenda-20, sacar una pieza saca también sus avisos** (los propios: la regla no deja tocar los del otro), y la Pizarra los desprograma. **Y desde agenda-21 (reglas v16)** el aviso de una actividad de los chicos nace `compartida` con su `evento`: si uno la borra, el aviso del otro pasa a «❌ Mauro canceló toda la actividad: …», de alarma a recordatorio (la regla deja sólo eso). **Hay que publicar las reglas v16.** Sin regla nueva: la de
   `alertas/` no limita los campos. **Desde agenda-15 también al ARRASTRAR**
   (`correrAvisos`), y una de los chicos que cambia de día lleva su aviso a su
   clave nueva (`moverEvento` la devuelve: la suelta que nace tiene otro id).

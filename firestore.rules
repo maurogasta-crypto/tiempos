@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v15, 18-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v16, 24-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -58,6 +58,11 @@ rules_version = '2';
 //      escriben los dos, cada mensaje a nombre de quien lo manda y con el
 //      teléfono desde el que salió. No se editan; cada uno borra los suyos.
 //      El agente los lee (para ayudar a coordinar) y no escribe.
+//  v16: los avisos de una actividad de los CHICOS son `compartida` (agenda-21,
+//      24-oct, Mauro: «si borro una actividad que la otra persona tiene con
+//      alarma… aclarar que fue cancelada por el otro usuario»). El otro puede
+//      leerlos y SÓLO marcarlos cancelados (texto, de alarma a recordatorio,
+//      `cancelada`, `canceladaPor`). Lo demás de `alertas/`, como en la v15.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -448,6 +453,21 @@ service cloud.firestore {
       allow update: if esPersona() && resource.data.uid == request.auth.uid
         && request.resource.data.uid == resource.data.uid;
       allow delete: if esPersona() && resource.data.uid == request.auth.uid;
+      // v16 (agenda-21, 24-oct-2026): un aviso sobre una actividad de los
+      // chicos —que ven los dos— nace `compartida`. Si el otro borra la
+      // actividad, puede LEERLO y marcarlo cancelado: texto nuevo, de alarma a
+      // recordatorio, con quién lo canceló. Nada más: ni el día, ni la hora,
+      // ni borrarlo, ni tocar uno que no sea compartido.
+      allow read: if esPersona() && resource.data.compartida == true;
+      allow update: if esPersona() && resource.data.compartida == true
+        && resource.data.uid != request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['texto', 'tipo', 'cancelada', 'canceladaPor'])
+        && request.resource.data.cancelada == true
+        && request.resource.data.canceladaPor == request.auth.uid
+        && request.resource.data.tipo == 'recordatorio'
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() > 0
+        && request.resource.data.texto.size() <= 200;
       // v11: con el permiso de su dueño, Claude crea, corre y saca sus
       // alertas (la alarma de salir, con el viaje). Nunca de otro.
       allow create: if esAgente() && agenteEn(request.resource.data.uid)
