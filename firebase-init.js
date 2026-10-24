@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // firebase-init.js — El único contacto con Firebase. Dos bases, un SDK.
-// Sello: init-3
+// Sello: init-4
 //
 // ── LAS DOS BASES ────────────────────────────────────────────────────────────
 // · `tiempos-71d42` — la de la familia: tareas, sesiones y (después) el
@@ -71,7 +71,7 @@ export function cargar({ casaVerde = true } = {}) {
         tabManager: fs.persistentMultipleTabManager() }) });
     } catch { db = fs.getFirestore(app); }
     auth = au.getAuth(app);
-    F = { ...fs, ...au };
+    F = envolverEscrituras({ ...fs, ...au }, () => db, () => auth);
     if (!casaVerde) return true;
 
     try {
@@ -92,4 +92,59 @@ export function cargar({ casaVerde = true } = {}) {
     return true;
   })();
   return promesa;
+}
+
+// ── DESPERTAR A LAS PIZARRAS (init-4, 24-oct-2026, general:C1 fase 2) ────────
+// Mauro: «una conexión en tiempo real entre todos los integrantes». Cada vez
+// que esta app guarda algo que muestra la Pizarra, se le pide a `despertar`
+// del Netlify de Casa Verde que mande un aviso SIN contenido al tema de
+// Tiempos: las Pizarras se ponen al día solas, con su sesión. Se hace ACÁ, en
+// las cuatro funciones de escritura, y no en cada pantalla: así ninguna
+// escritura nueva se olvida. Sólo las de ESTA base (no las de Casa Verde) y
+// sólo las colecciones que la Pizarra lee. Nunca bloquea ni falla: si no
+// llega, la Pizarra lo trae a los 10 minutos.
+export const DESPERTAR = "https://serene-scone-76bd4e.netlify.app/.netlify/functions/despertar";
+export const QUE_DE_COLECCION = {
+  tareas: "tareas", alertas: "alertas", agendas: "agenda", eventos: "agenda",
+  deseos: "agenda", mensajes: "mensajes", avisos: "avisos", propuestas: "todo",
+};
+/** Qué cambió, según la dirección de lo escrito (`tareas/abc` → «tareas»); null si la Pizarra no lo muestra. */
+export function queCambio(ruta) {
+  const c = String(ruta || "").split("/")[0];
+  return Object.prototype.hasOwnProperty.call(QUE_DE_COLECCION, c) ? QUE_DE_COLECCION[c] : null;
+}
+const pendientes = new Map();
+function despertarLuego(que, getAuth) {
+  // Tres cosas guardadas seguidas despiertan una vez.
+  clearTimeout(pendientes.get(que));
+  pendientes.set(que, setTimeout(async () => {
+    pendientes.delete(que);
+    try {
+      const u = getAuth() && getAuth().currentUser;
+      if (!u || u.isAnonymous) return;
+      const t = await u.getIdToken();
+      await fetch(DESPERTAR, { method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
+        body: JSON.stringify({ base: "tiempos", que }) });
+    } catch (e) { /* silencio a propósito: lo guardado ya quedó */ }
+  }, 2000));
+}
+export function envolverEscrituras(F, getDb, getAuth) {
+  const avisar = (ref) => {
+    try {
+      if (!ref || ref.firestore !== getDb()) return;
+      const que = queCambio(ref.path);
+      if (que) despertarLuego(que, getAuth);
+    } catch (e) { /* nunca rompe una escritura */ }
+  };
+  const tras = (fn) => (ref, ...resto) => fn(ref, ...resto).then((r) => { avisar(ref); return r; });
+  const G = { ...F, addDoc: tras(F.addDoc), setDoc: tras(F.setDoc), updateDoc: tras(F.updateDoc), deleteDoc: tras(F.deleteDoc) };
+  G.writeBatch = (...a) => {
+    const b = F.writeBatch(...a), refs = [];
+    for (const m of ["set", "update", "delete"]) { const o = b[m].bind(b); b[m] = (ref, ...r) => { refs.push(ref); o(ref, ...r); return b; }; }
+    const commit = b.commit.bind(b);
+    b.commit = () => commit().then((r) => { refs.forEach(avisar); return r; });
+    return b;
+  };
+  return G;
 }

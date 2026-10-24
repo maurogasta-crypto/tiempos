@@ -612,9 +612,9 @@ Florencia la acuerden.
 | `balance.js` | el balance del tiempo (los chicos, del calendario), las salidas, los acuerdos, la auditoría | `balance-5` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-21` |
 | `familia.js` | Hoy y Chicos | `familia-6` |
-| `firebase-init.js` | el único contacto con las dos bases | `init-3` |
+| `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar | `init-4` |
 | `estilos.css` | | `estilos-30` |
-| `sw.js` | el cascarón sin señal | `tiempos-66` |
+| `sw.js` | el cascarón sin señal | `tiempos-67` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

@@ -290,6 +290,16 @@ la documentación diga la verdad.
   número cargado dos veces sería un dato en dos lugares. La herramienta del
   agente resuelve `tiempos` como `casaverde`. Criterios en
   `protocolos/PROTOCOLO-AVISOS.md` de `datos`.
+- **Guardar despierta a las Pizarras en el acto** (init-4, 24-oct-2026,
+  `general:C1` fase 2, Mauro: «una conexión en tiempo real entre todos los
+  integrantes»). `envolverEscrituras` de `firebase-init.js` envuelve `addDoc`,
+  `setDoc`, `updateDoc`, `deleteDoc` y `writeBatch` de `F`: cuando una
+  escritura de ESTA base sale bien y es de algo que la Pizarra muestra
+  (`QUE_DE_COLECCION`: tareas, alertas, agenda, eventos, deseos, mensajes,
+  avisos, propuestas), le pide a `despertar` del Netlify de Casa Verde un aviso
+  SIN contenido, de a uno por «qué» cada 2 s. Por eso **toda escritura va por
+  `F`** y ninguna pantalla importa el SDK por su cuenta (el banco lo
+  comprueba). Si la Pizarra empieza a mostrar otra colección, se suma ahí.
 - **Una colección nueva entra con su regla, en la misma tanda.**
 - **Una marca de tiempo (`marcas/`, reglas v8) no lleva título, y la regla lo
   garantiza con `hasOnly`**: la agenda de cada uno es privada y al balance va

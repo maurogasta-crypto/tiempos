@@ -27,8 +27,16 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          totalesFijos, comoVence, TIPO_CASA_VERDE } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
-const prueba = (n, f) => { try { f(); pasadas++; console.log("  ✓ " + n); }
-  catch (e) { fallidas++; console.log("  ✗ " + n + "\n      " + e.message); } };
+// Una prueba asíncrona se ESPERA (init-4): hasta ahí devolvía una promesa, se
+// contaba como pasada y su falla no la veía nadie.
+const esperando = [];
+const prueba = (n, f) => {
+  const mal = (e) => { fallidas++; console.log("  ✗ " + n + "\n      " + e.message); };
+  try {
+    const r = f();
+    if (r && typeof r.then === "function") { esperando.push(r.then(() => { pasadas++; console.log("  ✓ " + n); }, mal)); return; }
+    pasadas++; console.log("  ✓ " + n);
+  } catch (e) { mal(e); } };
 const titulo = (t) => console.log("\n" + t);
 const H = 3600000;
 
@@ -193,14 +201,15 @@ prueba("deseos-1: está en el SHELL, sube el flyer al guardar, y las reglas v10 
   assert.match(bloque, /allow update: if esPersona\(\)\s*&& request\.resource\.data\.uid == resource\.data\.uid/);
   assert.match(bloque, /dias\.size\(\) <= 7/); assert.match(r, /v10: un deseo puede repetirse/);
 });
-prueba("app-15: la captura que sube la app viaja como &imagen=, sólo de nuestra cuenta, y no se vuelve a subir", async () => {
-  const g = fs.readFileSync("sugerir.js", "utf8"), a = fs.readFileSync("app.js", "utf8");
-  const { imagenNuestra } = await import("./sugerir.js").catch(() => ({}));
-  assert.match(g, /export const imagenNuestra = \(u\) => typeof u === "string" && u\.startsWith\("https:\/\/res\.cloudinary\.com\/dnwfu8ffn\/"\)/);
-  assert.match(g, /if \(imagenNuestra\(imagen\)\)/);
-  assert.match(g, /imagen = fotoSubida \|\| await CV\.CV2\.subirImagen\(foto, "tiempos"\)/);
-  assert.match(a, /params\.get\("imagen"\)[\s\S]{0,120}abrirDictado\([\s\S]{0,60}imagen \}/);
-  assert.match(g, /pon[eé] el link en "detalle"/);
+prueba("app-15 / plata-16: la foto que sube la app viaja como &imagen= al GASTO, sólo de nuestra cuenta, y no se vuelve a subir", async () => {
+  const n = fs.readFileSync("nucleo.js", "utf8"), p = fs.readFileSync("plata.js", "utf8"), a = fs.readFileSync("app.js", "utf8");
+  assert.match(n, /export const imagenNuestra = \(u\) => typeof u === "string" && u\.startsWith\("https:\/\/res\.cloudinary\.com\/dnwfu8ffn\/"\)/);
+  const { imagenNuestra } = await import("./nucleo.js");
+  assert.equal(imagenNuestra("https://res.cloudinary.com/dnwfu8ffn/image/upload/x.jpg"), true);
+  assert.equal(imagenNuestra("https://res.cloudinary.com/otra/x.jpg"), false);
+  assert.equal(imagenNuestra(undefined), false);
+  assert.match(p, /if \(imagenNuestra\(imagen\)\)[\s\S]{0,200}leerFoto\([\s\S]{0,100}, imagen\)/);
+  assert.match(a, /params\.get\("gasto"\)[\s\S]{0,120}params\.get\("imagen"\)[\s\S]{0,80}abrirGasto\(im\)/);
 });
 prueba("las reglas v9: alertas de su dueño (el agente lee; escribe sólo con permiso, v11), deseos de los dos", () => {
   const r = fs.readFileSync("firestore.rules", "utf8");
@@ -1840,5 +1849,56 @@ prueba("cada nombre que un archivo importa de otro existe allá (un import roto 
   }
 });
 
+titulo("Despertar a las Pizarras (init-4)");
+{
+  const { envolverEscrituras, queCambio, QUE_DE_COLECCION } = await import("./firebase-init.js");
+  prueba("qué cambió sale de la colección; lo que la Pizarra no muestra no despierta", () => {
+    assert.equal(queCambio("tareas/abc"), "tareas");
+    assert.equal(queCambio("alertas"), "alertas");
+    assert.equal(queCambio("eventos/x"), "agenda");
+    assert.equal(queCambio("sesiones/x"), null);
+    assert.equal(queCambio("_historial/x"), null);
+    assert.equal(queCambio("constructor"), null);
+  });
+  prueba("los «qué» son los que acepta despertar.mjs de Casa Verde", () => {
+    const f = path.join("..", "casaverdecanas", "netlify", "functions", "despertar.mjs");
+    if (!fs.existsSync(f)) return;
+    const lista = /export const QUE = \[([^\]]*)\]/.exec(fs.readFileSync(f, "utf8"))[1];
+    for (const q of new Set(Object.values(QUE_DE_COLECCION))) assert.ok(lista.includes(`"${q}"`), q);
+  });
+  // Las escrituras envueltas, contra un SDK de mentira y un fetch que anota.
+  const llamadas = [], db = {}, otraDb = {};
+  const fetchViejo = globalThis.fetch;
+  globalThis.fetch = async (url, op) => { llamadas.push({ url, cuerpo: JSON.parse(op.body), auth: op.headers.Authorization }); return { ok: true }; };
+  const lote = () => ({ set() {}, update() {}, delete() {}, commit: async () => "hecho" });
+  const F = { addDoc: async () => "a", setDoc: async () => "s", updateDoc: async () => "u", deleteDoc: async () => "d", writeBatch: lote };
+  const user = { isAnonymous: false, getIdToken: async () => "tok" };
+  const G = envolverEscrituras(F, () => db, () => ({ currentUser: user }));
+  assert.equal(await G.setDoc({ firestore: db, path: "tareas/1" }, {}), "s");
+  await G.updateDoc({ firestore: db, path: "tareas/2" }, {});
+  await G.addDoc({ firestore: db, path: "alertas" }, {});
+  await G.setDoc({ firestore: otraDb, path: "tareas/3" }, {});      // Casa Verde: no
+  await G.setDoc({ firestore: db, path: "sesiones/4" }, {});        // no la muestra: no
+  const b = G.writeBatch(db); b.set({ firestore: db, path: "eventos/5" }, {}); assert.equal(await b.commit(), "hecho");
+  let falla = null; try { await envolverEscrituras({ ...F, setDoc: async () => { throw new Error("denegado"); } }, () => db, () => ({ currentUser: user })).setDoc({ firestore: db, path: "tareas/9" }); } catch (e) { falla = e.message; }
+  await new Promise((r) => setTimeout(r, 2300));
+  globalThis.fetch = fetchViejo;
+  prueba("guardar despierta una vez por «qué», sin contenido, con el token; lo de Casa Verde y lo que falló, no", () => {
+    assert.equal(falla, "denegado");
+    assert.deepEqual(llamadas.map((l) => l.cuerpo.que).sort(), ["agenda", "alertas", "tareas"]);
+    for (const l of llamadas) {
+      assert.ok(l.url.endsWith("/.netlify/functions/despertar"));
+      assert.deepEqual(Object.keys(l.cuerpo).sort(), ["base", "que"]);
+      assert.equal(l.cuerpo.base, "tiempos");
+      assert.equal(l.auth, "Bearer tok");
+    }
+  });
+  prueba("todas las pantallas escriben por F (las envueltas), ninguna importa el SDK por su cuenta", () => {
+    for (const f of fs.readdirSync(".").filter((x) => x.endsWith(".js") && x !== "firebase-init.js" && x !== "sw.js"))
+      assert.ok(!/firebase-firestore\.js/.test(fs.readFileSync(f, "utf8")), f);
+  });
+}
+
+await Promise.all(esperando);
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);
