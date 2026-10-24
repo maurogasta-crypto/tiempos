@@ -38,6 +38,12 @@ verificación previa no es opcional: que parsee como módulo
 que suban los sellos (y `VERSION` de `sw.js` si cambia algo del `SHELL`), y que
 la documentación diga la verdad.
 
+- **Ningún desarrollo pasa de los cupos gratuitos** (24-oct-2026, Mauro: «es
+  una condición para el desarrollo hoy día»). Cada cuenta en un plan que no
+  puede cobrar (Firebase Spark, Gemini sin facturación, Netlify y Cloudinary
+  gratis), y cada tanda que agrega uso dice cuánto, para 10 personas, contra
+  el cupo; lo que exige facturación no se hace. `PROTOCOLO-DESARROLLO.md` § 13
+  de `datos`.
 - **Toda contraseña tiene su ojo 👁** (app-28, 11-oct-2026, Mauro: «en todos
   los sitios»): `ojosEnClaves()` al final de `app.js`. Es el mismo código que
   en Casa Verde, CasaYourte, remate y el panel, y en la Pizarra va en Kotlin:
