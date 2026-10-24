@@ -1718,11 +1718,11 @@ prueba("la regla de mensajes acepta `para` (texto corto) y sin él sigue como la
 });
 
 titulo("v18: los mensajes de voz del handy (pizarra-62, 24-oct)");
-prueba("audios/: lo leen los dos, lo crea cada uno a su nombre con forma fija y tope, lo borra sólo quien lo mandó; el agente no", () => {
+prueba("audios/: lo leen los dos y el agente, lo crea cada uno a su nombre con forma fija y tope, lo borra sólo quien lo mandó", () => {
   const r = fs.readFileSync("firestore.rules", "utf8");
   const a = r.slice(r.indexOf("match /audios/{id}"), r.indexOf("match /alertas/{id}"));
-  assert.match(a, /allow read: if esPersona\(\);/);
-  assert.ok(!/esAgente/.test(a), "el agente no lee los audios");
+  assert.match(a, /allow read: if esPersona\(\) \|\| esAgente\(\);/);
+  assert.ok(!/allow (create|delete)[^;]*esAgente/.test(a), "el agente lee, no escribe ni borra");
   assert.match(a, /hasOnly\(\['de', 'datos', 'dur', 'tipo', 'creadoEn'\]\)/);
   assert.match(a, /datos\.size\(\) <= 400000/);
   assert.match(a, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);

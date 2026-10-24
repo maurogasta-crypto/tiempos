@@ -72,8 +72,11 @@ rules_version = '2';
 //      «un sistema de comunicación tipo handy»). El audio va a `audios/`
 //      (bytes, duración de 1 a 60 s, tipo Ogg o MP4, hasta 400 KB) y el
 //      mensaje lo nombra (`audio`, `dur`). Lo leen los dos; lo borra sólo
-//      quien lo mandó (la Pizarra lo hace a los 30 días). El agente no lo
-//      lee: no le hace falta para coordinar, y es la voz de alguien.
+//      quien lo mandó (la Pizarra lo hace a los 30 días). El agente LO LEE
+//      (Mauro: «quiero que la IA pueda auditar las comunicaciones… serán
+//      propuestas o trabajos de desarrollo en el que siempre se incluirá la
+//      IA»): la ronda los transcribe para convertirlos en trabajo, y la
+//      Pizarra lo dice a la vista antes de grabar.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -461,7 +464,7 @@ service cloud.firestore {
 
     // ── v18 · Los audios del handy ──────────────────────────────────────
     match /audios/{id} {
-      allow read: if esPersona();
+      allow read: if esPersona() || esAgente();
       allow create: if esPersona()
         && request.resource.data.keys().hasOnly(['de', 'datos', 'dur', 'tipo', 'creadoEn'])
         && request.resource.data.de == request.auth.uid

@@ -343,8 +343,10 @@ la documentación diga la verdad.
   `general:C2` Fase A, 24-oct, Mauro: «un sistema de comunicación tipo handy»)
   un mensaje puede ser de VOZ: el audio va a `audios/` (bytes, 1 a 60 s, Ogg o
   MP4, hasta 400 KB) y el mensaje lo nombra (`audio`, `dur`); lo leen los dos,
-  lo borra sólo quien lo mandó —la Pizarra, a los 30 días— y el agente no lo
-  lee. Vive acá y no en Cloudinary: ésa es la cuenta de las fotos de Casa
+  lo borra sólo quien lo mandó —la Pizarra, a los 30 días— y **el agente lo
+  lee** (Mauro: «quiero que la IA pueda auditar las comunicaciones»): la ronda
+  los transcribe con `herramientas/charla.mjs` de `datos` y la Pizarra lo dice
+  a la vista. Vive acá y no en Cloudinary: ésa es la cuenta de las fotos de Casa
   Verde y borrar ahí pide el secreto. **Hay que publicar las reglas v18.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
