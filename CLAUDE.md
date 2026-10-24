@@ -354,6 +354,11 @@ la documentación diga la verdad.
   los transcribe con `herramientas/charla.mjs` de `datos` y la Pizarra lo dice
   a la vista. Vive acá y no en Cloudinary: ésa es la cuenta de las fotos de Casa
   Verde y borrar ahí pide el secreto. **Hay que publicar las reglas v18.**
+  **Y desde la v19** (pizarra-63, `general:C2` Fase B) las LLAMADAS entre
+  Pizarras: la voz va directo de teléfono a teléfono (WebRTC) y acá vive sólo
+  cómo se encuentran, `llamadas/` (quien llama la crea con su oferta, el otro
+  atiende con su respuesta o rechaza, cualquiera la corta). No se graba nada;
+  el agente lee quién llamó a quién. **Hay que publicar las reglas v19.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco

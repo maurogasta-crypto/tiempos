@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v18, 24-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v19, 24-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -77,6 +77,12 @@ rules_version = '2';
 //      propuestas o trabajos de desarrollo en el que siempre se incluirá la
 //      IA»): la ronda los transcribe para convertirlos en trabajo, y la
 //      Pizarra lo dice a la vista antes de grabar.
+//  v19: las LLAMADAS entre Pizarras (pizarra-63, general:C2 Fase B, 24-oct,
+//      Mauro: «llamada directo en tiempo real… sin utilizar WhatsApp»). La
+//      voz va directo de teléfono a teléfono; acá vive sólo cómo se
+//      encuentran (`llamadas/`): quien llama la crea con su oferta, el otro
+//      atiende con su respuesta o rechaza, y cualquiera de los dos la corta.
+//      No se graba nada. El agente lee quién llamó a quién y cuándo.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -475,6 +481,36 @@ service cloud.firestore {
         && request.resource.data.dur <= 60
         && request.resource.data.tipo in ['audio/ogg', 'audio/mp4']
         && request.resource.data.creadoEn == request.time;
+      allow delete: if esPersona() && resource.data.de == request.auth.uid;
+    }
+
+    // ── v19 · Las llamadas entre Pizarras ───────────────────────────────
+    match /llamadas/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if esPersona()
+        && request.resource.data.keys().hasOnly(['de', 'nombre', 'dispositivo', 'para', 'estado', 'oferta', 'creadoEn'])
+        && request.resource.data.de == request.auth.uid
+        && request.resource.data.estado == 'llamando'
+        && request.resource.data.oferta is string && request.resource.data.oferta.size() <= 20000
+        && request.resource.data.para is string && request.resource.data.para.size() <= 140
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() <= 40
+        && request.resource.data.dispositivo is string && request.resource.data.dispositivo.size() <= 60
+        && request.resource.data.creadoEn == request.time;
+      // Atender o rechazar: el otro, mientras suena.
+      allow update: if esPersona()
+        && resource.data.estado == 'llamando'
+        && request.auth.uid != resource.data.de
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'respuesta', 'atendio'])
+        && request.resource.data.atendio is string && request.resource.data.atendio.size() <= 60
+        && ((request.resource.data.estado == 'atendida'
+             && request.resource.data.respuesta is string && request.resource.data.respuesta.size() <= 20000)
+            || (request.resource.data.estado == 'rechazada' && !('respuesta' in request.resource.data)));
+      // Cortar o cancelar: cualquiera de los dos, una vez.
+      allow update: if esPersona()
+        && resource.data.estado in ['llamando', 'atendida']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'fin'])
+        && request.resource.data.estado in ['cortada', 'cancelada']
+        && request.resource.data.fin == request.time;
       allow delete: if esPersona() && resource.data.de == request.auth.uid;
     }
 
