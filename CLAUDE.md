@@ -336,7 +336,10 @@ la documentación diga la verdad.
   tiene la Pizarra en más de uno) y `texto`. Se escribe y se lee desde la
   Pizarra (✎ del widget «Mensajes y novedades»); no se edita, cada uno borra
   los suyos, y el agente la lee y no escribe. Esta app web todavía no la
-  muestra. **Hay que publicar las reglas v15.**
+  muestra. **Hay que publicar las reglas v15.** **Desde la v17** (pizarra-61,
+  24-oct) un mensaje puede llevar `para` = «<uid>|<teléfono>»: va a ese
+  teléfono y la Pizarra lo muestra como una conversación aparte; sin `para`,
+  a todos. **Hay que publicar las reglas v17.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco

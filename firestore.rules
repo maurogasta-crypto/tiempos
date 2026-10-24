@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v16, 24-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v17, 24-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -63,6 +63,11 @@ rules_version = '2';
 //      alarma… aclarar que fue cancelada por el otro usuario»). El otro puede
 //      leerlos y SÓLO marcarlos cancelados (texto, de alarma a recordatorio,
 //      `cancelada`, `canceladaPor`). Lo demás de `alertas/`, como en la v15.
+//  v17: un mensaje puede llevar `para` = «<uid>|<teléfono>» (pizarra-61,
+//      24-oct, Mauro: «las conversaciones con cada uno… con el teléfono de
+//      Florencia, con el Redmi 15, el Redmi 13»): va a ESE teléfono. Sin
+//      `para` es para todos, como en la v15. Lo leen los dos igual: es una
+//      charla de la familia, `para` dice a quién, no esconde nada.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -427,7 +432,10 @@ service cloud.firestore {
     match /mensajes/{id} {
       allow read: if esPersona() || esAgente();
       allow create: if esPersona()
-        && request.resource.data.keys().hasOnly(['de', 'nombre', 'dispositivo', 'texto', 'creadoEn'])
+        && request.resource.data.keys().hasOnly(['de', 'nombre', 'dispositivo', 'texto', 'creadoEn', 'para'])
+        // v17: a qué teléfono va («<uid>|<teléfono>»); sin él, a todos.
+        && (!('para' in request.resource.data)
+            || (request.resource.data.para is string && request.resource.data.para.size() <= 140))
         && request.resource.data.de == request.auth.uid
         && request.resource.data.texto is string
         && request.resource.data.texto.size() > 0

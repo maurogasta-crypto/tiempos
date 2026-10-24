@@ -1704,7 +1704,17 @@ prueba("el aviso de una de los chicos nace compartido; al borrarla, el del otro 
   assert.match(r, /allow read: if esPersona\(\) && resource\.data\.compartida == true;/);
   assert.match(r, /affectedKeys\(\)\.hasOnly\(\['texto', 'tipo', 'cancelada', 'canceladaPor'\]\)/);
   assert.match(r, /request\.resource\.data\.tipo == 'recordatorio'/);
-  assert.match(r, /v16, 24-oct-2026/);
+  assert.match(r, /v16: los avisos de una actividad de los CHICOS/);
+});
+
+titulo("v17: un mensaje puede ir a UN teléfono (pizarra-61, 24-oct)");
+prueba("la regla de mensajes acepta `para` (texto corto) y sin él sigue como la v15", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  const b = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /alertas/{id}"));
+  assert.match(b, /hasOnly\(\['de', 'nombre', 'dispositivo', 'texto', 'creadoEn', 'para'\]\)/);
+  assert.match(b, /!\('para' in request\.resource\.data\)/);
+  assert.match(b, /para\.size\(\) <= 140/);
+  assert.match(r, /v17, 24-oct-2026/);
 });
 
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");
