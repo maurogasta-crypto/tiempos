@@ -365,6 +365,14 @@ la documentación diga la verdad.
   `nombreArchivo`, `partes`). Lo leen los dos y el agente; lo borra quien lo
   mandó —la Pizarra, a los 7 días: es TEMPORAL—; un instalador de Android no
   entra. **Hay que publicar las reglas v20.**
+  **Y desde la v21** (pizarra-71, `general:C4` paso 4, 26-oct, Mauro: «que
+  pase reportes al teléfono… que pueda estar en cualquier lado») el ENLACE
+  LEJOS: cuando dos Pizarras con el mismo código no están cerca, lo que se
+  mandan (los avisos de la Hilux: viaje empezado o terminado, una línea fuera
+  de lo normal, y el viaje en vivo mientras alguien lo mira) pasa por
+  `enlace/{par}/cosas/`, con forma fija y sin coordenadas. Lo leen los dos y
+  el agente; cada uno borra lo suyo (la Pizarra, a los 7 días). **Hay que
+  publicar las reglas v21.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco

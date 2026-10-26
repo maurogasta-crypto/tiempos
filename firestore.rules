@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v20, 24-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v21, 26-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -89,6 +89,16 @@ rules_version = '2';
 //      unos 6 MB), y el mensaje los nombra (`archivo`, `nombreArchivo`,
 //      `partes`). Lo leen los dos y el agente; lo borra quien lo mandó (la
 //      Pizarra, a los 7 días). Un instalador de Android no entra.
+//  v21: el ENLACE LEJOS entre Pizarras (pizarra-71, general:C4 paso 4, 26-oct,
+//      Mauro: «que pase reportes al teléfono… que pueda estar en cualquier
+//      lado»). Cuando dos Pizarras con el mismo código del enlace no están
+//      cerca, lo que se mandan pasa por `enlace/{par}/cosas/`: los EVENTOS
+//      (`e-<t>`: empezó o terminó un viaje de la Hilux, una línea fuera de lo
+//      normal) se crean y no se pisan; el VIVO (`vivo`) y quién lo está
+//      mirando (`mira`) se pisan. Forma fija, sin coordenadas: la regla no
+//      deja otros campos. Lo leen los miembros y el agente; cada uno borra
+//      lo suyo (la Pizarra, a los 7 días). `par` es un resumen del código del
+//      enlace, nunca el código.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -541,6 +551,32 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'fin'])
         && request.resource.data.estado in ['cortada', 'cancelada']
         && request.resource.data.fin == request.time;
+      allow delete: if esPersona() && resource.data.de == request.auth.uid;
+    }
+
+    // ── v21 · El enlace lejos entre Pizarras ────────────────────────────
+    function formaEnlace(d, id) {
+      return d.keys().hasOnly(['de', 'dispositivo', 'tipo', 'app', 'titulo', 'texto', 'kmh', 'km', 'rpm', 'marcha', 't', 'creadoEn'])
+        && d.de == request.auth.uid
+        && d.dispositivo is string && d.dispositivo.size() <= 60
+        && d.t is int
+        && ((id == 'vivo' && d.tipo == 'vivo')
+            || (id == 'mira' && d.tipo == 'mira')
+            || (id.matches('e-[0-9]+') && d.tipo in ['evento', 'prueba']))
+        && (!('app' in d) || (d.app is string && d.app.size() <= 20))
+        && (!('titulo' in d) || (d.titulo is string && d.titulo.size() <= 80))
+        && (!('texto' in d) || (d.texto is string && d.texto.size() <= 300))
+        && (!('kmh' in d) || d.kmh is number)
+        && (!('km' in d) || d.km is number)
+        && (!('rpm' in d) || d.rpm is int)
+        && (!('marcha' in d) || d.marcha is int)
+        && d.creadoEn == request.time;
+    }
+    match /enlace/{par}/cosas/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create: if esPersona() && par.size() == 16 && formaEnlace(request.resource.data, id);
+      // Sólo el vivo y la mira se pisan; un evento no se cambia.
+      allow update: if esPersona() && id in ['vivo', 'mira'] && formaEnlace(request.resource.data, id);
       allow delete: if esPersona() && resource.data.de == request.auth.uid;
     }
 

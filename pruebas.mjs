@@ -1755,7 +1755,24 @@ prueba("archivos/: por partes de hasta 700 KB, lo leen los dos y el agente, lo b
   assert.ok(!/allow (create|delete)[^;]*esAgente/.test(b));
   const m = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /audios/{id}"));
   assert.match(m, /'archivo', 'nombreArchivo', 'partes'\]/);
-  assert.match(r, /v20, 24-oct-2026/);
+  assert.match(r, /v20: FOTOS y DOCUMENTOS por la charla/);
+});
+
+titulo("v21: el enlace lejos entre Pizarras (pizarra-71, general:C4, 26-oct)");
+prueba("enlace/{par}/cosas: forma fija sin coordenadas, los eventos no se pisan, el vivo y la mira sí, cada uno borra lo suyo", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  assert.match(r, /v21, 26-oct-2026/);
+  const f = r.slice(r.indexOf("function formaEnlace("), r.indexOf("match /enlace/"));
+  assert.match(f, /hasOnly\(\['de', 'dispositivo', 'tipo', 'app', 'titulo', 'texto', 'kmh', 'km', 'rpm', 'marcha', 't', 'creadoEn'\]\)/);
+  assert.doesNotMatch(f, /lat|lon|posicion/, "una coordenada no tiene campo");
+  assert.match(f, /d\.de == request\.auth\.uid/);
+  assert.match(f, /id\.matches\('e-\[0-9\]\+'\) && d\.tipo in \['evento', 'prueba'\]/);
+  const b = r.slice(r.indexOf("match /enlace/"), r.indexOf("match /alertas/{id}"));
+  assert.match(b, /allow read: if esPersona\(\) \|\| esAgente\(\);/);
+  assert.match(b, /par\.size\(\) == 16/);
+  assert.match(b, /allow update: if esPersona\(\) && id in \['vivo', 'mira'\]/);
+  assert.match(b, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);
+  assert.ok(!/allow (create|update|delete)[^;]*esAgente/.test(b));
 });
 
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");
