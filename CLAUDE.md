@@ -387,6 +387,15 @@ la documentación diga la verdad.
   BORRAR —nunca crear ni cambiar— mensajes, audios, archivos, llamadas y lo del
   enlace lejos, con `herramientas/charla.mjs limpiar` de `datos` y sólo con la
   autorización de Mauro en el chat. **Hay que publicar las reglas v23.**
+  **Y desde la v24** (pizarra-78, 28-oct, Mauro: «confirmar que no se estén
+  perdiendo datos, mensajes o transmisiones de handy entre uno y otro») cada
+  Pizarra sube una vez por hora su PARTE DE SALUD a `salud/<uid>|<aparato>`:
+  contadores (handy cerca mandado, oído y con trozos perdidos; acuses; cortes;
+  audios que sonaron o no y por qué), los ids de los mensajes que recibió y las
+  líneas de comunicación de su bitácora — nunca texto ni sonido. Lo escribe
+  sólo su dueño; lo leen los dos y el agente, que lo cruza con lo mandado
+  (`herramientas/charla.mjs salud` de `datos`). **Hay que publicar las reglas
+  v24.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco

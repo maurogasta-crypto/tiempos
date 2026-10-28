@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v23, 28-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v24, 28-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -118,6 +118,14 @@ rules_version = '2';
 //      crearlos ni cambiarlos—. Lo hace `herramientas/charla.mjs limpiar` de
 //      `datos`, y sólo con la autorización de Mauro escrita en el chat; cada
 //      mensaje borrado deja su copia en `_historial`.
+//  v24: el PARTE DE SALUD de la comunicación (28-oct, Mauro: «encontrar
+//      errores… al hacer las comunicaciones entre los teléfonos, para
+//      confirmar que no se estén perdiendo datos, mensajes o transmisiones de
+//      handy»). Cada Pizarra sube, una vez por hora, `salud/<uid>|<aparato>`:
+//      contadores, los ids de los mensajes que recibió y los renglones de
+//      comunicación de su bitácora; NUNCA texto ni sonido. Lo escribe sólo su
+//      dueño, con forma fija; lo leen los dos y el agente, que lo cruza con lo
+//      mandado (`charla.mjs salud` de `datos`) y puede borrar un parte viejo.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -598,6 +606,27 @@ service cloud.firestore {
         && (!('marcha' in d) || d.marcha is int)
         && d.creadoEn == request.time;
     }
+    // ── v24 · El parte de salud de la comunicación de cada aparato ─────────
+    // Sólo números, ids y líneas de la bitácora (que no llevan contenido).
+    // El id es «<uid>|<aparato>»: cada uno escribe sólo los suyos.
+    match /salud/{id} {
+      allow read: if esPersona() || esAgente();
+      allow create, update: if esPersona()
+        && id.matches(request.auth.uid + '[|].{1,80}')
+        && request.resource.data.keys().hasOnly(['de', 'dispositivo', 'sello', 'contadores', 'recibidos', 'eventos', 'charlaHasta', 'enlace', 'actualizado'])
+        && request.resource.data.de == request.auth.uid
+        && request.resource.data.dispositivo is string && request.resource.data.dispositivo.size() <= 60
+        && request.resource.data.sello is string && request.resource.data.sello.size() <= 20
+        && request.resource.data.contadores is map && request.resource.data.contadores.size() <= 60
+        && request.resource.data.recibidos is list && request.resource.data.recibidos.size() <= 80
+        && request.resource.data.eventos is list && request.resource.data.eventos.size() <= 40
+        && request.resource.data.charlaHasta is string && request.resource.data.charlaHasta.size() <= 40
+        && request.resource.data.enlace is string && request.resource.data.enlace.size() <= 120
+        && request.resource.data.actualizado == request.time;
+      allow delete: if esPersona() && resource.data.de == request.auth.uid;
+      allow delete: if esAgente();   // un aparato que ya no se usa
+    }
+
     // ── v22 · La llave del enlace, de la cuenta y no de un código a mano ─
     // Una sola, de la familia. Se crea una vez (con su forma) y no se toca: si
     // cambiara, las Pizarras que ya la tienen dejarían de entenderse. NO la lee

@@ -1796,7 +1796,7 @@ prueba("un mensaje de voz puede llevar handy: true, y sólo si tiene audio", () 
 titulo("v23: el gestor de la charla (28-oct)");
 prueba("el agente BORRA mensajes, audios, archivos, llamadas y lo del enlace; nunca los crea ni los cambia", () => {
   const r = fs.readFileSync("firestore.rules", "utf8");
-  assert.match(r, /v23, 28-oct-2026/);
+  assert.match(r, /v2[3-9], 28-oct-2026/);
   const bloque = (desde, hasta) => r.slice(r.indexOf(desde), r.indexOf(hasta, r.indexOf(desde) + 1));
   for (const [d, h] of [["match /mensajes/{id}", "match /audios/{id}"], ["match /audios/{id}", "match /archivos/{id}"],
                         ["match /archivos/{id}", "match /llamadas/{id}"], ["match /llamadas/{id}", "function formaEnlace("],
@@ -1806,6 +1806,19 @@ prueba("el agente BORRA mensajes, audios, archivos, llamadas y lo del enlace; nu
     assert.doesNotMatch(b, /allow (create|update)[^;]*esAgente/, d);
   }
   assert.doesNotMatch(bloque("match /enlace_llave/{id}", "match /enlace/{par}"), /esAgente/, "la llave del enlace sigue sin el agente");
+});
+
+titulo("v24: el parte de salud de la comunicación (pizarra-78, 28-oct)");
+prueba("salud/: lo escribe sólo su dueño con forma fija y sin contenido; lo leen los dos y el agente, que no lo escribe", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  assert.match(r, /v24, 28-oct-2026/);
+  const b = r.slice(r.indexOf("match /salud/{id}"), r.indexOf("match /enlace_llave/{id}"));
+  assert.match(b, /allow read: if esPersona\(\) \|\| esAgente\(\);/);
+  assert.match(b, /id\.matches\(request\.auth\.uid \+ '\[\|\]\.\{1,80\}'\)/);
+  assert.match(b, /hasOnly\(\['de', 'dispositivo', 'sello', 'contadores', 'recibidos', 'eventos', 'charlaHasta', 'enlace', 'actualizado'\]\)/);
+  assert.doesNotMatch(b, /'texto'|'audio'|'datos'/, "ni texto ni sonido");
+  assert.doesNotMatch(b, /allow (create|update)[^;]*esAgente/);
+  assert.match(b, /request\.resource\.data\.actualizado == request\.time/);
 });
 
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");
