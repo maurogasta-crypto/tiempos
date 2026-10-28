@@ -373,6 +373,15 @@ la documentación diga la verdad.
   `enlace/{par}/cosas/`, con forma fija y sin coordenadas. Lo leen los dos y
   el agente; cada uno borra lo suyo (la Pizarra, a los 7 días). **Hay que
   publicar las reglas v21.**
+  **Y desde la v22** (pizarra-75, 28-oct, Mauro: «el código no creo que sea
+  necesario… ya traen un usuario con un logueo»; «el handy… cuando no esté
+  cerca, que lo mande por internet y despierte el teléfono») las Pizarras de
+  la familia se reconocen por la CUENTA: `enlace_llave/familia` guarda el
+  código que firma el enlace cerca; lo crea la primera Pizarra y no cambia, y
+  lo leen sólo los miembros —el agente no: está en `selladas` de
+  `firestore.mjs` y la regla se lo niega—. Y un mensaje de voz puede llevar
+  `handy: true`: el otro teléfono lo reproduce solo al llegar. **Hay que
+  publicar las reglas v22.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco

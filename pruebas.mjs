@@ -1754,25 +1754,43 @@ prueba("archivos/: por partes de hasta 700 KB, lo leen los dos y el agente, lo b
   assert.match(b, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);
   assert.ok(!/allow (create|delete)[^;]*esAgente/.test(b));
   const m = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /audios/{id}"));
-  assert.match(m, /'archivo', 'nombreArchivo', 'partes'\]/);
+  assert.match(m, /'archivo', 'nombreArchivo', 'partes'(, 'handy')?\]/);
   assert.match(r, /v20: FOTOS y DOCUMENTOS por la charla/);
 });
 
 titulo("v21: el enlace lejos entre Pizarras (pizarra-71, general:C4, 26-oct)");
 prueba("enlace/{par}/cosas: forma fija sin coordenadas, los eventos no se pisan, el vivo y la mira sí, cada uno borra lo suyo", () => {
   const r = fs.readFileSync("firestore.rules", "utf8");
-  assert.match(r, /v21, 26-oct-2026/);
-  const f = r.slice(r.indexOf("function formaEnlace("), r.indexOf("match /enlace/"));
+  assert.match(r, /v21: el ENLACE LEJOS entre Pizarras/);
+  const f = r.slice(r.indexOf("function formaEnlace("), r.indexOf("match /enlace_llave/"));
   assert.match(f, /hasOnly\(\['de', 'dispositivo', 'tipo', 'app', 'titulo', 'texto', 'kmh', 'km', 'rpm', 'marcha', 't', 'creadoEn'\]\)/);
   assert.doesNotMatch(f, /lat|lon|posicion/, "una coordenada no tiene campo");
   assert.match(f, /d\.de == request\.auth\.uid/);
   assert.match(f, /id\.matches\('e-\[0-9\]\+'\) && d\.tipo in \['evento', 'prueba'\]/);
-  const b = r.slice(r.indexOf("match /enlace/"), r.indexOf("match /alertas/{id}"));
+  const b = r.slice(r.indexOf("match /enlace/{par}"), r.indexOf("match /alertas/{id}"));
   assert.match(b, /allow read: if esPersona\(\) \|\| esAgente\(\);/);
   assert.match(b, /par\.size\(\) == 16/);
   assert.match(b, /allow update: if esPersona\(\) && id in \['vivo', 'mira'\]/);
   assert.match(b, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);
   assert.ok(!/allow (create|update|delete)[^;]*esAgente/.test(b));
+});
+
+titulo("v22: el enlace sin código y el handy por internet (pizarra-75, 28-oct)");
+prueba("enlace_llave/familia: la crean los miembros una vez, con forma, y NO la lee el agente", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  assert.match(r, /v22, 28-oct-2026/);
+  const b = r.slice(r.indexOf("match /enlace_llave/{id}"), r.indexOf("match /enlace/{par}"));
+  assert.match(b, /allow read: if esPersona\(\) && id == 'familia';/);
+  assert.match(b, /hasOnly\(\['codigo', 'creadoPor', 'creadoEn'\]\)/);
+  assert.match(b, /codigo\.matches\('\[A-HJ-NP-Z2-9\]\{10\}'\)/);
+  assert.doesNotMatch(b, /esAgente/, "el agente no la lee ni la escribe");
+  assert.doesNotMatch(b, /allow (update|delete)/, "una vez creada no cambia");
+});
+prueba("un mensaje de voz puede llevar handy: true, y sólo si tiene audio", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  const m = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /audios/{id}"));
+  assert.match(m, /'archivo', 'nombreArchivo', 'partes', 'handy'\]/);
+  assert.match(m, /request\.resource\.data\.handy is bool && 'audio' in request\.resource\.data/);
 });
 
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");

@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v21, 26-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v22, 28-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -99,6 +99,17 @@ rules_version = '2';
 //      deja otros campos. Lo leen los miembros y el agente; cada uno borra
 //      lo suyo (la Pizarra, a los 7 días). `par` es un resumen del código del
 //      enlace, nunca el código.
+//  v22: el enlace SIN CÓDIGO y el HANDY por internet (pizarra-75, 28-oct,
+//      Mauro: «el código no creo que sea necesario dentro de aplicaciones que
+//      ya traen una codificación con un usuario y un logueo»; «el botón de
+//      handy tiene que activar directamente el audio en el otro dispositivo…
+//      cuando no esté cerca, que lo mande por internet y despierte el
+//      teléfono»). `enlace_llave/familia` guarda el código que firma lo que se
+//      mandan las Pizarras cerca: lo crea la primera Pizarra que lo pide y
+//      nadie lo cambia; lo leen SÓLO los miembros, no el agente (firma algo:
+//      no sale de los teléfonos de la familia, ni a la bodega ni a un chat).
+//      Y un mensaje de voz puede llevar `handy: true`: el otro teléfono lo
+//      reproduce solo al llegar.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -464,7 +475,10 @@ service cloud.firestore {
       allow read: if esPersona() || esAgente();
       allow create: if esPersona()
         && request.resource.data.keys().hasOnly(['de', 'nombre', 'dispositivo', 'texto', 'creadoEn', 'para', 'audio', 'dur',
-                                                  'archivo', 'nombreArchivo', 'partes'])
+                                                  'archivo', 'nombreArchivo', 'partes', 'handy'])
+        // v22: un mensaje de voz del HANDY suena solo al llegar.
+        && (!('handy' in request.resource.data)
+            || (request.resource.data.handy is bool && 'audio' in request.resource.data))
         // v20: un mensaje con un archivo lo nombra y dice en cuántas partes está.
         && (!('archivo' in request.resource.data)
             || (request.resource.data.archivo is string && request.resource.data.archivo.size() <= 40
@@ -572,6 +586,20 @@ service cloud.firestore {
         && (!('marcha' in d) || d.marcha is int)
         && d.creadoEn == request.time;
     }
+    // ── v22 · La llave del enlace, de la cuenta y no de un código a mano ─
+    // Una sola, de la familia. Se crea una vez (con su forma) y no se toca: si
+    // cambiara, las Pizarras que ya la tienen dejarían de entenderse. NO la lee
+    // el agente: firma lo que se mandan los teléfonos, y no sale de ellos.
+    match /enlace_llave/{id} {
+      allow read: if esPersona() && id == 'familia';
+      allow create: if esPersona() && id == 'familia'
+        && request.resource.data.keys().hasOnly(['codigo', 'creadoPor', 'creadoEn'])
+        && request.resource.data.codigo is string
+        && request.resource.data.codigo.matches('[A-HJ-NP-Z2-9]{10}')
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.creadoEn == request.time;
+    }
+
     match /enlace/{par}/cosas/{id} {
       allow read: if esPersona() || esAgente();
       allow create: if esPersona() && par.size() == 16 && formaEnlace(request.resource.data, id);
