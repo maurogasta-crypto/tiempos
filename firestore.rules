@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v22, 28-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v23, 28-oct-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -110,6 +110,14 @@ rules_version = '2';
 //      no sale de los teléfonos de la familia, ni a la bodega ni a un chat).
 //      Y un mensaje de voz puede llevar `handy: true`: el otro teléfono lo
 //      reproduce solo al llegar.
+//  v23: el GESTOR DE LA CHARLA (28-oct, Mauro: «limpiar todas las pruebas de
+//      comunicación que quedaron en registros de todos los teléfonos… un
+//      gestor de comunicaciones que pase por el chat y que tenga los poderes
+//      para ese mantenimiento, una especie de auditoría»). El agente puede
+//      BORRAR mensajes, audios, archivos, llamadas y lo del enlace lejos —nunca
+//      crearlos ni cambiarlos—. Lo hace `herramientas/charla.mjs limpiar` de
+//      `datos`, y sólo con la autorización de Mauro escrita en el chat; cada
+//      mensaje borrado deja su copia en `_historial`.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -502,6 +510,7 @@ service cloud.firestore {
         && request.resource.data.dispositivo.size() <= 60
         && request.resource.data.creadoEn == request.time;
       allow delete: if esPersona() && resource.data.de == request.auth.uid;
+      allow delete: if esAgente();   // v23: el gestor de la charla (sólo borra; nunca crea ni edita)
     }
 
     // ── v18 · Los audios del handy ──────────────────────────────────────
@@ -518,6 +527,7 @@ service cloud.firestore {
         && request.resource.data.tipo in ['audio/ogg', 'audio/mp4']
         && request.resource.data.creadoEn == request.time;
       allow delete: if esPersona() && resource.data.de == request.auth.uid;
+      allow delete: if esAgente();   // v23: el gestor de la charla (sólo borra; nunca crea ni edita)
     }
 
     // ── v20 · Fotos y documentos de la charla, por partes ───────────────
@@ -536,6 +546,7 @@ service cloud.firestore {
         && request.resource.data.tipo != 'application/vnd.android.package-archive'
         && request.resource.data.creadoEn == request.time;
       allow delete: if esPersona() && resource.data.de == request.auth.uid;
+      allow delete: if esAgente();   // v23: el gestor de la charla (sólo borra; nunca crea ni edita)
     }
 
     // ── v19 · Las llamadas entre Pizarras ───────────────────────────────
@@ -566,6 +577,7 @@ service cloud.firestore {
         && request.resource.data.estado in ['cortada', 'cancelada']
         && request.resource.data.fin == request.time;
       allow delete: if esPersona() && resource.data.de == request.auth.uid;
+      allow delete: if esAgente();   // v23: el gestor de la charla (sólo borra; nunca crea ni edita)
     }
 
     // ── v21 · El enlace lejos entre Pizarras ────────────────────────────
@@ -606,6 +618,7 @@ service cloud.firestore {
       // Sólo el vivo y la mira se pisan; un evento no se cambia.
       allow update: if esPersona() && id in ['vivo', 'mira'] && formaEnlace(request.resource.data, id);
       allow delete: if esPersona() && resource.data.de == request.auth.uid;
+      allow delete: if esAgente();   // v23: el gestor de la charla (sólo borra; nunca crea ni edita)
     }
 
     match /alertas/{id} {

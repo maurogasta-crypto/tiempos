@@ -382,6 +382,11 @@ la documentación diga la verdad.
   `firestore.mjs` y la regla se lo niega—. Y un mensaje de voz puede llevar
   `handy: true`: el otro teléfono lo reproduce solo al llegar. **Hay que
   publicar las reglas v22.**
+  **Y desde la v23** (28-oct, Mauro: «un gestor de comunicaciones que pase por
+  el chat y que tenga los poderes para ese mantenimiento») el agente puede
+  BORRAR —nunca crear ni cambiar— mensajes, audios, archivos, llamadas y lo del
+  enlace lejos, con `herramientas/charla.mjs limpiar` de `datos` y sólo con la
+  autorización de Mauro en el chat. **Hay que publicar las reglas v23.**
 - **Desde app-16 (7-oct-2026) esta app SÍ escribe `pizarra`**, desde la solapa
   Pizarra (`pizarra.js`), con la misma forma que la app del teléfono
   (`cuerpoFijar`): `pizarra.<uid>: true`, y sacar es borrar la clave. El banco

@@ -1722,7 +1722,7 @@ prueba("audios/: lo leen los dos y el agente, lo crea cada uno a su nombre con f
   const r = fs.readFileSync("firestore.rules", "utf8");
   const a = r.slice(r.indexOf("match /audios/{id}"), r.indexOf("match /alertas/{id}"));
   assert.match(a, /allow read: if esPersona\(\) \|\| esAgente\(\);/);
-  assert.ok(!/allow (create|delete)[^;]*esAgente/.test(a), "el agente lee, no escribe ni borra");
+  assert.ok(!/allow (create|update)[^;]*esAgente/.test(a), "el agente lee, no escribe (v23: borrar sí, el gestor de la charla)");
   assert.match(a, /hasOnly\(\['de', 'datos', 'dur', 'tipo', 'creadoEn'\]\)/);
   assert.match(a, /datos\.size\(\) <= 400000/);
   assert.match(a, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);
@@ -1739,7 +1739,7 @@ prueba("llamadas/: la crea quien llama, la atiende o rechaza el otro, la corta c
   assert.match(b, /hasOnly\(\['de', 'nombre', 'dispositivo', 'para', 'estado', 'oferta', 'creadoEn'\]\)/);
   assert.match(b, /request\.auth\.uid != resource\.data\.de/);
   assert.match(b, /\['cortada', 'cancelada'\]/);
-  assert.ok(!/allow (create|update|delete)[^;]*esAgente/.test(b));
+  assert.ok(!/allow (create|update)[^;]*esAgente/.test(b));
   assert.match(r, /v19: las LLAMADAS entre Pizarras/);
 });
 
@@ -1752,7 +1752,7 @@ prueba("archivos/: por partes de hasta 700 KB, lo leen los dos y el agente, lo b
   assert.match(b, /parte < request\.resource\.data\.partes/);
   assert.match(b, /package-archive/);
   assert.match(b, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);
-  assert.ok(!/allow (create|delete)[^;]*esAgente/.test(b));
+  assert.ok(!/allow (create|update)[^;]*esAgente/.test(b));
   const m = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /audios/{id}"));
   assert.match(m, /'archivo', 'nombreArchivo', 'partes'(, 'handy')?\]/);
   assert.match(r, /v20: FOTOS y DOCUMENTOS por la charla/);
@@ -1772,13 +1772,13 @@ prueba("enlace/{par}/cosas: forma fija sin coordenadas, los eventos no se pisan,
   assert.match(b, /par\.size\(\) == 16/);
   assert.match(b, /allow update: if esPersona\(\) && id in \['vivo', 'mira'\]/);
   assert.match(b, /allow delete: if esPersona\(\) && resource\.data\.de == request\.auth\.uid;/);
-  assert.ok(!/allow (create|update|delete)[^;]*esAgente/.test(b));
+  assert.ok(!/allow (create|update)[^;]*esAgente/.test(b));
 });
 
 titulo("v22: el enlace sin código y el handy por internet (pizarra-75, 28-oct)");
 prueba("enlace_llave/familia: la crean los miembros una vez, con forma, y NO la lee el agente", () => {
   const r = fs.readFileSync("firestore.rules", "utf8");
-  assert.match(r, /v22, 28-oct-2026/);
+  assert.match(r, /v22: el enlace SIN CÓDIGO/);
   const b = r.slice(r.indexOf("match /enlace_llave/{id}"), r.indexOf("match /enlace/{par}"));
   assert.match(b, /allow read: if esPersona\(\) && id == 'familia';/);
   assert.match(b, /hasOnly\(\['codigo', 'creadoPor', 'creadoEn'\]\)/);
@@ -1791,6 +1791,21 @@ prueba("un mensaje de voz puede llevar handy: true, y sólo si tiene audio", () 
   const m = r.slice(r.indexOf("match /mensajes/{id}"), r.indexOf("match /audios/{id}"));
   assert.match(m, /'archivo', 'nombreArchivo', 'partes', 'handy'\]/);
   assert.match(m, /request\.resource\.data\.handy is bool && 'audio' in request\.resource\.data/);
+});
+
+titulo("v23: el gestor de la charla (28-oct)");
+prueba("el agente BORRA mensajes, audios, archivos, llamadas y lo del enlace; nunca los crea ni los cambia", () => {
+  const r = fs.readFileSync("firestore.rules", "utf8");
+  assert.match(r, /v23, 28-oct-2026/);
+  const bloque = (desde, hasta) => r.slice(r.indexOf(desde), r.indexOf(hasta, r.indexOf(desde) + 1));
+  for (const [d, h] of [["match /mensajes/{id}", "match /audios/{id}"], ["match /audios/{id}", "match /archivos/{id}"],
+                        ["match /archivos/{id}", "match /llamadas/{id}"], ["match /llamadas/{id}", "function formaEnlace("],
+                        ["match /enlace/{par}/cosas/{id}", "match /alertas/{id}"]]) {
+    const b = bloque(d, h);
+    assert.match(b, /allow delete: if esAgente\(\);/, d);
+    assert.doesNotMatch(b, /allow (create|update)[^;]*esAgente/, d);
+  }
+  assert.doesNotMatch(bloque("match /enlace_llave/{id}", "match /enlace/{par}"), /esAgente/, "la llave del enlace sigue sin el agente");
 });
 
 titulo("app-34: el widget de la pizarra abre la tarea tocada (12-oct)");
