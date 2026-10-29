@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-4 (app-29: Tareas abre «Por categoría»)
+// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-5 (general:C7: los errores con palabras, de errores.js de datos)
 //
 // Un solo objeto con lo que se sabe (`E`), el aviso de arriba y el gancho para
 // volver a dibujar. Las vistas (`app.js`, `agenda.js`, `familia.js`) leen de
@@ -40,5 +40,13 @@ export const otro = () => E.miembros.find((m) => m.id !== E.yo.uid) || null;
 export const personas = () => (E.miembros.length ? E.miembros : [E.miembro]).filter(Boolean);
 export const ninoPorId = (id) => (E.familia.ninos || []).find((n) => n.id === id);
 
-/* Un error de la base se dice con palabras, no con un código. */
-export const fallo = (e) => aviso("No se pudo: " + ((e && (e.code || e.message)) || e), true);
+/* Un error de la base se dice con palabras, no con un código
+   (PROTOCOLO-INTERFAZ § 7.2). Desde estado-5 (29-oct-2026, `general:C7`) las
+   palabras salen de `errores.js` del panel (`maurogasta-crypto/datos`), la
+   tabla ÚNICA del ecosistema; hasta ese día acá se mostraba el código pelado
+   («No se pudo: permission-denied»). Se pide al cargar, diferida y con catch:
+   si no bajó, se ve el código como antes, nunca peor. */
+let _errores = null;
+import("https://maurogasta-crypto.github.io/datos/errores.js").then((m) => { _errores = m; }).catch(() => {});
+export const explicar = (e) => (_errores ? _errores.explicar(e) : ((e && (e.code || e.message)) || String(e)));
+export const fallo = (e) => aviso("No se pudo: " + explicar(e), true);

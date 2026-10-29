@@ -621,7 +621,7 @@ Florencia la acuerden.
 | Archivo | Qué hace | Sello |
 |---|---|---|
 | `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-45` |
-| `estado.js` | lo que comparten las vistas | `estado-4` |
+| `estado.js` | lo que comparten las vistas | `estado-5` |
 | `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-41` |
 | `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-3` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
@@ -641,7 +641,7 @@ Florencia la acuerden.
 | `familia.js` | Hoy y Chicos | `familia-6` |
 | `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar | `init-4` |
 | `estilos.css` | | `estilos-30` |
-| `sw.js` | el cascarón sin señal | `tiempos-70` |
+| `sw.js` | el cascarón sin señal | `tiempos-71` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

@@ -52,6 +52,9 @@ la documentación diga la verdad.
   diferido y con catch, nunca estático: si no baja, la contraseña anda igual,
   sin ojo—. Cambiarlo es cambiar ese archivo (banco `node pruebas/ojos.mjs` de
   `datos`), y cambia en todos a la vez. En la Pizarra va en Kotlin.
+  **Y lo mismo, ese día, con las causas de los errores** (`errores.js` de
+  `datos`, PROTOCOLO-INTERFAZ § 7.2): se pide al cargar, este sitio le suma
+  sólo sus causas propias, y si no bajó se ve el código como antes.
 - **Cada uno ordena proyectos y tareas a su gusto** (app-30, nucleo-35,
   12-oct-2026, Mauro: «cada usuario debe poder organizar las tareas como le
   resulta más cómodo»). En Tareas → Por categoría se arrastra del ⠿ y se suelta
