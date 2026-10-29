@@ -152,6 +152,19 @@ la alarma quedó para el 6 (a las 00:37 «mañana» es el 5) y la tarea se llam�
 «Marcar la pizarra». Ahora Gemini recibe la hora, la regla de la madrugada y
 que «pizarra» es el lugar, nunca el título.
 
+### De quién: el filtro de Tareas (app-40, nucleo-45, 29-oct-2026)
+
+`tiempos:V18`, segundo paso del «Hub». «Asignado a» ya existía: es
+`encargados` («Me ocupo yo», «Pedírsela a…»). Lo que se sumó es mirar una
+parte: arriba de «Por categoría», **Todo · Lo mío · Sin encargado · Lo de
+<el otro>**. Lo mío es lo personal, lo que tiene a uno de encargado y lo que
+le pidieron; de Casa Verde, lo «asignados» con uno en `competencias`. Un
+proyecto o un grupo se ve si algo adentro pasa (`clavesVisibles`), y con un
+filtro las categorías vacías no aparecen. El filtro se recuerda en el
+teléfono (`tiempos:quien`), no en la base: no cambia ninguna tarea ni lo que
+ve el otro. Cupo: ninguno. Las cuentas son `pasaFiltroQuien` y
+`clavesVisibles` de `nucleo.js`, con su caso en el banco.
+
 ### Las llegadas y salidas de Casa Verde en la agenda (agenda-22, nucleo-44, app-39, 29-oct-2026)
 
 `tiempos:V17`, primer paso del «Hub» (la propuesta de Gemini, evaluada y
@@ -607,9 +620,9 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-44` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-45` |
 | `estado.js` | lo que comparten las vistas | `estado-4` |
-| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-39` |
+| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-40` |
 | `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-3` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
@@ -628,7 +641,7 @@ Florencia la acuerden.
 | `familia.js` | Hoy y Chicos | `familia-6` |
 | `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar | `init-4` |
 | `estilos.css` | | `estilos-30` |
-| `sw.js` | el cascarón sin señal | `tiempos-68` |
+| `sw.js` | el cascarón sin señal | `tiempos-69` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

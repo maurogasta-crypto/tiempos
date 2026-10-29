@@ -171,6 +171,10 @@ la documentación diga la verdad.
   proyecto (la `cuenta`), y lo que llegue de otras apps —la carga de la Hilux,
   los gastos de los sitios— entrará solo, con su `origen`, como un gasto con
   varias pruebas (factura, línea del extracto), no como gastos repetidos.
+- **Tareas se filtra por DE QUIÉN** (app-40, nucleo-45, 29-oct-2026,
+  `tiempos:V18`): Todo · Lo mío · Sin encargado · Lo de <el otro>, sobre
+  `encargados` y el `pedido` (`pasaFiltroQuien`, `clavesVisibles`). Es de la
+  pantalla y del teléfono (`localStorage`), nunca de la base.
 - **Las llegadas y salidas de Casa Verde están en la agenda** (agenda-22,
   nucleo-44, app-39, 29-oct-2026, `tiempos:V17`): se LEEN de `reservas/` y
   `cabanas/` de Casa Verde con su sesión, no se copian, y son piezas de sólo

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-39
+// Sello: app-40
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -66,7 +66,7 @@ import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
 import { TIPOS, TIPO_CASA_VERDE, arbolOrganizado, puedeSoltar, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
          alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
          separarEnCurso, chicosDelDia, eventosDelDia,
-         COLORES_TAREA, colorHeredado, estaCorriendo, idNuevo, conReloj } from "./nucleo.js";
+         COLORES_TAREA, colorHeredado, estaCorriendo, idNuevo, conReloj, pasaFiltroQuien, clavesVisibles, FILTROS_QUIEN } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
 import { pintarAgenda, irAPieza, alternarEnAgenda, estaEnAgenda, guardarEnAgenda, agendaUnida } from "./agenda.js";
 import { pintarHoy, pintarChicos, escucharDia } from "./familia.js";
@@ -879,19 +879,27 @@ function pintarCategorias(v) {
   const { padre, hijos } = arbolOrganizado(nodos, E.organizar || {});
   orgPadre = padre; orgDefecto = Object.fromEntries(nodos.map((n) => [n.clave, n.padre]));
   const porClave = Object.fromEntries(nodos.map((n) => [n.clave, n]));
-  const cuenta = (k) => (hijos[k] || []).reduce((t, c) => t + 1 + cuenta(c), 0);
+  // app-40 (tiempos:V18): de quién. Se ve lo que pasa y lo que lo contiene.
+  const o = otro();
+  const fq = filtroQuien;
+  v.append(barraQuien(o));
+  const ver = fq === "todo" ? null : clavesVisibles(nodos.map((n) => n.clave), padre,
+    (k) => pasaFiltroQuien(porClave[k], fq, E.yo.uid, o && o.id, E.cv && E.cv.uid));
+  const hijosV = (k) => (hijos[k] || []).filter((c) => !ver || ver.has(c));
+  const cuenta = (k) => hijosV(k).reduce((t, c) => t + 1 + cuenta(c), 0);
   const bajar = (k, nivel) => {
-    const n = porClave[k]; if (!n) return;
+    const n = porClave[k]; if (!n || (ver && !ver.has(k))) return;
     const f = n.t ? filaTarea(n.t, nivel, porId, todosHijos, cuenta(k)) : n.a ? filaCV(n.a, nivel, cuenta(k)) : filaGrupo(k, n.grupo, nivel, cuenta(k));
     organizable(f, k);
     v.append(f);
     if (plegado.has(k)) return;
-    for (const h of hijos[k] || []) bajar(h, nivel + 1);
+    for (const h of hijosV(k)) bajar(h, nivel + 1);
   };
   let algo = false;
   for (const [k, tipo] of Object.entries(TIPOS)) {
     const cat = "cat:" + k, n = cuenta(cat);
     algo = algo || n > 0;
+    if (ver && !n) continue;                       // con un filtro, una categoría vacía no se muestra
     const cab = document.createElement("div");
     cab.className = "cat-cab";
     cab.dataset.destino = cat;
@@ -900,11 +908,27 @@ function pintarCategorias(v) {
     engancharFlecha(cab);
     v.append(cab);
     if (plegado.has(cat)) continue;
-    for (const h of hijos[cat] || []) bajar(h, 0);
+    for (const h of hijosV(cat)) bajar(h, 0);
   }
   if (!E.cv) v.append(gris("Casa Verde: sin sesión. Entrá arriba para ver sus actividades acá."));
-  if (!algo) v.append(gris("Todavía no hay tareas. Tocá «＋ Tarea» arriba."));
+  if (!algo) v.append(gris(ver ? "Nada con este filtro. Tocá «Todo» para ver lo demás." : "Todavía no hay tareas. Tocá «＋ Tarea» arriba."));
   v.append(gris("Arrastrá del ⠿ y soltá ADENTRO de un proyecto, un grupo o una categoría. Este orden es tuyo: al otro no le cambia nada."));
+}
+
+/* app-40: el filtro «de quién» es de esta pantalla y de este teléfono: no se
+   guarda en la base ni le cambia nada al otro. */
+let filtroQuien = (() => { try { const x = localStorage.getItem("tiempos:quien"); return FILTROS_QUIEN.includes(x) ? x : "todo"; } catch { return "todo"; } })();
+function barraQuien(o) {
+  const nav = document.createElement("nav");
+  nav.className = "solapas chicas"; nav.setAttribute("aria-label", "De quién");
+  const ops = [["todo", "Todo"], ["mio", "Lo mío"], ["sin", "Sin encargado"], ...(o ? [["otro", "Lo de " + (o.nombre || "el otro")]] : [])];
+  nav.innerHTML = ops.map(([k, t]) => `<button data-quien="${k}" aria-selected="${filtroQuien === k}">${esc(t)}</button>`).join("");
+  for (const b of nav.querySelectorAll("[data-quien]")) b.onclick = () => {
+    filtroQuien = b.dataset.quien;
+    try { localStorage.setItem("tiempos:quien", filtroQuien); } catch { /* sin memoria: igual anda */ }
+    pintar();
+  };
+  return nav;
 }
 
 /* El agarre y el «volver a su lugar» de una fila organizable. */

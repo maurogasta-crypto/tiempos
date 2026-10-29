@@ -24,7 +24,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          paisDe, lugarNuevo, claveLugar, parecidas,
          CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, cuentaSugerida, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
          CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes,
-         totalesFijos, comoVence, TIPO_CASA_VERDE, nombreDeReserva, nombreDeCabana, movimientosDelDia } from "./nucleo.js";
+         totalesFijos, comoVence, TIPO_CASA_VERDE, nombreDeReserva, nombreDeCabana, movimientosDelDia, pasaFiltroQuien, clavesVisibles, FILTROS_QUIEN } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 // Una prueba asíncrona se ESPERA (init-4): hasta ahí devolvía una promesa, se
@@ -2030,6 +2030,32 @@ prueba("las llegadas y salidas de Casa Verde: sin anuladas, con nombre limpio, c
   assert.equal(nombreDeReserva(""), "Sin nombre");
   assert.equal(nombreDeCabana(undefined, "c3"), "c3");
   assert.equal(movimientosDelDia([{ id: "d", checkIn: "2026-11-02", cabanaId: "c3", adultos: 1, horaEntrada: "9:00", llegadaEstimada: "basura" }], "2026-11-02")[0].hora, "09:00");
+});
+
+prueba("de quién: lo mío, sin encargado y lo del otro; un proyecto se ve si algo adentro pasa", () => {
+  const yo = "U1", otro = "U2";
+  const T = (x) => ({ t: { alcance: "comun", encargados: [], ...x } });
+  assert.ok(pasaFiltroQuien(T({ encargados: ["U1"] }), "mio", yo, otro));
+  assert.ok(pasaFiltroQuien(T({ alcance: "personal", encargados: ["U1"] }), "mio", yo, otro));
+  assert.ok(pasaFiltroQuien(T({ pedido: { estado: "pendiente", a: "U1", de: "U2" } }), "mio", yo, otro), "la que me pidieron es mía");
+  assert.ok(!pasaFiltroQuien(T({ pedido: { estado: "pendiente", a: "U1", de: "U2" } }), "sin", yo, otro));
+  assert.ok(pasaFiltroQuien(T({}), "sin", yo, otro));
+  assert.ok(!pasaFiltroQuien(T({ alcance: "personal" }), "sin", yo, otro), "lo personal es de quien lo ve");
+  assert.ok(pasaFiltroQuien(T({ encargados: ["U1", "U2"] }), "otro", yo, otro) && pasaFiltroQuien(T({ encargados: ["U1", "U2"] }), "mio", yo, otro));
+  assert.ok(!pasaFiltroQuien(T({ encargados: ["U2"] }), "mio", yo, otro));
+  assert.ok(!pasaFiltroQuien(T({ encargados: ["U2"] }), "otro", yo, null), "sin otro, nada es del otro");
+  assert.ok(pasaFiltroQuien(T({}), "todo", yo, otro) && pasaFiltroQuien(T({}), undefined, yo, otro));
+  assert.ok(pasaFiltroQuien({ a: { alcance: "asignados", competencias: ["C1"] } }, "mio", yo, otro, "C1"));
+  assert.ok(!pasaFiltroQuien({ a: { alcance: "asignados", competencias: ["C9"] } }, "mio", yo, otro, "C1"));
+  assert.ok(pasaFiltroQuien({ a: { alcance: "equipo" } }, "sin", yo, otro, "C1"));
+  assert.ok(!pasaFiltroQuien({ a: { alcance: "equipo" } }, "otro", yo, otro, "C1"));
+  assert.ok(!pasaFiltroQuien({ grupo: {} }, "mio", yo, otro));
+  assert.deepEqual(FILTROS_QUIEN, ["todo", "mio", "sin", "otro"]);
+  const padre = { "f:h": "f:p", "f:p": "cat:produccion", "f:x": "cat:casa" };
+  const v = clavesVisibles(["f:h", "f:p", "f:x"], padre, (k) => k === "f:h");
+  assert.deepEqual([...v].sort(), ["cat:produccion", "f:h", "f:p"]);
+  const ciclo = clavesVisibles(["a"], { a: "b", b: "a" }, () => true);
+  assert.deepEqual([...ciclo].sort(), ["a", "b"], "un círculo no cuelga");
 });
 
 await Promise.all(esperando);

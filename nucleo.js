@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-44
+// Sello: nucleo-45
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -2059,4 +2059,41 @@ export function movimientosDelDia(reservas, dia, cabanas = {}) {
     }
   }
   return out.sort((a, b) => a.hora.localeCompare(b.hora) || a.nombre.localeCompare(b.nombre));
+}
+
+/* ── DE QUIÉN es cada tarea (nucleo-45, 29-oct-2026, tiempos:V18). «Asignado a»
+   ya existía: es `encargados` («Me ocupo yo», «Pedírsela a…»). Lo que faltaba
+   era poder mirar sólo una parte. El filtro es de la PANTALLA, no se guarda en
+   la base: no cambia ninguna tarea ni lo que ve el otro. */
+export const FILTROS_QUIEN = ["todo", "mio", "sin", "otro"];
+
+/** ¿Pasa el filtro? `n` es un nodo de la lista: `{ t }` (familia) o `{ a }` (Casa Verde). */
+export function pasaFiltroQuien(n, filtro, yo, otro, cvYo) {
+  if (!filtro || filtro === "todo") return true;
+  if (n.t) {
+    const t = n.t, enc = Array.isArray(t.encargados) ? t.encargados : [];
+    const pedidaAMi = !!(t.pedido && t.pedido.estado === "pendiente" && t.pedido.a === yo);
+    if (filtro === "mio") return t.alcance === "personal" || enc.includes(yo) || pedidaAMi;
+    if (filtro === "sin") return t.alcance !== "personal" && !enc.length && !pedidaAMi;
+    if (filtro === "otro") return !!otro && t.alcance !== "personal" && enc.includes(otro);
+    return true;
+  }
+  if (n.a) {
+    // Casa Verde: «asignados» con su lista de `competencias`; «equipo» es de nadie en particular.
+    const a = n.a, comp = Array.isArray(a.competencias) ? a.competencias : [];
+    if (filtro === "mio") return a.alcance === "personal" || (a.alcance === "asignados" && !!cvYo && comp.includes(cvYo));
+    if (filtro === "sin") return a.alcance === "equipo" || (a.alcance === "asignados" && !comp.length);
+    return false;                                  // «lo del otro»: su uid de Casa Verde no se conoce acá
+  }
+  return false;                                    // un grupo pasa sólo si algo adentro pasa
+}
+
+/** Las claves que se ven: las que pasan y, para no dejarlas sueltas, todo lo que las contiene. */
+export function clavesVisibles(claves, padre, pasa) {
+  const ver = new Set();
+  for (const k of claves) {
+    if (!pasa(k)) continue;
+    for (let x = k, n = 0; x && !ver.has(x) && n < 100; x = padre[x], n++) ver.add(x);
+  }
+  return ver;
 }
