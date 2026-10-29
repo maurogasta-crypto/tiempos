@@ -45,9 +45,13 @@ la documentación diga la verdad.
   el cupo; lo que exige facturación no se hace. `PROTOCOLO-DESARROLLO.md` § 13
   de `datos`.
 - **Toda contraseña tiene su ojo 👁** (app-28, 11-oct-2026, Mauro: «en todos
-  los sitios»): `ojosEnClaves()` al final de `app.js`. Es el mismo código que
-  en Casa Verde, CasaYourte, remate y el panel, y en la Pizarra va en Kotlin:
-  si cambia en uno, cambia en todos en la misma tanda.
+  los sitios»), por `app.js`.
+  **Desde el 29-oct-2026 (`general:C7`) es UNA copia para los cinco sitios**:
+  `ojos.js` del panel (`maurogasta-crypto/datos`), que este sitio pide con
+  `import("https://maurogasta-crypto.github.io/datos/ojos.js").catch(…)` —
+  diferido y con catch, nunca estático: si no baja, la contraseña anda igual,
+  sin ojo—. Cambiarlo es cambiar ese archivo (banco `node pruebas/ojos.mjs` de
+  `datos`), y cambia en todos a la vez. En la Pizarra va en Kotlin.
 - **Cada uno ordena proyectos y tareas a su gusto** (app-30, nucleo-35,
   12-oct-2026, Mauro: «cada usuario debe poder organizar las tareas como le
   resulta más cómodo»). En Tareas → Por categoría se arrastra del ⠿ y se suelta
