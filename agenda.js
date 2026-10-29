@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-21
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-22
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -35,10 +35,10 @@
 // se ven, se arrastran y se editan IGUAL. Ver «UNA PIEZA DE LA AGENDA».
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { db, F, CV } from "./firebase-init.js";
+import { db, F, CV, CASA_VERDE } from "./firebase-init.js";
 import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, eventosDelDia,
          grillaDelMes, MESES, cuentaDelDia, parecidas, DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado,
-         CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, AVISO_ANTES, horaDelAviso } from "./nucleo.js";
+         CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, AVISO_ANTES, horaDelAviso, movimientosDelDia } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, personas, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
 import { pintarLugares, pintarAgente, recordarLugar } from "./lugares.js";
@@ -173,6 +173,11 @@ function piezasDelDia(d, ubDia, agenda) {
       color: COLOR_CHICOS, sub: ["con los chicos", (e.ninos || []).map((n) => (ninoPorId(n) || {}).nombre || "").filter(Boolean).join(" y "),
         (e.quienes || []).length ? "van " + e.quienes.map((u) => nombreDe(u)).join(" y ") : "", e.lugar, e.semanal ? "todas las semanas" : ""].filter(Boolean).join(" · ") });
   }
+  // agenda-22 (tiempos:V17): quién entra y quién sale de Casa Verde. Sólo se
+  // mira: no se arrastra ni se edita, y el toque lleva a la reserva allá.
+  for (const r of movimientosDelDia(E.cvReservas, d, E.cvCabanas || {}))
+    out[franjaDe({ hora: r.hora })].push({ clase: "reserva", clave: `res:${r.id}|${r.tipo}`, id: r.id, hora: r.hora,
+      titulo: (r.tipo === "entra" ? "Entra " : "Sale ") + r.nombre, color: COLOR_RESERVA, sub: r.sub });
   for (const f of FRANJAS) out[f].sort((a, b) => (a.hora || "99").localeCompare(b.hora || "99") || String(a.titulo).localeCompare(String(b.titulo)));
   return out;
 }
@@ -471,9 +476,10 @@ function pintarMesAgenda(v) {
       const c = cuentaDelDia(iso, agenda, E.actividades, eventosDelDia(iso, E.eventos));
       return `<button class="celda${fuera ? " fuera" : ""}${iso === E.hoy ? " es-hoy" : ""}" data-dia-ag="${iso}">
         <span class="n">${Number(iso.slice(8))}</span><span class="ms">${marcasChicos(chicosDelDia(iso, E.familia.patron, E.turnos))}</span>
+        ${movimientosDelDia(E.cvReservas, iso).length ? `<span class="ev" title="Entra o sale alguien de Casa Verde">🏠</span>` : ""}
         ${c.acts + c.ag ? `<span class="ev mio">${"•".repeat(Math.min(c.acts + c.ag, 4))}</span>` : ""}${c.chicos ? `<span class="ev">${"•".repeat(Math.min(c.chicos, 3))}</span>` : ""}</button>`;
     }).join("")}</div>`).join("")}</div>
-    <p class="gris">Los puntos son lo que tenés ese día; los violeta, actividades de los chicos. Tocá un día para abrir esa semana.</p>`;
+    <p class="gris">Los puntos son lo que tenés ese día; los violeta, actividades de los chicos; 🏠, alguien entra o sale de Casa Verde. Tocá un día para abrir esa semana.</p>`;
   v.innerHTML = h;
   for (const b of v.querySelectorAll("[data-va]")) b.onclick = () => { vistaAg = b.dataset.va; repintar(); };
   for (const b of v.querySelectorAll("[data-mes]")) b.onclick = () => { const d = new Date(a, m + Number(b.dataset.mes), 1); mesAg = [d.getFullYear(), d.getMonth()]; repintar(); };
@@ -589,7 +595,13 @@ let piezasVistas = {};          // agenda-13: clave → pieza de lo que está di
 
 /* La pieza resumida: igual para las tres clases. Agarre, hora (y fin), color,
    el título y una línea chica que dice qué es. Tocarla abre su editor. */
+const COLOR_RESERVA = "#2e7d32";
 function pieza(p) {
+  if (p.clase === "reserva") return `<div class="pas pas-reserva" data-pas="${esc(p.clave)}" style="--c:${COLOR_RESERVA}"><div class="pas-fila">
+      <span class="pas-agarre" aria-hidden="true"></span>
+      <span class="pas-hora">${esc(p.hora)}</span>
+      <i class="sem" style="background:${COLOR_RESERVA}"></i>
+      <a class="pas-txt" style="color:inherit;text-decoration:none" href="${esc(CASA_VERDE + "reservas.html?r=" + encodeURIComponent(p.id))}" target="_blank" rel="noopener"><b>🏠 ${esc(p.titulo)}</b><small>${esc(p.sub || "")} · Casa Verde</small></a></div></div>`;
   const abierto = editando === p.clave;
   const icono = p.clase === "chicos" ? "👦 " : p.clase === "act" ? "🗓 " : "";
   return `<div class="pas pas-${p.clase}${abierto ? " abierta" : ""}" data-pas="${esc(p.clave)}" style="--c:${esc(p.color || "#888")}"><div class="pas-fila">

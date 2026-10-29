@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-38
+// Sello: app-39
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -379,6 +379,15 @@ async function conectarCasaVerde() {
                         inicioMs: d.data().inicio && d.data().inicio.toMillis() } : null;
     pintar();
   });
+  // app-39 (tiempos:V17): las llegadas y salidas de Casa Verde, en la agenda.
+  // Se LEEN de allá con su sesión y no se copian. Un solo filtro (sin índice
+  // compuesto): las que todavía no salieron, más dos semanas para mirar atrás.
+  M.getDocs(M.collection(M.db, "cabanas")).then((s) => {
+    E.cvCabanas = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); pintar();
+  }).catch(() => {});
+  M.onSnapshot(M.query(M.collection(M.db, "reservas"), M.where("checkOut", ">=", sumarDias(isoDe(), -14))), (s) => {
+    E.cvReservas = s.docs.map((d) => ({ id: d.id, ...d.data() })); pintar();
+  }, () => { E.cvReservas = []; });
   // La agenda de Casa Verde es la MISMA que se ordena acá (ver agenda.js).
   M.onSnapshot(M.doc(M.db, "estado_usuario", u.uid), (d) => {
     E.cvAgenda = (d.exists() && d.data().agenda) || {}; pintar();

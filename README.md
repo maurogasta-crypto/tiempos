@@ -152,6 +152,20 @@ la alarma quedó para el 6 (a las 00:37 «mañana» es el 5) y la tarea se llam�
 «Marcar la pizarra». Ahora Gemini recibe la hora, la regla de la madrugada y
 que «pizarra» es el lugar, nunca el título.
 
+### Las llegadas y salidas de Casa Verde en la agenda (agenda-22, nucleo-44, app-39, 29-oct-2026)
+
+`tiempos:V17`, primer paso del «Hub» (la propuesta de Gemini, evaluada y
+recortada por Claude). Quién entra y quién sale de Casa Verde aparece en la
+agenda, en su franja y a su hora (14:00 y 10:00 si la reserva no dice otra),
+con la cabaña, cuántos son y a qué hora llega. Es de **sólo lectura**: no se
+arrastra ni se edita, y el toque abre la reserva en Casa Verde. En el mes, un
+🏠 marca el día. Las reservas se LEEN de `casaverde-20` con la sesión de allá
+(`reservas/` y `cabanas/`), no se copian; una anulada no aparece. Un solo
+filtro (`checkOut` desde dos semanas atrás), sin índice compuesto. Cupo: una
+escucha de unas 20 reservas por persona conectada, lejos del cupo de Spark.
+Las cuentas son `movimientosDelDia`, `nombreDeReserva` y `nombreDeCabana` de
+`nucleo.js`, con su caso en el banco.
+
 ### La pantalla de un proyecto (proyecto-1, nucleo-43, app-38, 15-oct-2026)
 
 Mauro: «una interfaz para los proyectos como el de General Flores, donde se
@@ -593,9 +607,9 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-43` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-44` |
 | `estado.js` | lo que comparten las vistas | `estado-4` |
-| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-38` |
+| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-39` |
 | `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-3` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
 | `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
@@ -610,11 +624,11 @@ Florencia la acuerden.
 | `cifras.js` | Plata → Análisis: lo estimado en el Año contra lo real, por categoría, de la familia o de un proyecto | `cifras-1` |
 | `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-6` |
 | `balance.js` | el balance del tiempo (los chicos, del calendario), las salidas, los acuerdos, la auditoría | `balance-5` |
-| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-21` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-22` |
 | `familia.js` | Hoy y Chicos | `familia-6` |
 | `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar | `init-4` |
 | `estilos.css` | | `estilos-30` |
-| `sw.js` | el cascarón sin señal | `tiempos-67` |
+| `sw.js` | el cascarón sin señal | `tiempos-68` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)

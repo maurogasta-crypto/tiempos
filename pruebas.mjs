@@ -24,7 +24,7 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          paisDe, lugarNuevo, claveLugar, parecidas,
          CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, cuentaSugerida, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
          CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes,
-         totalesFijos, comoVence, TIPO_CASA_VERDE } from "./nucleo.js";
+         totalesFijos, comoVence, TIPO_CASA_VERDE, nombreDeReserva, nombreDeCabana, movimientosDelDia } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 // Una prueba asíncrona se ESPERA (init-4): hasta ahí devolvía una promesa, se
@@ -2012,6 +2012,25 @@ titulo("Despertar a las Pizarras (init-4)");
       assert.ok(!/firebase-firestore\.js/.test(fs.readFileSync(f, "utf8")), f);
   });
 }
+
+prueba("las llegadas y salidas de Casa Verde: sin anuladas, con nombre limpio, cabaña y horas por defecto", () => {
+  // Datos inventados: un nombre real de huésped no entra a un repositorio público.
+  const cab = { c1: { nombre: { es: "Cabaña 1", pt: "Cabana 1" } }, c2: { nombre: "La del fondo" } };
+  const rs = [
+    { id: "a", checkIn: "2026-11-02", checkOut: "2026-11-05", cabanaId: "c1", clienteNombre: "Airbnb · HMABC123 Ana", adultos: 2, ninos: 1, estado: "confirmada", llegadaEstimada: "18:30" },
+    { id: "b", checkIn: "2026-10-30", checkOut: "2026-11-02", cabanaId: "c2", clienteNombre: "Beto Prueba", adultos: 1, estado: "confirmada", horaSalida: "11:00" },
+    { id: "c", checkIn: "2026-11-02", checkOut: "2026-11-04", cabanaId: "c3", clienteNombre: "Anulado", adultos: 2, estado: "anulada" }];
+  const m = movimientosDelDia(rs, "2026-11-02", cab);
+  assert.deepEqual(m.map((x) => [x.tipo, x.nombre, x.hora]), [["sale", "Beto Prueba", "11:00"], ["entra", "Ana", "14:00"]]);
+  assert.equal(m[1].sub, "Cabaña 1 · 3 personas · llega ~18:30");
+  assert.equal(m[0].sub, "La del fondo");
+  assert.deepEqual(movimientosDelDia(rs, "2026-11-03", cab), []);
+  assert.deepEqual(movimientosDelDia(null, "2026-11-02"), []);
+  assert.equal(nombreDeReserva("Airbnb · HMXYZ9"), "Huésped de Airbnb");
+  assert.equal(nombreDeReserva(""), "Sin nombre");
+  assert.equal(nombreDeCabana(undefined, "c3"), "c3");
+  assert.equal(movimientosDelDia([{ id: "d", checkIn: "2026-11-02", cabanaId: "c3", adultos: 1, horaEntrada: "9:00", llegadaEstimada: "basura" }], "2026-11-02")[0].hora, "09:00");
+});
 
 await Promise.all(esperando);
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);

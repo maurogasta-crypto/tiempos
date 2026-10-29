@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-43
+// Sello: nucleo-44
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -2016,4 +2016,47 @@ export function cuentaSugerida({ comercio = "", cuentaIA = "" } = {}, { concepto
   }
   if (ids.has(cuentaIA)) return { cuenta: cuentaIA, porque: "la IA lo dedujo de la boleta" };
   return null;
+}
+
+/* ── Las LLEGADAS y SALIDAS de Casa Verde en la agenda (nucleo-44, 29-oct-2026,
+   tiempos:V17, el «Hub» que propuso Gemini y evaluó Claude). Las reservas se
+   LEEN de Casa Verde con la sesión de allá (`reservas/`, quien tiene ficha
+   activa) y no se copian: en la agenda son piezas de sólo lectura que llevan a
+   la reserva. Una anulada no aparece. Lo que se muestra es lo que hace falta
+   para organizarse —quién, qué cabaña, a qué hora, cuántos—, no la plata. */
+
+/** El nombre de una reserva de Airbnb sin el código (`nombreVisible` de reservas.html de Casa Verde). */
+export function nombreDeReserva(t) {
+  const s = String(t || "").trim();
+  const m = /^Airbnb\s*·\s*(HM[A-Z0-9]+)\s*(.*)$/i.exec(s);
+  return m ? (m[2].trim() || "Huésped de Airbnb") : (s || "Sin nombre");
+}
+
+/** El nombre de una cabaña: en Casa Verde es { es, pt, en } o un texto. */
+export function nombreDeCabana(c, id) {
+  const n = c && c.nombre;
+  if (n && typeof n === "object") return String(n.es || n.pt || n.en || id || "");
+  return String(n || id || "");
+}
+
+const HORA_OK = (h) => (/^\d{1,2}:\d{2}$/.test(String(h || "")) ? String(h).padStart(5, "0") : "");
+
+/** Quién entra y quién sale ese día, de las reservas confirmadas. */
+export function movimientosDelDia(reservas, dia, cabanas = {}) {
+  const out = [];
+  for (const r of reservas || []) {
+    if (!r || r.estado === "anulada" || r.estado === "cancelada") continue;
+    const cab = nombreDeCabana(cabanas[r.cabanaId], r.cabanaId);
+    const nombre = nombreDeReserva(r.clienteNombre);
+    if (r.checkIn === dia) {
+      const n = (Number(r.adultos) || 0) + (Number(r.ninos) || 0) + (Number(r.bebes) || 0);
+      const llega = HORA_OK(r.llegadaEstimada);
+      out.push({ id: r.id, tipo: "entra", nombre, cabana: cab, hora: HORA_OK(r.horaEntrada) || "14:00",
+        sub: [cab, n ? `${n} ${n === 1 ? "persona" : "personas"}` : "", llega ? `llega ~${llega}` : ""].filter(Boolean).join(" · ") });
+    }
+    if (r.checkOut === dia) {
+      out.push({ id: r.id, tipo: "sale", nombre, cabana: cab, hora: HORA_OK(r.horaSalida) || "10:00", sub: cab });
+    }
+  }
+  return out.sort((a, b) => a.hora.localeCompare(b.hora) || a.nombre.localeCompare(b.nombre));
 }

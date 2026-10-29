@@ -171,6 +171,12 @@ la documentación diga la verdad.
   proyecto (la `cuenta`), y lo que llegue de otras apps —la carga de la Hilux,
   los gastos de los sitios— entrará solo, con su `origen`, como un gasto con
   varias pruebas (factura, línea del extracto), no como gastos repetidos.
+- **Las llegadas y salidas de Casa Verde están en la agenda** (agenda-22,
+  nucleo-44, app-39, 29-oct-2026, `tiempos:V17`): se LEEN de `reservas/` y
+  `cabanas/` de Casa Verde con su sesión, no se copian, y son piezas de sólo
+  lectura que abren la reserva allá (`movimientosDelDia`). Si cambia la forma
+  de una reserva en Casa Verde (`checkIn`, `checkOut`, `horaEntrada`,
+  `horaSalida`, `estado`, `clienteNombre`), cambia ahí en la misma tanda.
 - **Cada proyecto tiene su PANTALLA** (proyecto-1, nucleo-43, app-38,
   15-oct-2026, Mauro: «una pantalla por proyecto, como General Flores, con toda
   la información que se va acumulando… como si fuera una app»). Un proyecto es
