@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // firebase-init.js — El único contacto con Firebase. Dos bases, un SDK.
-// Sello: init-4
+// Sello: init-5
 //
 // ── LAS DOS BASES ────────────────────────────────────────────────────────────
 // · `tiempos-71d42` — la de la familia: tareas, sesiones y (después) el
 //   reparto. La ven sólo Mauro, Florencia y el agente.
 // · `casaverde-20` — la de Casa Verde, **a través de su propio código**: se
-//   importan `firebase-init.js` y `actividades-core.js` desde el sitio de Casa
-//   Verde. Así arrancar, frenar, cerrar el ciclo y repartir honorarios son
+//   importa su CONECTOR (`conector-1.js`, init-5), que entrega su base, su
+//   motor de actividades y lo justo de su núcleo. Así arrancar, frenar, cerrar el ciclo y repartir honorarios son
 //   EXACTAMENTE lo que hace el panel de Casa Verde, y si ese código cambia,
 //   esta app lo toma sola. Copiarlo acá sería el error de siempre: dos copias
 //   que divergen en silencio.
@@ -27,6 +27,7 @@
 
 export const SDK = "https://www.gstatic.com/firebasejs/12.16.0/";
 export const CASA_VERDE = "https://casaverdecanas.com.br/interno/";
+export const CONECTOR = "conector-1.js";   // el contrato de Casa Verde que usa esta app
 
 /* Público por diseño: identifica al proyecto, NO da permisos. Eso lo hacen
    las reglas de `firestore.rules`. */
@@ -75,16 +76,14 @@ export function cargar({ casaVerde = true } = {}) {
     if (!casaVerde) return true;
 
     try {
-      const mod = await import(CASA_VERDE + "firebase-init.js");
-      await mod.cargarFirebase();
-      const { Core } = await import(CASA_VERDE + "actividades-core.js");
-      // init-2: el núcleo de Casa Verde, para subir las boletas con SU
-      // `subirImagen` (comprime y va a su Cloudinary) y leerlas con SU
-      // función de IA (`CV2.NETLIFY`). Si no baja, Tiempos anda igual: sólo
-      // no hay fotos ni lectura automática.
-      let CV2 = null;
-      try { ({ CV2 } = await import(CASA_VERDE + "nucleo.js")); } catch { CV2 = null; }
-      CV = { mod, Core, CV2 };
+      // init-5 (8-nov-2026, plan «Timón»): Casa Verde entra por UNA puerta,
+      // su conector con número (`conector-1.js`), y no por sus archivos de
+      // adentro. Lo que se puede usar está en su `OFRECE`; el banco falla si
+      // esta app usa otra cosa. Si el núcleo no baja, CV2 viene null y
+      // Tiempos anda igual: sólo no hay fotos ni lectura automática.
+      const { cargar: cargarCasaVerde } = await import(CASA_VERDE + CONECTOR);
+      const c = await cargarCasaVerde();
+      CV = { mod: c.mod, Core: c.Core, CV2: c.CV2 };
     } catch (e) {
       CV = null;
       errorCasaVerde = "No se pudo cargar Casa Verde: " + (e && e.message || e);

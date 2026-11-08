@@ -587,8 +587,11 @@ Los nombres de los chicos **no están en el código**: viven en la base
 
 ## Casa Verde entra por su propio código
 
-`firebase-init.js` importa `firebase-init.js` y `actividades-core.js` del sitio
-de Casa Verde. Arrancar, frenar y tildar son `Core.iniciar`, `Core.finalizar` y
+Desde init-5 (8-nov-2026, plan «Timón») `firebase-init.js` importa UN archivo
+de Casa Verde: su conector, `conector-1.js`, que entrega su base (`mod`), su
+motor (`Core`) y lo justo de su núcleo (`CV2`), con lo permitido escrito en su
+`OFRECE`. El banco falla si esta app usa algo que el conector no ofrece. Antes
+importaba `firebase-init.js`, `actividades-core.js` y `nucleo.js` de adentro. Arrancar, frenar y tildar son `Core.iniciar`, `Core.finalizar` y
 `Core.tildar`: los mismos que usa el panel de Casa Verde, no una copia. Desde
 app-4 también importa su `nucleo.js`, para subir las boletas con su
 `CV2.subirImagen` (a su Cloudinary, carpeta `tiempos`) y leerlas con su función
@@ -639,7 +642,7 @@ Florencia la acuerden.
 | `balance.js` | el balance del tiempo (los chicos, del calendario), las salidas, los acuerdos, la auditoría | `balance-5` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-22` |
 | `familia.js` | Hoy y Chicos | `familia-6` |
-| `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar | `init-4` |
+| `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar; desde init-5 Casa Verde entra por su conector | `init-5` |
 | `estilos.css` | | `estilos-30` |
 | `sw.js` | el cascarón sin señal | `tiempos-71` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |

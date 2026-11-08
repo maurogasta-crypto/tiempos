@@ -110,8 +110,11 @@ la documentación diga la verdad.
   semana anterior. **Si cambia la forma de una clave (`act:`, `f:`,
   `cv:`, `ev:<id>|<día>`), cambia `AgendaLogica.kt` de la Pizarra.**
 - **Casa Verde se usa, no se copia.** Arrancar, frenar y tildar son
-  `Core.iniciar`, `Core.finalizar` y `Core.tildar` de `actividades-core.js`,
-  importado de su sitio. La app no escribe en Casa Verde por su cuenta, **salvo
+  `Core.iniciar`, `Core.finalizar` y `Core.tildar` de Casa Verde, que entran
+  **sólo por su conector** (`conector-1.js`, init-5, 8-nov-2026, plan «Timón»):
+  lo que esta app puede usar de Casa Verde es lo que lista su `OFRECE`, y el
+  banco falla si se usa otra cosa. Cerrar una limpieza de entrada desde acá abre
+  su control de salida, porque desde `core-2` esa regla vive en el motor. La app no escribe en Casa Verde por su cuenta, **salvo
   la agenda de cada uno** (`estado_usuario/{uid}.agenda`, app-3), con la forma
   exacta de la agenda de Casa Verde para que sea UNA agenda. El banco exige que
   sea la única escritura directa.

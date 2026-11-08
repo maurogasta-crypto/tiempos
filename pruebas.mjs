@@ -673,6 +673,26 @@ prueba("el SDK es la misma versión que el de Casa Verde (si está al lado)", ()
   if (!fs.existsSync(cv)) { console.log("      (no está casaverdecanas al lado: no se compara)"); return; }
   assert.equal(mio, /firebasejs\/([\d.]+)\//.exec(fs.readFileSync(cv, "utf8"))[1]);
 });
+prueba("Casa Verde entra SÓLO por su conector, y sólo con lo que el conector ofrece (init-5)", () => {
+  const init = fs.readFileSync("firebase-init.js", "utf8");
+  assert.match(init, /export const CONECTOR = "conector-1\.js";/);
+  const todos = fs.readdirSync(".").filter((f) => /\.(js|html)$/.test(f)).map((f) => [f, fs.readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")]);
+  for (const [f, t] of todos) {
+    for (const interno of ["firebase-init.js", "actividades-core.js", "nucleo.js"]) {
+      assert.ok(!t.includes("CASA_VERDE + \"" + interno), f + " importa " + interno + " de Casa Verde por adentro");
+    }
+  }
+  const usa = (k) => new Set(todos.flatMap(([, t]) => [...t.matchAll(new RegExp("CV\\." + k + "\\.(\\w+)", "g"))].map((m) => m[1])));
+  const usaCore = usa("Core"), usaCV2 = usa("CV2");
+  // y también «const CV2 = CV.CV2; … CV2.algo»
+  for (const [, t] of todos) if (/const CV2 = CV(?: && CV)?\.CV2/.test(t)) for (const m of t.matchAll(/\bCV2\.(\w+)/g)) usaCV2.add(m[1]);
+  const cv = path.join("..", "casaverdecanas", "interno", "conector-1.js");
+  if (!fs.existsSync(cv)) { console.log("      (no está casaverdecanas al lado: no se compara con su OFRECE)"); return; }
+  const con = fs.readFileSync(cv, "utf8");
+  const ofrece = (k) => JSON.parse(con.match(new RegExp(k + ": Object\\.freeze\\((\\[[^\\]]*\\])"))[1].replace(/'/g, '"'));
+  for (const n of usaCore) assert.ok(ofrece("Core").includes(n), "Core." + n + " no está en el conector");
+  for (const n of usaCV2) assert.ok(ofrece("CV2").includes(n), "CV2." + n + " no está en el conector");
+});
 prueba("todo lo del SHELL del service worker existe", () => {
   const sw = fs.readFileSync("sw.js", "utf8");
   const shell = JSON.parse(/SHELL = (\[[^\]]+\])/.exec(sw)[1].replace(/'/g, '"'));
