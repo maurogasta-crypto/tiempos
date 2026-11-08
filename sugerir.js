@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // sugerir.js — El globo flotante: preguntarle a la IA, una sugerencia o una
-// falla. Sello: sugerir-22
+// falla. Sello: sugerir-23
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -28,7 +28,7 @@
 // Claude, que la contesta en Pizarra (sugerir-19).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { db, auth, F, CV } from "./firebase-init.js";
+import { db, auth, F, CV, servidor } from "./firebase-init.js";
 import { esc, limpiarDictado, escudarNombres, devolverNombres, CATEGORIAS, cuentasDe, cuentaPorNombre, idsDeCuenta, balanceDe,
   actividadesDeChicos, horasPorCuenta, CONSULTAS, sumarDias, sinDatosPersonales, leerConsultaIA, buscarEnAgenda } from "./nucleo.js";
 import { agendaUnida } from "./agenda.js";
@@ -65,8 +65,6 @@ function piezasConDia() {
 /* La IA entiende la pregunta: qué se busca, de cuándo, de qué cuenta. No ve
    la agenda ni los gastos: la respuesta la arma la app. */
 async function preguntar(texto) {
-  const CV2 = CV && CV.CV2;
-  if (!CV2) throw new Error("sin Casa Verde no hay IA");
   const hoy = E.hoy;
   const dia = new Date(hoy + "T12:00").toLocaleDateString("es", { weekday: "long" });
   const ninos = chicosDeLaCasa();
@@ -80,14 +78,9 @@ Devolvé SOLO un JSON, sin texto alrededor:
  "ninos": ["Chico1"] si pregunta por uno, "cuenta": una de las cuentas o "", "categorias": [de la lista] o [], "persona": "yo" | "otro" | "",
  "pregunta": la pregunta en una línea}
 No contestes la pregunta: sólo decí qué buscar.`;
-  const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    // flash-lite: el que piensa se come los tokens y corta el JSON (plata-2).
-    body: JSON.stringify({ model: "gemini-2.5-flash-lite", max_tokens: 600, messages: [{ role: "user", content: [{ type: "text", text: prompt }] }] }),
-  });
-  if (!r.ok) throw new Error("la IA contestó " + r.status);
-  const j = await r.json();
-  const c = leerConsultaIA(((j.content || [])[0] || {}).text);
+  // flash-lite: el que piensa se come los tokens y corta el JSON (plata-2).
+  const S = await servidor();
+  const c = leerConsultaIA(await S.preguntarIA({ contenido: [{ type: "text", text: prompt }], max_tokens: 600 }));
   if (!c) throw new Error("no entendí la pregunta");
   c.pregunta = devolverNombres(c.pregunta || texto, ninos);
   c.buscar = c.buscar.map((w) => devolverNombres(w, ninos));
@@ -132,8 +125,6 @@ async function contestar(a) {
 
 /* «✨ Explicar»: la IA comenta los números que ya calculó la app; no suma nada. */
 async function explicar(a) {
-  const CV2 = CV && CV.CV2;
-  if (!CV2) throw new Error("sin Casa Verde no hay IA");
   const r = a.resultado || {};
   const datos = r.tipo === "lista" ? { periodo: [r.desde, r.hasta], de: r.de, items: (r.items || []).slice(0, 80) }
     : r.tipo === "horas" ? { periodo: [r.desde, r.hasta], cuenta: r.cuenta, total: r.total, porCuenta: r.porCuenta, sesiones: r.n }
@@ -141,11 +132,9 @@ async function explicar(a) {
         categorias: Object.fromEntries(Object.entries(CATEGORIAS).map(([k, c]) => [k, c.nombre])) };
   const texto = escudarNombres(`Pregunta: «${a.pregunta || CONSULTAS[a.que]}». Datos YA calculados por la app (JSON): ${JSON.stringify(datos)}.
 Explicá en castellano rioplatense, en 4 a 8 renglones cortos y sin inventar números: qué muestran, qué llama la atención, y qué falta registrar para que el análisis sea completo. Cada moneda es aparte: nunca sumes reales, pesos y dólares ni conviertas. Si no hay datos, decilo y sugerí qué cargar.`, chicosDeLaCasa());
-  const res = await fetch(CV2.NETLIFY + "/claude-proxy", { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gemini-2.5-flash-lite", max_tokens: 900, messages: [{ role: "user", content: [{ type: "text", text: texto }] }] }) });
-  if (!res.ok) throw new Error("la IA contestó " + res.status);
-  const j = await res.json();
-  return devolverNombres(String(((j.content || [])[0] || {}).text || "").trim(), chicosDeLaCasa());
+  const S = await servidor();
+  const dicho = await S.preguntarIA({ contenido: [{ type: "text", text: texto }], max_tokens: 900 });
+  return devolverNombres(dicho.trim(), chicosDeLaCasa());
 }
 
 const plata = (n) => Number(n).toLocaleString("es-UY", { maximumFractionDigits: 2 });
@@ -307,16 +296,11 @@ export async function mandarReporte(c) {
    persona esté en miembros/ y dispara la rutina. Nunca bloquea: si falla, la
    ronda diaria lo levanta igual. La nota no cambia hasta que esto se vea
    andando: prometer «en minutos» antes sería prometer de más. */
-const AVISAR_CLAUDE = "https://serene-scone-76bd4e.netlify.app/.netlify/functions/avisar-claude";
 async function avisarClaude(reporteId) {
   try {
     const u = auth && auth.currentUser;
     if (!u || !reporteId) return;
-    const t = await u.getIdToken();
-    await fetch(AVISAR_CLAUDE, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
-      body: JSON.stringify({ base: "tiempos", reporteId }),
-    });
+    const S = await servidor();
+    await S.avisarClaude({ base: "tiempos", reporteId, token: await u.getIdToken() });
   } catch (e) { /* silencio a propósito: el reporte ya quedó guardado */ }
 }

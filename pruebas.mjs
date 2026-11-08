@@ -693,6 +693,11 @@ prueba("Casa Verde entra SÓLO por su conector, y sólo con lo que el conector o
   for (const n of usaCore) assert.ok(ofrece("Core").includes(n), "Core." + n + " no está en el conector");
   for (const n of usaCV2) assert.ok(ofrece("CV2").includes(n), "CV2." + n + " no está en el conector");
 });
+prueba("la dirección del servidor no está escrita en ninguna pantalla: va por servidor-1.js de datos (init-6)", () => {
+  for (const f of fs.readdirSync(".").filter((x) => x.endsWith(".js") && x !== "pruebas.mjs"))
+    assert.ok(!/netlify\.app/.test(fs.readFileSync(f, "utf8")), f + " tiene la dirección del servidor escrita");
+  assert.match(fs.readFileSync("firebase-init.js", "utf8"), /SERVIDOR_COMUN = "https:\/\/maurogasta-crypto\.github\.io\/datos\/servidor-1\.js"/);
+});
 prueba("todo lo del SHELL del service worker existe", () => {
   const sw = fs.readFileSync("sw.js", "utf8");
   const shell = JSON.parse(/SHELL = (\[[^\]]+\])/.exec(sw)[1].replace(/'/g, '"'));
@@ -1985,7 +1990,7 @@ prueba("cada nombre que un archivo importa de otro existe allá (un import roto 
 
 titulo("Despertar a las Pizarras (init-4)");
 {
-  const { envolverEscrituras, queCambio, QUE_DE_COLECCION } = await import("./firebase-init.js");
+  const { envolverEscrituras, queCambio, QUE_DE_COLECCION, fijarServidor } = await import("./firebase-init.js");
   prueba("qué cambió sale de la colección; lo que la Pizarra no muestra no despierta", () => {
     assert.equal(queCambio("tareas/abc"), "tareas");
     assert.equal(queCambio("alertas"), "alertas");
@@ -2001,6 +2006,9 @@ titulo("Despertar a las Pizarras (init-4)");
     for (const q of new Set(Object.values(QUE_DE_COLECCION))) assert.ok(lista.includes(`"${q}"`), q);
   });
   // Las escrituras envueltas, contra un SDK de mentira y un fetch que anota.
+  // init-6: despertar va por servidor-1.js de datos; el banco usa la copia de al lado.
+  const comun = path.join("..", "datos", "servidor-1.js");
+  if (fs.existsSync(comun)) fijarServidor(await import(new URL("file://" + path.resolve(comun)).href));
   const llamadas = [], db = {}, otraDb = {};
   const fetchViejo = globalThis.fetch;
   globalThis.fetch = async (url, op) => { llamadas.push({ url, cuerpo: JSON.parse(op.body), auth: op.headers.Authorization }); return { ok: true }; };
@@ -2019,6 +2027,7 @@ titulo("Despertar a las Pizarras (init-4)");
   globalThis.fetch = fetchViejo;
   prueba("guardar despierta una vez por «qué», sin contenido, con el token; lo de Casa Verde y lo que falló, no", () => {
     assert.equal(falla, "denegado");
+    if (!fs.existsSync(comun)) { console.log("      (no está datos al lado: no se prueba el aviso)"); return; }
     assert.deepEqual(llamadas.map((l) => l.cuerpo.que).sort(), ["agenda", "alertas", "tareas"]);
     for (const l of llamadas) {
       assert.ok(l.url.endsWith("/.netlify/functions/despertar"));

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // firebase-init.js — El único contacto con Firebase. Dos bases, un SDK.
-// Sello: init-5
+// Sello: init-6
 //
 // ── LAS DOS BASES ────────────────────────────────────────────────────────────
 // · `tiempos-71d42` — la de la familia: tareas, sesiones y (después) el
@@ -28,6 +28,17 @@
 export const SDK = "https://www.gstatic.com/firebasejs/12.16.0/";
 export const CASA_VERDE = "https://casaverdecanas.com.br/interno/";
 export const CONECTOR = "conector-1.js";   // el contrato de Casa Verde que usa esta app
+// init-6 (8-nov-2026, plan «Timón»): el servidor del ecosistema (la IA,
+// despertar, avisar a Claude) se llama por la pieza común de `datos`, que
+// tiene la dirección UNA vez. Se pide diferido, recién cuando se usa.
+export const SERVIDOR_COMUN = "https://maurogasta-crypto.github.io/datos/servidor-1.js";
+let promServidor = null;
+export function servidor() {
+  if (!promServidor) promServidor = import(SERVIDOR_COMUN).catch((e) => { promServidor = null; throw new Error("No se pudo cargar el servidor del ecosistema. Suele ser falta de señal."); });
+  return promServidor;
+}
+/** Sólo para el banco: node no baja módulos por https, así que le pasa la copia de al lado. */
+export function fijarServidor(m) { promServidor = Promise.resolve(m); }
 
 /* Público por diseño: identifica al proyecto, NO da permisos. Eso lo hacen
    las reglas de `firestore.rules`. */
@@ -102,7 +113,6 @@ export function cargar({ casaVerde = true } = {}) {
 // escritura nueva se olvida. Sólo las de ESTA base (no las de Casa Verde) y
 // sólo las colecciones que la Pizarra lee. Nunca bloquea ni falla: si no
 // llega, la Pizarra lo trae a los 10 minutos.
-export const DESPERTAR = "https://serene-scone-76bd4e.netlify.app/.netlify/functions/despertar";
 export const QUE_DE_COLECCION = {
   tareas: "tareas", alertas: "alertas", agendas: "agenda", eventos: "agenda",
   deseos: "agenda", mensajes: "mensajes", avisos: "avisos", propuestas: "todo",
@@ -122,9 +132,8 @@ function despertarLuego(que, getAuth) {
       const u = getAuth() && getAuth().currentUser;
       if (!u || u.isAnonymous) return;
       const t = await u.getIdToken();
-      await fetch(DESPERTAR, { method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
-        body: JSON.stringify({ base: "tiempos", que }) });
+      const S = await servidor();
+      await S.despertar({ base: "tiempos", que, token: t });
     } catch (e) { /* silencio a propósito: lo guardado ya quedó */ }
   }, 2000));
 }

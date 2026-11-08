@@ -118,6 +118,12 @@ la documentación diga la verdad.
   la agenda de cada uno** (`estado_usuario/{uid}.agenda`, app-3), con la forma
   exacta de la agenda de Casa Verde para que sea UNA agenda. El banco exige que
   sea la única escritura directa.
+- **El servidor del ecosistema se llama por `servidor-1.js` de `datos`**
+  (init-6, 8-nov-2026, plan «Timón»): la IA, `despertar` y `avisar-claude`, con
+  la dirección escrita UNA vez allá; `servidor()` de `firebase-init.js` lo pide
+  diferido. Así la IA ya no depende de tener la sesión de Casa Verde (leer una
+  FOTO sí, por `CV2.comprimirImagen`). El banco falla si una pantalla vuelve a
+  escribir la dirección del servidor.
 - **Los nombres de los chicos no entran al código**: viven en
   `familia/config` de la base. El banco busca los nombres y falla si aparecen.
 - **El tiempo con los chicos sale del CALENDARIO, no de un reloj** (app-31,

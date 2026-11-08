@@ -642,7 +642,7 @@ Florencia la acuerden.
 | `balance.js` | el balance del tiempo (los chicos, del calendario), las salidas, los acuerdos, la auditoría | `balance-5` |
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-22` |
 | `familia.js` | Hoy y Chicos | `familia-6` |
-| `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar; desde init-5 Casa Verde entra por su conector | `init-5` |
+| `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar; desde init-5 Casa Verde entra por su conector; desde init-6 el servidor va por `servidor-1.js` de datos | `init-6` |
 | `estilos.css` | | `estilos-30` |
 | `sw.js` | el cascarón sin señal | `tiempos-71` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |

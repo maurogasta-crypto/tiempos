@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-17
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-18
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -67,7 +67,7 @@
 // subida a nuestro Cloudinary: se lee y no se vuelve a subir).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { db, F, CV } from "./firebase-init.js";
+import { db, F, CV, servidor } from "./firebase-init.js";
 import { esc, MONEDAS, CATEGORIAS, validarMovimiento, disponible, automaticosPendientes,
          leerSugerencia, esISO, MESES, TIPOS, MEDIOS_PAGO, imagenNuestra } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
@@ -348,9 +348,10 @@ const TOKENS_BOLETA = 2000;
    también Fijos (finanzas.js) para pagar una casilla. */
 export async function leerGasto({ file = null, texto = "" } = {}) {
   const CV2 = CV && CV.CV2;
-  if (!CV2) throw new Error("hace falta la sesión de Casa Verde para la IA");
   const contenido = [];
   if (file) {
+    // init-6: la IA ya no depende de Casa Verde; achicar la foto, todavía sí.
+    if (!CV2) throw new Error("hace falta la sesión de Casa Verde para leer una foto");
     const blob = await CV2.comprimirImagen(file);
     const data = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = mal; r.readAsDataURL(blob); });
     contenido.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } });
@@ -363,25 +364,21 @@ export async function leerGasto({ file = null, texto = "" } = {}) {
 async function leerBoleta(file) { return leerGasto({ file }); }
 
 async function leerBoletaCon(contenido, escrito) {
-  const CV2 = CV.CV2;
   const cats = Object.entries(CATEGORIAS).filter(([, c]) => c.tipo === "salio").map(([k, c]) => `${k} (${c.nombre})`).join(", ");
   const cuentas = cuentasDe(E.cuentasDoc);
   const lista = cuentas.map((c) => `${c.id} (${c.ruta}${c.pais ? ", " + c.pais : ""})`).join(", ");
-  const r = await fetch(CV2.NETLIFY + "/claude-proxy", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+  const S = await servidor();
+  const dicho = await S.preguntarIA({
     // plata-2 (tiempos:A10): flash-lite y 2000 tokens. «gemini-2.5-flash»
     // piensa antes de contestar, el pensamiento se come el límite y el JSON
     // llega cortado — pasó igual en el inventario de remate.
-    body: JSON.stringify({ model: MODELO_BOLETA, max_tokens: TOKENS_BOLETA, messages: [{ role: "user", content: [
+    model: MODELO_BOLETA, max_tokens: TOKENS_BOLETA, contenido: [
       ...contenido,
       { type: "text", text: `${contenido.length ? "Es una boleta o comprobante" : "Es lo que alguien escribió sobre un pago"} de un gasto de una familia en Brasil o Uruguay.${escrito ? ` Lo que escribió: «${escrito}».` : ""} Hoy es ${E.hoy}. Devolvé SOLO un JSON, sin texto alrededor:
 {"monto": número total pagado, "moneda": "BRL" | "UYU" | "USD", "fecha": "AAAA-MM-DD", "comercio": nombre del comercio, "categoria": una de [${cats}], "detalle": qué se compró, en pocas palabras, "cuenta": a qué lugar o vehículo va, una de [${lista}], o "" si la boleta no lo deja claro,
  "rut": el RUT o CNPJ del comercio, "numero": número o serie del comprobante, "medio": "efectivo" | "debito" | "credito" | "transferencia" | "pix" | "", "renglones": [{"detalle": cada cosa comprada, "monto": su importe}] (hasta 40)}.
-Si un dato no se lee con seguridad, dejalo vacío (""). No inventes.` }] }] }),
-  });
-  if (!r.ok) throw new Error("la IA contestó " + r.status);
-  const j = await r.json();
-  return leerSugerencia(((j.content || [])[0] || {}).text, new Set(cuentas.map((c) => c.id)));
+Si un dato no se lee con seguridad, dejalo vacío (""). No inventes.` }] });
+  return leerSugerencia(dicho, new Set(cuentas.map((c) => c.id)));
 }
 
 async function guardarMovimiento(f) {
