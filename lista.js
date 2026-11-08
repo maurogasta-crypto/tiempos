@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// lista.js — La página de una lista compartida sin cuenta. Sello: lista-1
+// lista.js — La página de una lista compartida sin cuenta. Sello: lista-2
 //
 // compras-4 (9-oct-2026). Lee `compartidas/{token}` en vivo y deja tildar y
 // agregar cosas, con el nombre que la persona escribe una vez (se recuerda
@@ -41,7 +41,7 @@ function pintar(d) {
   vistos = ahora;
   h += `<form class="agregar-lista" data-agregar><input name="t" maxlength="80" placeholder="＋ Agregar algo a la lista" required>${l.secciones.length
       ? `<select name="s" aria-label="Pasillo">${l.secciones.map((x) => `<option value="${esc(x.id)}">${esc(x.nombre)}</option>`).join("")}<option value="">Otras cosas</option></select>` : ""}<button class="mini">Agregar</button></form>
-    <p class="gris" style="margin-top:1.5rem">Lista compartida desde Tiempos. Lo que tildás lo ven al instante.${vence ? ` El enlace se cierra el ${esc(new Date(vence).toLocaleString("es-UY", { weekday: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }))} h.` : ""}</p></div>`;
+    <p class="gris" style="margin-top:1.5rem">Lista compartida desde Timón. Lo que tildás lo ven al instante.${vence ? ` El enlace se cierra el ${esc(new Date(vence).toLocaleString("es-UY", { weekday: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }))} h.` : ""}</p></div>`;
   v.innerHTML = h;
 
   const ref = F.doc(db, "compartidas", token);

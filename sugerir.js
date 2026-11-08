@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // sugerir.js — El globo flotante: preguntarle a la IA, una sugerencia o una
-// falla. Sello: sugerir-23
+// falla. Sello: sugerir-24
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -148,7 +148,7 @@ function respuestaHTML(a, n) {
   } else if (r.tipo === "horas") {
     h = `<p><b>Horas registradas</b>${r.cuenta ? " · " + esc(r.cuenta) : ""} · ${esc(periodo(r))}: <b>${esc(String(r.total))} h</b> en ${r.n} registro(s)</p>
       ${Object.entries(r.porCuenta).map(([c, v]) => `<div class="barra-fila"><span>${esc(r.nombresCuenta[c] || "sin cuenta")}</span><b>${esc(String(v))} h</b></div>`).join("")}
-      <p class="gris">Son las del reloj de Tiempos. Las horas de Casa Verde (honorarios) todavía no entran acá.</p>`;
+      <p class="gris">Son las del reloj de Timón. Las horas de Casa Verde (honorarios) todavía no entran acá.</p>`;
   } else {
     const ms = Object.entries(r.porMoneda || {});
     h = `<p><b>${r.tipo === "balance" ? "Balance" : "Gastos y entradas"}</b>${r.cuenta ? " · " + esc(r.cuenta) : ""}${r.categorias.length ? " · " + esc(r.categorias.map((c) => CATEGORIAS[c].nombre).join(", ")) : ""} · ${esc(periodo(r))}</p>

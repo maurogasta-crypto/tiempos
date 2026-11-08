@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// compras.js — La lista de compras de la casa. Sello: compras-4
+// compras.js — La lista de compras de la casa. Sello: compras-5
 //
 // Pedido de Mauro, 30-sep-2026, desde el globo 💡: «Falta la lista de compras.
 // En categorías editables —súper, ferretería, o alimentos, materiales—;
@@ -92,7 +92,7 @@ const hasta = (ms) => new Date(ms).toLocaleString("es-UY", { weekday: "short", d
 async function compartir(l, b) {
   let token = l.compartida && l.compartida.token;
   if (!token) {
-    if (!confirm(`Se crea un enlace para «${l.nombre}» que se abre SIN cuenta, durante ${HORAS_COMPARTIDA} horas: quien lo tenga ve esta lista, tilda y agrega cosas. Nada más de Tiempos. ¿Seguimos?`)) return;
+    if (!confirm(`Se crea un enlace para «${l.nombre}» que se abre SIN cuenta, durante ${HORAS_COMPARTIDA} horas: quien lo tenga ve esta lista, tilda y agrega cosas. Nada más de Timón. ¿Seguimos?`)) return;
     token = tokenNuevo();
     const { venceMs, ...d } = documentoCompartido({ ...E.compras.listas[l.id], id: l.id }, E.yo.uid, Date.now());
     try {

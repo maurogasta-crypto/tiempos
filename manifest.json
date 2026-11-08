@@ -1,7 +1,7 @@
 {
-  "name": "Tiempos",
-  "short_name": "Tiempos",
-  "description": "Un solo cronómetro para la familia y Casa Verde.",
+  "name": "Timón",
+  "short_name": "Timón",
+  "description": "La gestión del ecosistema de la familia: tareas, agenda, plata y las apps de cada proyecto.",
   "lang": "es",
   "start_url": "./",
   "scope": "./",

@@ -2,6 +2,12 @@
 
 ## Qué es este proyecto
 
+**Se llama Timón desde el 8-nov-2026** (plan «Timón», Mauro: «tiempos, que
+debería ser la app de gestión del ecosistema para mí y Florencia… renombrarla»).
+Por ahora cambió el nombre VISIBLE (título, barra, `manifest.json`); el
+repositorio, la dirección, la base `tiempos-71d42`, el `id` del manifest (así la
+app instalada no se duplica) y los nombres internos siguen siendo «tiempos».
+
 App instalable de Mauro y Florencia para registrar el tiempo con **un solo
 cronómetro**: lo de la familia (en `tiempos-71d42`) y lo de Casa Verde (en
 `casaverde-20`, a través del código de Casa Verde). Estático, sin build, sin

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// proyectos.js — Plata → Proyectos: la economía centralizada. Sello: proyectos-2
+// proyectos.js — Plata → Proyectos: la economía centralizada. Sello: proyectos-3
 //
 // Mauro, 10-oct-2026 (tiempos:V13): «quiero que la economía esté centralizada
 // para poder, de un solo lugar, saber cómo se están derivando los gastos…
@@ -84,7 +84,7 @@ export function pintarProyectos(v, mes) {
 }
 
 function libroCVHTML(r) {
-  if (!CV || !E.cv) return `<p class="gris chica">Su libro propio está en Casa Verde: entrá a Casa Verde desde Tiempos para verlo acá.</p>`;
+  if (!CV || !E.cv) return `<p class="gris chica">Su libro propio está en Casa Verde: entrá a Casa Verde desde Timón para verlo acá.</p>`;
   if (!libroCV) return `<p class="gris chica">Leyendo el libro de Casa Verde…</p>`;
   if (libroCV.error) return `<p class="gris chica">No pude leer el libro de Casa Verde: ${esc(libroCV.error)}.</p>`;
   const lib = libroDeNegocio(libroCV.movs, { desde: r.desde, hasta: r.hasta });
