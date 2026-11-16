@@ -1,6 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-41
+// Sello: app-42
+//
+// app-42 (16-nov-2026, plan «Timón», etapa 4): la solapa «Hoy» nueva (hoy.js,
+//   el prototipo que aprobó Mauro): los ítems de mis espacios (`items/`, sólo
+//   el tipo `tarea` por ahora), EN PARALELO con Tareas (regla 8: una semana
+//   los dos). Lo cotidiano pasa a llamarse «Cotidianas» (conserva el id `hoy`
+//   para los enlaces ?solapa= de la Pizarra). Y cada cambio de mis ítems deja
+//   ARMADO `hoy/{uid}` (regla 3: la materialización que el widget sólo pinta).
 //
 // app-26 (10-oct-2026, tiempos:V11): escucha `familia/cierres` y los análisis de Claude.
 // app-30 (12-oct-2026, Mauro: «una edición de proyectos y tareas más
@@ -76,8 +83,9 @@ import { pintarBalance } from "./balance.js";
 import { pintarCompras, abrirSuper, escucharCompartidas } from "./compras.js";
 import { montarGlobo, abrirConsulta } from "./sugerir.js";
 import { pintarPizarra } from "./pizarra.js";
+import { pintarInicio, publicarHoy } from "./hoy.js";
 
-const SOLAPAS = ["pizarra", "tareas", "hoy", "agenda", "chicos", "plata", "balance"];
+const SOLAPAS = ["inicio", "pizarra", "tareas", "hoy", "agenda", "chicos", "plata", "balance"];
 const mostrar = (id) => { for (const s of ["cargando", "entrar", "acceso", "app"]) $(s).hidden = s !== id; };
 
 /* ── Arranque ─────────────────────────────────────────────────────────────── */
@@ -181,7 +189,7 @@ async function entrarAlaApp() {
     // Pasada la medianoche, «hoy» es otro día: sin esto, la app abierta
     // desde anoche tildaría el desayuno de ayer.
     const h = isoDe();
-    if (h !== E.hoy) { if (E.diaVisto === E.hoy) { E.diaVisto = h; escucharDia(); } E.hoy = h; pintar(); }
+    if (h !== E.hoy) { if (E.diaVisto === E.hoy) { E.diaVisto = h; escucharDia(); } E.hoy = h; publicarHoy(); pintar(); }
   }, 1000);
 }
 
@@ -222,6 +230,16 @@ function escucharFamilia() {
     (s) => { comunes = s.docs.map((d) => ({ id: d.id, ...d.data() })); unir(); }, mal("las tareas"));
   F.onSnapshot(F.query(c, F.where("alcance", "==", "personal"), F.where("duenio", "==", E.yo.uid)),
     (s) => { mias = s.docs.map((d) => ({ id: d.id, ...d.data() })); unir(); }, mal("tus tareas"));
+  // app-42 (etapa 4): los ÍTEMS de mis espacios, dos consultas como las
+  // tareas (cada una se puede probar contra su regla). Cada cambio rearma
+  // `hoy/{uid}` (publicarHoy, con respiro y sólo si cambió).
+  const ci = F.collection(db, "items");
+  let itFam = [], itMios = [];
+  const unirItems = () => { E.items = [...itFam, ...itMios]; publicarHoy(); pintar(); };
+  F.onSnapshot(F.query(ci, F.where("espacio", "==", "familia")),
+    (s) => { itFam = s.docs.map((d) => ({ id: d.id, ...d.data() })); unirItems(); }, mal("los ítems de la familia"));
+  F.onSnapshot(F.query(ci, F.where("espacio", "==", "p-" + E.yo.uid)),
+    (s) => { itMios = s.docs.map((d) => ({ id: d.id, ...d.data() })); unirItems(); }, mal("tus ítems"));
   // Mis relojes: el de TAREA (uno solo) y el de los CHICOS, que corre en
   // paralelo. Sin `limit(1)`: con dos relojes posibles, uno taparía al otro.
   F.onSnapshot(F.query(F.collection(db, "sesiones"), F.where("uid", "==", E.yo.uid),
@@ -479,6 +497,7 @@ function pintar() {
   $("cuidado").hidden = !E.cuidado;            // app-31: sólo uno viejo que quedó corriendo
   pintarCrono();
   pintarCuidado();
+  if (E.solapa === "inicio") pintarInicio();
   if (E.solapa === "pizarra") pintarPizarra(irA);
   if (E.solapa === "hoy") pintarHoy();
   if (E.solapa === "agenda") pintarAgenda();

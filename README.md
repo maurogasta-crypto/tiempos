@@ -10,10 +10,47 @@ App instalable, sin build, servida tal cual por GitHub Pages.
 | Publicación | `.github/workflows/pages.yml` — Settings → Pages → Source: **GitHub Actions** |
 | Banco | `node pruebas.mjs` (140 casos, sin npm, sin red) |
 
+## «Hoy»: los ítems y los espacios (app-42, plan «Timón» etapa 4, 16-nov-2026)
+
+**Desde app-42 la primera solapa es «Hoy»** (`hoy.js`), la pantalla del
+prototipo que Mauro aprobó el 16-nov: **los ítems de todos mis espacios en una
+lista** — tildás, agregás, y tocando el texto se abre el detalle (importancia,
+día, hora). El orden lo pone `ordenarItems` de `nucleo.js`: la **fecha** pone
+la urgencia (vencido > hoy > mañana), la **persona** la importancia (alta /
+normal / baja), y lo hecho va al final, tachado. Lo que no tiene día **flota
+en hoy**.
+
+- **Un ítem** (`items/`) es la forma única hacia la que migran tarea, cita,
+  compra, pedido y pregunta, **de a un tipo por vez**: por ahora entra sólo
+  `tarea`, **en paralelo con la solapa Tareas de siempre** (regla 8 de
+  `ARQUITECTURA.md` de `datos`: nada se apaga hasta que lo nuevo se usó una
+  semana). Sumar un tipo es sumar su valor en `TIPOS_ITEM` de `nucleo.js` **y**
+  en la regla v25, en la misma tanda (el banco lo compara).
+- **Los espacios de esta etapa son dos e implícitos**: `familia` (lo ven y lo
+  tocan los dos) y `p-<uid>` (sólo su dueño). La regla decide por el id, sin
+  leer nada. La colección `espacios/` con miembros nace recién con el primer
+  espacio de negocio (etapa 8) o un tercer miembro (regla 7: el molde se hace
+  con el segundo cliente real, no antes).
+- **`hoy/{uid}` es la materialización** (regla 3): cada vez que cambian mis
+  ítems, la app deja ARMADO el documento con los próximos 7 días —cada renglón
+  con su texto, espacio, hora, la clave `it:<id>` y **la acción exacta que
+  escribe el tilde**—, con un respiro de 2 s y sólo si cambió. El widget de la
+  Pizarra (etapa 5) sólo lo pinta y elige el día. Lo escribe y lo lee **sólo su
+  dueño** (está en `selladas` de `firestore.mjs` de `datos`, como `agendas`).
+- **Lo cotidiano se llama ahora «Cotidianas»** (misma pantalla; conserva el id
+  `hoy` para los enlaces `?solapa=` de la Pizarra).
+- **Costo contra el cupo** (§ 13 de `PROTOCOLO-DESARROLLO`): dos escuchas
+  nuevas por sesión (familia y `p-<uid>`); con la lista vacía no gastan nada, y
+  con N ítems vivos cada cambio baja lo que cambió (caché persistente). El
+  documento `hoy/{uid}` es ≤ 1 escritura por tanda de cambios y 1 lectura por
+  refresco del widget. Para 10 personas con uso diario queda muy por debajo
+  del plan Spark (50 K lecturas / 20 K escrituras por día).
+
 ## Qué hace (app-16)
 
-**Desde app-16 (7-oct-2026, `tiempos:V7`) las dos primeras solapas son
-Pizarra y Tareas**, y Ahora dejó de ser una solapa. Lo pidió Mauro para que la
+**Desde app-16 (7-oct-2026, `tiempos:V7`) las primeras solapas de siempre son
+Pizarra y Tareas** (desde app-42, detrás de «Hoy»), y Ahora dejó de ser una
+solapa. Lo pidió Mauro para que la
 app del teléfono (la Pizarra) sea una sola app con todo Tiempos adentro:
 
 - **Pizarra** (`pizarra.js`): anotar rápido —sin botón de dictado: se escribe

@@ -24,7 +24,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          paisDe, lugarNuevo, claveLugar, parecidas,
          CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, cuentaSugerida, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
          CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes,
-         totalesFijos, comoVence, TIPO_CASA_VERDE, nombreDeReserva, nombreDeCabana, movimientosDelDia, pasaFiltroQuien, clavesVisibles, FILTROS_QUIEN } from "./nucleo.js";
+         totalesFijos, comoVence, TIPO_CASA_VERDE, nombreDeReserva, nombreDeCabana, movimientosDelDia, pasaFiltroQuien, clavesVisibles, FILTROS_QUIEN,
+         TIPOS_ITEM, IMPORTANCIAS, espacioPersonal, esEspacioMio, nombreEspacio, urgenciaItem, PESO_ITEM, puntosItem, ordenarItems, cuandoItem, validarItem, materializarHoy } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 // Una prueba asíncrona se ESPERA (init-4): hasta ahí devolvía una promesa, se
@@ -1821,7 +1822,7 @@ prueba("un mensaje de voz puede llevar handy: true, y sólo si tiene audio", () 
 titulo("v23: el gestor de la charla (28-oct)");
 prueba("el agente BORRA mensajes, audios, archivos, llamadas y lo del enlace; nunca los crea ni los cambia", () => {
   const r = fs.readFileSync("firestore.rules", "utf8");
-  assert.match(r, /v2[3-9], 28-oct-2026/);
+  assert.match(r, /·\s+v2[3-9], \d{1,2}-[a-z]{3}-20\d\d/);
   const bloque = (desde, hasta) => r.slice(r.indexOf(desde), r.indexOf(hasta, r.indexOf(desde) + 1));
   for (const [d, h] of [["match /mensajes/{id}", "match /audios/{id}"], ["match /audios/{id}", "match /archivos/{id}"],
                         ["match /archivos/{id}", "match /llamadas/{id}"], ["match /llamadas/{id}", "function formaEnlace("],
@@ -1836,7 +1837,7 @@ prueba("el agente BORRA mensajes, audios, archivos, llamadas y lo del enlace; nu
 titulo("v24: el parte de salud de la comunicación (pizarra-78, 28-oct)");
 prueba("salud/: lo escribe sólo su dueño con forma fija y sin contenido; lo leen los dos y el agente, que no lo escribe", () => {
   const r = fs.readFileSync("firestore.rules", "utf8");
-  assert.match(r, /v24, 28-oct-2026/);
+  assert.match(r, /·\s+v2[4-9], \d{1,2}-[a-z]{3}-20\d\d/);
   const b = r.slice(r.indexOf("match /salud/{id}"), r.indexOf("match /enlace_llave/{id}"));
   assert.match(b, /allow read: if esPersona\(\) \|\| esAgente\(\);/);
   assert.match(b, /id\.matches\(request\.auth\.uid \+ '\[\|\]\.\{1,80\}'\)/);
@@ -2085,6 +2086,96 @@ prueba("de quién: lo mío, sin encargado y lo del otro; un proyecto se ve si al
   assert.deepEqual([...v].sort(), ["cat:produccion", "f:h", "f:p"]);
   const ciclo = clavesVisibles(["a"], { a: "b", b: "a" }, () => true);
   assert.deepEqual([...ciclo].sort(), ["a", "b"], "un círculo no cuelga");
+});
+
+titulo("Los ítems y los espacios (plan «Timón», etapa 4; el prototipo aprobado el 16-nov)");
+const HOY = "2026-11-16";
+const UNIT = (x) => ({ id: "i1", tipo: "tarea", espacio: "familia", titulo: "Pagar la luz", importancia: 1, hecho: false, creadoPor: "U1", ...x });
+prueba("la urgencia sale de la fecha: vencido > hoy > mañana > semana, y sin día flota en hoy", () => {
+  assert.equal(urgenciaItem(UNIT({ dia: "2026-11-10" }), HOY), "vencido");
+  assert.equal(urgenciaItem(UNIT({ dia: HOY }), HOY), "hoy");
+  assert.equal(urgenciaItem(UNIT({}), HOY), "hoy");
+  assert.equal(urgenciaItem(UNIT({ dia: "2026-11-17" }), HOY), "manana");
+  assert.equal(urgenciaItem(UNIT({ dia: "2026-11-20" }), HOY), "semana");
+  assert.equal(urgenciaItem(UNIT({ dia: "2026-12-20" }), HOY), "");
+  assert.equal(urgenciaItem(UNIT({ dia: "2026-11-10", hecho: true }), HOY), "");
+  assert.ok(PESO_ITEM.urgencia.vencido > PESO_ITEM.urgencia.hoy && PESO_ITEM.urgencia.hoy > PESO_ITEM.urgencia.manana);
+});
+prueba("el orden: lo hecho al final; vencido antes que hoy; la importancia alta sube; si alguien espera, sube", () => {
+  const lista = [UNIT({ id: "hecha", hecho: true }), UNIT({ id: "normal", dia: HOY }),
+    UNIT({ id: "vencida", dia: "2026-11-01" }), UNIT({ id: "alta", dia: HOY, importancia: 2 }),
+    UNIT({ id: "espera", dia: HOY, espera: true })];
+  const ids = ordenarItems(lista, HOY).map((x) => x.id);
+  assert.equal(ids[ids.length - 1], "hecha");
+  assert.ok(ids.indexOf("vencida") < ids.indexOf("normal"));
+  assert.ok(ids.indexOf("alta") < ids.indexOf("normal"));
+  assert.ok(ids.indexOf("espera") < ids.indexOf("normal"));
+});
+prueba("«cuándo»: vencido se dice, la hora se muestra, mañana se dice; hoy sin hora no dice nada", () => {
+  assert.equal(cuandoItem(UNIT({ dia: "2026-11-01" }), HOY), "vencido");
+  assert.equal(cuandoItem(UNIT({ dia: HOY, hora: "10:00" }), HOY), "10:00");
+  assert.equal(cuandoItem(UNIT({ dia: "2026-11-17" }), HOY), "mañana");
+  assert.equal(cuandoItem(UNIT({ dia: HOY }), HOY), "");
+});
+prueba("un espacio es mío si es familia o el personal MÍO; el de otro no", () => {
+  assert.ok(esEspacioMio("familia", "U1") && esEspacioMio("p-U1", "U1"));
+  assert.ok(!esEspacioMio("p-U2", "U1") && !esEspacioMio("casaverde", "U1"));
+  assert.equal(nombreEspacio("familia", "U1"), "Familia");
+  assert.equal(nombreEspacio(espacioPersonal("U1"), "U1"), "Mío");
+});
+prueba("validar: sólo los tipos que ya entraron, título acotado, espacio mío, importancia 0/1/2", () => {
+  assert.deepEqual(validarItem(UNIT({}), "U1"), []);
+  assert.ok(validarItem(UNIT({ tipo: "cita" }), "U1").length, "cita entra en otra tanda, con su regla");
+  assert.ok(validarItem(UNIT({ titulo: "" }), "U1").length);
+  assert.ok(validarItem(UNIT({ espacio: "p-U2" }), "U1").length);
+  assert.ok(validarItem(UNIT({ importancia: 5 }), "U1").length);
+  assert.ok(validarItem(UNIT({ dia: "ayer" }), "U1").length);
+  assert.deepEqual(TIPOS_ITEM, ["tarea"]);
+  assert.equal(IMPORTANCIAS.length, 3);
+});
+prueba("materializar hoy/{uid} (regla 3): renglones listos, lo vencido flota en hoy, lo hecho y lo ajeno no entran", () => {
+  const doc = materializarHoy([
+    UNIT({ id: "a", dia: "2026-11-01", hora: "09:00" }),           // vencida: flota en hoy y dice «vencido»
+    UNIT({ id: "b", espacio: "p-U1", dia: HOY, hora: "10:00" }),
+    UNIT({ id: "c", espacio: "p-U2", dia: HOY }),                  // de otro: NO entra
+    UNIT({ id: "d", hecho: true }),                                // hecha: NO entra
+    UNIT({ id: "e", dia: "2026-12-20" }),                          // a más de 7 días: NO entra
+  ], "U1", HOY);
+  assert.equal(doc.desde, HOY);
+  assert.equal(doc.hasta, "2026-11-22");
+  assert.deepEqual(doc.renglones.map((r) => r.clave).sort(), ["it:a", "it:b"]);
+  const a = doc.renglones.find((r) => r.clave === "it:a");
+  assert.equal(a.dia, HOY); assert.equal(a.hora, "vencido"); assert.equal(a.espacio, "fam");
+  const b = doc.renglones.find((r) => r.clave === "it:b");
+  assert.equal(b.espacio, "mio"); assert.equal(b.hora, "10:00");
+  // La acción que viaja en el renglón es EXACTAMENTE lo que el widget escribe
+  // al tildar: la Pizarra no conoce la forma de un ítem.
+  assert.deepEqual(b.accion, { coleccion: "items", doc: "b", campos: { hecho: true, hechoPor: "U1" } });
+});
+prueba("materializar corta en el tope: el documento no crece sin límite", () => {
+  const muchos = Array.from({ length: 100 }, (_, i) => UNIT({ id: "x" + i }));
+  assert.equal(materializarHoy(muchos, "U1", HOY).renglones.length, 70);
+});
+prueba("la regla v25 dice lo mismo que el código: los tipos, items y hoy declarados, hoy sólo de su dueño", () => {
+  const reglas = fs.readFileSync(path.join(import.meta.dirname, "firestore.rules"), "utf8");
+  for (const t of TIPOS_ITEM) assert.ok(reglas.includes(`'${t}'`), `el tipo ${t} está en la regla`);
+  assert.ok(/match \/items\/\{id\}/.test(reglas), "items tiene su regla");
+  assert.ok(/match \/hoy\/\{uid\}/.test(reglas), "hoy tiene su regla");
+  const hoyBloque = reglas.split("match /hoy/{uid}")[1].split("match /")[0];
+  assert.ok(!/esAgente/.test(hoyBloque), "hoy/{uid} no nombra al agente: es sólo de su dueño");
+  assert.ok(/request\.auth\.uid == uid/.test(hoyBloque));
+});
+prueba("la Pizarra todavía NO muestra items ni hoy: no se la despierta por ellos (se suma en la etapa 5)", async () => {
+  const { QUE_DE_COLECCION } = await import("./firebase-init.js");
+  assert.ok(!("items" in QUE_DE_COLECCION) && !("hoy" in QUE_DE_COLECCION));
+});
+prueba("la pantalla nueva existe y toca el SDK sólo por firebase-init", () => {
+  const html = fs.readFileSync(path.join(import.meta.dirname, "index.html"), "utf8");
+  assert.ok(html.includes('data-solapa="inicio"') && html.includes('id="v-inicio"'));
+  const src = fs.readFileSync(path.join(import.meta.dirname, "hoy.js"), "utf8");
+  assert.ok(!/gstatic\.com/.test(src), "hoy.js no importa el SDK por su cuenta");
+  const sw = fs.readFileSync(path.join(import.meta.dirname, "sw.js"), "utf8");
+  assert.ok(sw.includes('"hoy.js"'), "hoy.js está en el SHELL del sw");
 });
 
 await Promise.all(esperando);

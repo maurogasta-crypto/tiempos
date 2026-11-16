@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-5 (general:C7: los errores con palabras, de errores.js de datos)
+// estado.js — Lo que comparten las vistas de «tiempos». Sello: estado-6 (16-nov-2026, etapa 4: los ítems)
 //
 // Un solo objeto con lo que se sabe (`E`), el aviso de arriba y el gancho para
 // volver a dibujar. Las vistas (`app.js`, `agenda.js`, `familia.js`) leen de
@@ -11,7 +11,7 @@ import { isoDe } from "./nucleo.js";
 
 export const E = {
   yo: null, miembro: null, miembros: [],
-  tareas: [], sesionesVivas: [], enCursoFam: null, cuidado: null,
+  tareas: [], items: [], sesionesVivas: [], enCursoFam: null, cuidado: null,
   familia: { ninos: [], patron: {} }, turnos: {}, eventos: [], agenda: {}, actividades: {}, marcas: [], compras: {}, compartidas: {}, cuentasDoc: {}, cierresDoc: {}, analisis: [], extractos: [], conceptos: {}, repartos: {},
   // Casa Verde
   cv: null, cvNombre: "", cvActs: [], enCursoCV: null, cvAgenda: {}, cvNombres: {},

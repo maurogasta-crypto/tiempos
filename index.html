@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex">
 <title>Timón</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilos.css?v=30">
+<link rel="stylesheet" href="estilos.css?v=31">
 </head>
 <body>
 <header id="barra"><span class="marca">Timón</span><span id="quien" class="gris"></span></header>
@@ -39,9 +39,15 @@
 
   <section id="app" hidden>
     <nav class="solapas" role="tablist">
+      <!-- Etapa 4 del plan «Timón» (16-nov-2026): «Hoy» es la pantalla nueva de
+           los ítems por espacio (hoy.js, el prototipo que aprobó Mauro), en
+           PARALELO con Tareas. La solapa de lo cotidiano pasa a llamarse
+           «Cotidianas»; conserva su id `hoy` para no romper los enlaces
+           ?solapa= de la Pizarra. -->
+      <button data-solapa="inicio" role="tab" aria-selected="false">Hoy</button>
       <button data-solapa="pizarra" role="tab" aria-selected="true">Pizarra</button>
       <button data-solapa="tareas" role="tab" aria-selected="false">Tareas</button>
-      <button data-solapa="hoy" role="tab" aria-selected="false">Hoy</button>
+      <button data-solapa="hoy" role="tab" aria-selected="false">Cotidianas</button>
       <button data-solapa="agenda" role="tab" aria-selected="false">Agenda</button>
       <button data-solapa="chicos" role="tab" aria-selected="false">Chicos</button>
       <button data-solapa="plata" role="tab" aria-selected="false">Plata</button>
@@ -85,6 +91,7 @@
         <div class="botones"><button class="boton">Agregar</button><button class="mini" type="button" id="cerrar-tarea">Cancelar</button></div>
       </form>
     </div>
+    <div id="v-inicio" hidden></div>
     <div id="v-ahora" hidden></div>
     <div id="v-hoy" hidden></div>
     <div id="v-agenda" hidden></div>
@@ -103,10 +110,10 @@
          dos lugares. Ver protocolos/PROTOCOLO-AVISOS.md de datos. -->
     <p class="pie"><a class="link" href="https://casaverdecanas.com.br/interno/avisos.html" target="_blank" rel="noopener">Avisos de Claude por WhatsApp</a>
       · <a class="link" href="https://maurogasta-crypto.github.io/datos/pizarra.html" target="_blank" rel="noopener">📲 La app de los avisos (Pizarra)</a></p>
-    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-38</span></p>
+    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-42</span></p>
   </section>
 </main>
-<script type="module" src="app.js?v=41"></script>
+<script type="module" src="app.js?v=42"></script>
 <script>
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

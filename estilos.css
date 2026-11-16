@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-30
+/* estilos.css — Tiempos. Sello: estilos-31 (16-nov-2026, etapa 4: la solapa «Hoy»)
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -395,3 +395,10 @@ select option { font-weight:400; color:var(--texto); }
 .fila-aviso { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 0; }
 .avisos-pieza .dos > label { min-width:0; }
 .avisos-pieza select { width:100%; }
+
+/* ── «Hoy» (etapa 4, 16-nov-2026): los ítems por espacio ── */
+.fila-agregar { display:flex; gap:8px; margin-top:10px; }
+.fila-agregar input { flex:1; min-width:0; }
+.fila-agregar .boton { flex:none; width:48px; padding:6px 0; }
+.fila-tarea .alta { color:var(--mal); font-weight:700; margin-left:2px; }
+.gris.chico { font-size:.78rem; }

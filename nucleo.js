@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-45
+// Sello: nucleo-46 (16-nov-2026, plan «Timón» etapa 4: los ítems y los espacios)
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -2096,4 +2096,96 @@ export function clavesVisibles(claves, padre, pasa) {
     for (let x = k, n = 0; x && !ver.has(x) && n < 100; x = padre[x], n++) ver.add(x);
   }
   return ver;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   nucleo-46 — los ÍTEMS y los ESPACIOS (plan «Timón», etapa 4; 16-nov-2026)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   La forma y el orden son los del prototipo de «Hoy» que Mauro aprobó el
+   16-nov (ARQUITECTURA.md de `datos`, etapa 3): un ÍTEM es una sola forma
+   para tarea, cita, compra, pedido y pregunta; un ESPACIO es con quién se
+   comparte. Se migra DE A UN TIPO POR VEZ (etapa 4): hoy entra sólo
+   `tarea`, en paralelo con `tareas/` de siempre (regla 8: nada se apaga
+   hasta que lo nuevo se usó una semana).
+
+   Los ESPACIOS de esta tanda son dos y son IMPLÍCITOS (sin colección):
+   `familia` (lo ven los dos) y `p-<uid>` (lo ve su dueño). La colección
+   `espacios/` con miembros nace recién con el primer espacio de negocio o
+   un tercer miembro (etapa 8; regla 7: el molde se hace con el segundo
+   cliente real, no antes): hasta entonces sería un documento que nadie lee,
+   y la regla de la base puede decidir la pertenencia mirando el id. */
+
+export const TIPOS_ITEM = ["tarea"];   // etapa 4: de a un tipo por vez; sumar un tipo es otra tanda (acá y en la regla)
+export const IMPORTANCIAS = [[2, "Alta"], [1, "Normal"], [0, "Baja"]];
+export const espacioPersonal = (uid) => "p-" + uid;
+export const esEspacioMio = (e, uid) => e === "familia" || e === espacioPersonal(uid);
+export const nombreEspacio = (e, uid) => (e === "familia" ? "Familia" : e === espacioPersonal(uid) ? "Mío" : String(e || ""));
+
+/* La urgencia sale de la FECHA, la importancia la pone la persona (el ↕ del
+   prototipo). Un ítem sin día flota en hoy, como en la agenda: no se le
+   guarda «hoy», que en tres días sería un atraso que nadie eligió. */
+export function urgenciaItem(it, hoy) {
+  if (!it || it.hecho) return "";
+  if (!esISO(it.dia)) return "hoy";
+  if (it.dia < hoy) return "vencido";
+  if (it.dia === hoy) return "hoy";
+  if (it.dia === sumarDias(hoy, 1)) return "manana";
+  if (it.dia <= sumarDias(hoy, 7)) return "semana";
+  return "";
+}
+export const PESO_ITEM = { importancia: [1, 3, 6], urgencia: { vencido: 12, hoy: 9, manana: 6, semana: 3 }, espera: 4 };
+export function puntosItem(it, hoy) {
+  const imp = PESO_ITEM.importancia[it.importancia == null ? 1 : it.importancia] ?? PESO_ITEM.importancia[1];
+  return imp + (PESO_ITEM.urgencia[urgenciaItem(it, hoy)] || 0) + (it.espera ? PESO_ITEM.espera : 0);
+}
+export function ordenarItems(items, hoy) {
+  return (items || []).slice().sort((x, y) =>
+    (Number(!!x.hecho) - Number(!!y.hecho)) || (puntosItem(y, hoy) - puntosItem(x, hoy))
+    || String(x.hora || "99").localeCompare(String(y.hora || "99"))
+    || String(x.titulo || "").localeCompare(String(y.titulo || "")));
+}
+/* Lo que se muestra al lado del título: «vencido», la hora, o «mañana». */
+export function cuandoItem(it, hoy) {
+  const u = urgenciaItem(it, hoy);
+  if (u === "vencido") return "vencido";
+  if (/^\d{2}:\d{2}$/.test(String(it.hora || ""))) return it.hora;
+  return u === "manana" ? "mañana" : "";
+}
+export function validarItem(it, uid) {
+  const e = [];
+  if (!it || !TIPOS_ITEM.includes(it.tipo)) e.push("el tipo no es uno de los que ya entraron (" + TIPOS_ITEM.join(", ") + ")");
+  if (!it || typeof it.titulo !== "string" || !it.titulo.trim() || it.titulo.length > 120) e.push("falta el título (hasta 120)");
+  if (!it || !esEspacioMio(it.espacio, uid)) e.push("el espacio no es tuyo (familia o p-<uid>)");
+  if (!it || ![0, 1, 2].includes(it.importancia)) e.push("la importancia es 0, 1 o 2");
+  if (it && it.dia != null && it.dia !== "" && !esISO(it.dia)) e.push("el día es AAAA-MM-DD o nada");
+  if (it && it.hora != null && it.hora !== "" && !/^\d{2}:\d{2}$/.test(it.hora)) e.push("la hora es HH:MM o nada");
+  return e;
+}
+
+/* ── La materialización de `hoy/{uid}` (regla 3 de ARQUITECTURA.md, 15-nov) ──
+   Timón deja ARMADO en la base lo de los próximos siete días de esta
+   persona: cada renglón con su texto, su espacio, su hora, la clave que
+   abre Timón ahí y LA ACCIÓN exacta que se escribe al tildarlo. El widget
+   de la Pizarra (etapa 5) sólo pinta y elige el día comparando fechas:
+   no conoce la forma de un ítem ni ordena nada. Lo vencido flota en hoy.
+   El documento lo escribe la sesión del dueño y lo lee sólo él (la regla
+   lo exige; está en `selladas` de firestore.mjs de datos). */
+export function materializarHoy(items, uid, hoy, { dias = 7, tope = 70 } = {}) {
+  const hasta = sumarDias(hoy, dias - 1);
+  const visibles = (items || [])
+    .filter((i) => i && !i.hecho && esEspacioMio(i.espacio, uid))
+    .map((i) => ({ ...i, diaVisto: esISO(i.dia) ? (i.dia < hoy ? hoy : i.dia) : hoy }))
+    .filter((i) => i.diaVisto <= hasta);
+  return {
+    desde: hoy, hasta,
+    renglones: ordenarItems(visibles, hoy).slice(0, tope).map((i) => ({
+      dia: i.diaVisto,
+      texto: String(i.titulo || "").slice(0, 160),
+      espacio: i.espacio === "familia" ? "fam" : "mio",
+      hora: cuandoItem(i, hoy) || null,
+      clave: "it:" + i.id,
+      accion: { coleccion: "items", doc: String(i.id), campos: { hecho: true, hechoPor: uid } },
+    })),
+  };
 }

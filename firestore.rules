@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ═════════════════════════════════════════════════════════════════════════
-//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v24, 28-oct-2026
+//  TIEMPOS — firestore.rules (tiempos-71d42)  ·  v25, 16-nov-2026
 //  v2: el agente edita tareas comunes y sesiones, con historial.
 //  v3: la agenda de cada uno, lo cotidiano, los chicos y sus actividades
 //      (`agendas`, `dias`, `turnos`, `eventos`, `familia`).
@@ -126,6 +126,21 @@ rules_version = '2';
 //      comunicación de su bitácora; NUNCA texto ni sonido. Lo escribe sólo su
 //      dueño, con forma fija; lo leen los dos y el agente, que lo cruza con lo
 //      mandado (`charla.mjs salud` de `datos`) y puede borrar un parte viejo.
+//  v25: los ÍTEMS y los ESPACIOS (plan «Timón», etapa 4; 16-nov-2026, con el
+//      prototipo de «Hoy» aprobado por Mauro). Un ítem (`items/`) es la forma
+//      única hacia la que migran tarea, cita, compra, pedido y pregunta, DE A
+//      UN TIPO POR VEZ: hoy la regla acepta sólo `tarea` (sumar un tipo es
+//      sumar su valor acá y en TIPOS_ITEM de nucleo.js, en la misma tanda).
+//      Los espacios de esta etapa son dos e implícitos, y la regla decide por
+//      el id: `familia` (lo ven y lo tocan los dos) y `p-<uid>` (sólo su
+//      dueño). La colección `espacios/` con miembros nace recién con el
+//      primer espacio de negocio (etapa 8). El agente, como con las tareas
+//      comunes: lee y edita lo de `familia` con copia previa en `_historial`,
+//      nunca lo personal. Y `hoy/{uid}` es la MATERIALIZACIÓN (regla 3 de
+//      ARQUITECTURA.md): lo que el widget de la Pizarra sólo pinta. Lo
+//      escribe y lo lee SU DUEÑO y nadie más (está en `selladas` de
+//      firestore.mjs de datos, como `agendas`): cada renglón lleva la acción
+//      que el tilde escribe, y esa escritura la validan las reglas de arriba.
 //
 //  Deny por defecto, SIN catch-all: lo que no está declarado, se niega.
 //  Las reglas se SUMAN: este archivo se edita completo, nunca por partes.
@@ -715,6 +730,62 @@ service cloud.firestore {
         && (!('dias' in request.resource.data) || (request.resource.data.dias is list && request.resource.data.dias.size() <= 7))
         && request.resource.data.estado in ['deseo', 'coordinando', 'agendado', 'descartado'];
       allow delete: if esPersona() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── v25 · Los ítems de los espacios (etapa 4) ───────────────────────
+    match /items/{id} {
+      function tipoItem(t) {
+        return t in ['tarea'];
+      }
+      function esMiEspacio(e) {
+        return e == 'familia' || e == 'p-' + request.auth.uid;
+      }
+      function formaItem(d) {
+        return tipoItem(d.tipo)
+          && d.titulo is string && d.titulo.size() > 0 && d.titulo.size() <= 120
+          && d.importancia in [0, 1, 2]
+          && (!('dia' in d) || d.dia == null
+              || (d.dia is string && d.dia.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')))
+          && (!('hora' in d) || d.hora == null
+              || (d.hora is string && d.hora.matches('[0-9]{2}:[0-9]{2}')));
+      }
+      allow read: if (esPersona() && esMiEspacio(resource.data.espacio))
+        // El agente, lo de la familia; y uno que no existe, para la copia de
+        // «antes» en _historial (la lección de la v6).
+        || (esAgente() && (resource == null || resource.data.espacio == 'familia'));
+      allow create: if esPersona()
+        && esMiEspacio(request.resource.data.espacio)
+        && request.resource.data.creadoPor == request.auth.uid
+        && formaItem(request.resource.data);
+      // Nadie muda un ítem de espacio ni cambia quién lo anotó.
+      allow update: if esPersona()
+        && esMiEspacio(resource.data.espacio)
+        && request.resource.data.espacio == resource.data.espacio
+        && request.resource.data.creadoPor == resource.data.creadoPor
+        && formaItem(request.resource.data);
+      // Lo personal lo borra su dueño; lo de familia, quien lo anotó.
+      allow delete: if esPersona() && esMiEspacio(resource.data.espacio)
+        && (resource.data.espacio != 'familia' || resource.data.creadoPor == request.auth.uid);
+      // El agente, como con las tareas comunes (v2): sólo `familia`, con su
+      // copia previa en _historial (la guarda su herramienta; sin copia no hay cambio).
+      allow create, update: if esAgente()
+        && request.resource.data.espacio == 'familia'
+        && tipoItem(request.resource.data.tipo)
+        && (request.method == 'create' || resource.data.espacio == 'familia');
+      allow delete: if esAgente() && resource.data.espacio == 'familia';
+    }
+
+    // ── v25 · `hoy/{uid}`: la materialización que el widget sólo pinta ──
+    // La escribe la sesión del dueño cada vez que cambian sus ítems, y la lee
+    // sólo él (su Pizarra, con su sesión). Ni el otro ni el agente: es el
+    // resumen de TODOS sus espacios, también los personales.
+    match /hoy/{uid} {
+      allow read: if esPersona() && request.auth.uid == uid;
+      allow create, update: if esPersona() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['desde', 'hasta', 'renglones', 'actualizadoEn'])
+        && request.resource.data.renglones is list
+        && request.resource.data.renglones.size() <= 70;
+      allow delete: if esPersona() && request.auth.uid == uid;
     }
   }
 }
