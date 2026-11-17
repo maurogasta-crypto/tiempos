@@ -1,4 +1,6 @@
-# Tiempos
+# Timón (repo `tiempos`)
+
+> Desde el 17-nov-2026 todo lo que se ve dice **Timón**, también la app de Android (repo `pizarra`, que se llamaba «Pizarra»). Los nombres internos (`tiempos`, `tiempos-71d42`, la dirección) no cambian: el porqué, en § 1 de `ARQUITECTURA.md` de `datos`. Lo que abajo dice «Tiempos» o «la Pizarra» como app es historia: hoy es Timón.
 
 Un solo cronómetro para Mauro y Florencia: lo de la familia y lo de Casa Verde.
 App instalable, sin build, servida tal cual por GitHub Pages.
@@ -34,11 +36,15 @@ en hoy**.
 - **`hoy/{uid}` es la materialización** (regla 3): cada vez que cambian mis
   ítems, la app deja ARMADO el documento con los próximos 7 días —cada renglón
   con su texto, espacio, hora, la clave `it:<id>` y **la acción exacta que
-  escribe el tilde**—, con un respiro de 2 s y sólo si cambió. El widget de la
-  Pizarra (etapa 5) sólo lo pinta y elige el día. Lo escribe y lo lee **sólo su
+  escribe el tilde** y la que lo deshace (nucleo-47)—, con un respiro de 2 s y
+  sólo si cambió. **El widget «Hoy» de Android (etapa 5, pizarra-84)** sólo lo
+  pinta y elige el día; al tildar escribe esa acción tal cual y saca el renglón
+  de `hoy/` en el mismo commit, y el texto abre esta app en el ítem
+  (`?solapa=inicio&abrir=it:<id>`, app-43). Escribir `hoy/` despierta a los
+  teléfonos con «tareas» (init-7); `items/` no, para no despertar dos veces. Lo escribe y lo lee **sólo su
   dueño** (está en `selladas` de `firestore.mjs` de `datos`, como `agendas`).
 - **Lo cotidiano se llama ahora «Cotidianas»** (misma pantalla; conserva el id
-  `hoy` para los enlaces `?solapa=` de la Pizarra).
+  `hoy` para los enlaces `?solapa=` de Timón en Android).
 - **Costo contra el cupo** (§ 13 de `PROTOCOLO-DESARROLLO`): dos escuchas
   nuevas por sesión (familia y `p-<uid>`); con la lista vacía no gastan nada, y
   con N ítems vivos cada cambio baja lo que cambió (caché persistente). El

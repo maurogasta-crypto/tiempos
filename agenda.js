@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-22
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-23 (17-nov: el aviso suena en «Timón en Android»)
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -241,7 +241,7 @@ function avisosDePieza(p, v) {
         <option value="alarma"${v("aviso", "") === "alarma" ? " selected" : ""}>⏰ Alarma</option>
         <option value="recordatorio"${v("aviso", "") === "recordatorio" ? " selected" : ""}>🔔 Recordatorio</option></select></label>
       <label>Cuándo <select name="antes">${AVISO_ANTES.map(([m, t]) => `<option value="${m}"${String(v("antes", "30")) === String(m) ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label></div>
-    <small class="gris">Suena en la Pizarra del teléfono. Si la pieza no tiene hora, a las 08:00 de ese día.</small></fieldset>`;
+    <small class="gris">Suena en el teléfono (Timón en Android). Si la pieza no tiene hora, a las 08:00 de ese día.</small></fieldset>`;
 }
 /* agenda-21 (24-oct-2026, Mauro: «el aviso que quedaría para la otra persona…
    tendría que por lo menos modificar la alarma y aclarar que fue una actividad

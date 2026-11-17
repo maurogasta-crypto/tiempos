@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // firebase-init.js — El único contacto con Firebase. Dos bases, un SDK.
-// Sello: init-6
+// Sello: init-7
 //
 // ── LAS DOS BASES ────────────────────────────────────────────────────────────
 // · `tiempos-71d42` — la de la familia: tareas, sesiones y (después) el
@@ -113,9 +113,14 @@ export function cargar({ casaVerde = true } = {}) {
 // escritura nueva se olvida. Sólo las de ESTA base (no las de Casa Verde) y
 // sólo las colecciones que la Pizarra lee. Nunca bloquea ni falla: si no
 // llega, la Pizarra lo trae a los 10 minutos.
+// init-7 (17-nov-2026, plan «Timón» etapa 5): `hoy/{uid}` también despierta —es
+// lo que pinta el widget «Hoy»— con el «qué» de las tareas, el único que el
+// servidor conoce para esto. `items/` NO: cada cambio de mis ítems rearma
+// `hoy/` a los 2 s, y despertar por los dos sería despertar dos veces.
 export const QUE_DE_COLECCION = {
   tareas: "tareas", alertas: "alertas", agendas: "agenda", eventos: "agenda",
   deseos: "agenda", mensajes: "mensajes", avisos: "avisos", propuestas: "todo",
+  hoy: "tareas",
 };
 /** Qué cambió, según la dirección de lo escrito (`tareas/abc` → «tareas»); null si la Pizarra no lo muestra. */
 export function queCambio(ruta) {

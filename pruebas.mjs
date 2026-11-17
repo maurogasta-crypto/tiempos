@@ -2150,7 +2150,8 @@ prueba("materializar hoy/{uid} (regla 3): renglones listos, lo vencido flota en 
   assert.equal(b.espacio, "mio"); assert.equal(b.hora, "10:00");
   // La acción que viaja en el renglón es EXACTAMENTE lo que el widget escribe
   // al tildar: la Pizarra no conoce la forma de un ítem.
-  assert.deepEqual(b.accion, { coleccion: "items", doc: "b", campos: { hecho: true, hechoPor: "U1" } });
+  assert.deepEqual(b.accion, { coleccion: "items", doc: "b", campos: { hecho: true, hechoPor: "U1" },
+    deshacer: { hecho: false, hechoPor: null } });
 });
 prueba("materializar corta en el tope: el documento no crece sin límite", () => {
   const muchos = Array.from({ length: 100 }, (_, i) => UNIT({ id: "x" + i }));
@@ -2165,9 +2166,21 @@ prueba("la regla v25 dice lo mismo que el código: los tipos, items y hoy declar
   assert.ok(!/esAgente/.test(hoyBloque), "hoy/{uid} no nombra al agente: es sólo de su dueño");
   assert.ok(/request\.auth\.uid == uid/.test(hoyBloque));
 });
-prueba("la Pizarra todavía NO muestra items ni hoy: no se la despierta por ellos (se suma en la etapa 5)", async () => {
-  const { QUE_DE_COLECCION } = await import("./firebase-init.js");
-  assert.ok(!("items" in QUE_DE_COLECCION) && !("hoy" in QUE_DE_COLECCION));
+prueba("etapa 5: hoy/ despierta a los teléfonos (con «tareas», que el servidor conoce); items/ no, para no despertar dos veces", async () => {
+  const { QUE_DE_COLECCION, queCambio } = await import("./firebase-init.js");
+  assert.equal(queCambio("hoy/U1"), "tareas");
+  assert.ok(!("items" in QUE_DE_COLECCION));
+  const servidor = path.join(import.meta.dirname, "..", "datos", "servidor", "netlify", "functions", "despertar.mjs");
+  if (fs.existsSync(servidor)) {
+    const lista = fs.readFileSync(servidor, "utf8").match(/export const QUE = \[([^\]]*)\]/)[1];
+    for (const q of new Set(Object.values(QUE_DE_COLECCION))) assert.ok(lista.includes(`"${q}"`), `el servidor conoce «${q}»`);
+  }
+});
+prueba("etapa 5: el widget abre Timón en el ítem tocado (?solapa=inicio&abrir=it:<id>)", () => {
+  const app = fs.readFileSync(path.join(import.meta.dirname, "app.js"), "utf8");
+  assert.match(app, /solapaPedida === "inicio"\) irAItem\(params\.get\("abrir"\)\)/);
+  const hoy = fs.readFileSync(path.join(import.meta.dirname, "hoy.js"), "utf8");
+  assert.match(hoy, /export function irAItem\(clave\)/);
 });
 prueba("la pantalla nueva existe y toca el SDK sólo por firebase-init", () => {
   const html = fs.readFileSync(path.join(import.meta.dirname, "index.html"), "utf8");

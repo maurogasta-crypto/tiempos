@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// compras.js — La lista de compras de la casa. Sello: compras-5
+// compras.js — La lista de compras de la casa. Sello: compras-6 (17-nov: «reglas de Timón»)
 //
 // Pedido de Mauro, 30-sep-2026, desde el globo 💡: «Falta la lista de compras.
 // En categorías editables —súper, ferretería, o alimentos, materiales—;
@@ -98,7 +98,7 @@ async function compartir(l, b) {
     try {
       await F.setDoc(refC(token), { ...d, vence: F.Timestamp.fromMillis(venceMs), creadoEn: F.serverTimestamp(), actualizadoEn: F.serverTimestamp() });
     } catch (e) {
-      alert("No se pudo crear el enlace" + (e && e.code === "permission-denied" ? ": falta publicar las reglas v13 de Tiempos." : ". Probá de nuevo."));
+      alert("No se pudo crear el enlace" + (e && e.code === "permission-denied" ? ": falta publicar las reglas v13 de Timón." : ". Probá de nuevo."));
       return;
     }
     // Recién con el documento creado, la lista se muda: si esto fallara, las

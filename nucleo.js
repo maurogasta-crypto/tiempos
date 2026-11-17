@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-46 (16-nov-2026, plan «Timón» etapa 4: los ítems y los espacios)
+// Sello: nucleo-47 (17-nov-2026, plan «Timón» etapa 5: el renglón de hoy/ trae también cómo deshacer)
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -2167,7 +2167,7 @@ export function validarItem(it, uid) {
    Timón deja ARMADO en la base lo de los próximos siete días de esta
    persona: cada renglón con su texto, su espacio, su hora, la clave que
    abre Timón ahí y LA ACCIÓN exacta que se escribe al tildarlo. El widget
-   de la Pizarra (etapa 5) sólo pinta y elige el día comparando fechas:
+   «Hoy» de Timón en Android (etapa 5) sólo pinta y elige el día comparando fechas:
    no conoce la forma de un ítem ni ordena nada. Lo vencido flota en hoy.
    El documento lo escribe la sesión del dueño y lo lee sólo él (la regla
    lo exige; está en `selladas` de firestore.mjs de datos). */
@@ -2185,7 +2185,10 @@ export function materializarHoy(items, uid, hoy, { dias = 7, tope = 70 } = {}) {
       espacio: i.espacio === "familia" ? "fam" : "mio",
       hora: cuandoItem(i, hoy) || null,
       clave: "it:" + i.id,
-      accion: { coleccion: "items", doc: String(i.id), campos: { hecho: true, hechoPor: uid } },
+      // nucleo-47 (etapa 5): y cómo DESHACERLO, por si fue un dedo de más. El
+      // widget escribe una u otra tal cual: no sabe qué es un ítem.
+      accion: { coleccion: "items", doc: String(i.id), campos: { hecho: true, hechoPor: uid },
+                deshacer: { hecho: false, hechoPor: null } },
     })),
   };
 }

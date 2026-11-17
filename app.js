@@ -1,6 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-42
+// Sello: app-43
+//
+// app-43 (17-nov-2026, plan «Timón», etapa 5): el widget «Hoy» de Android abre
+//   esta app en el ítem tocado (?solapa=inicio&abrir=it:<id>, hoy.js irAItem);
+//   y los textos que nombraban a «Tiempos» o a «la Pizarra» como otra app
+//   dicen Timón (Mauro: «que todo diga Timón»).
 //
 // app-42 (16-nov-2026, plan «Timón», etapa 4): la solapa «Hoy» nueva (hoy.js,
 //   el prototipo que aprobó Mauro): los ítems de mis espacios (`items/`, sólo
@@ -83,7 +88,7 @@ import { pintarBalance } from "./balance.js";
 import { pintarCompras, abrirSuper, escucharCompartidas } from "./compras.js";
 import { montarGlobo, abrirConsulta } from "./sugerir.js";
 import { pintarPizarra } from "./pizarra.js";
-import { pintarInicio, publicarHoy } from "./hoy.js";
+import { pintarInicio, publicarHoy, irAItem } from "./hoy.js";
 
 const SOLAPAS = ["inicio", "pizarra", "tareas", "hoy", "agenda", "chicos", "plata", "balance"];
 const mostrar = (id) => { for (const s of ["cargando", "entrar", "acceso", "app"]) $(s).hidden = s !== id; };
@@ -169,6 +174,8 @@ async function entrarAlaApp() {
     if (solapaPedida === "agenda") irAPieza(params.get("abrir"), params.get("dia"));
     // app-34: y desde el widget de la pizarra, la tarea tocada con su ficha abierta.
     if (solapaPedida === "tareas") irATarea(params.get("abrir"));
+    // app-43: y desde el widget «Hoy», el ítem tocado.
+    if (solapaPedida === "inicio") irAItem(params.get("abrir"));
     for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x.dataset.solapa === solapaPedida));
     pintar();
   }

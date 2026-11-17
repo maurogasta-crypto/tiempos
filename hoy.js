@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// hoy.js — La pantalla «Hoy»: los ítems de todos mis espacios. Sello: hoy-1
+// hoy.js — La pantalla «Hoy»: los ítems de todos mis espacios. Sello: hoy-2
 //
 // Plan «Timón», etapa 4 (16-nov-2026; prototipo aprobado por Mauro ese día):
 // «Hoy» junta lo de todos los espacios de la persona en UNA lista —tildás,
@@ -88,6 +88,16 @@ function fichaItem(it) {
     F.deleteDoc(F.doc(db, "items", it.id)).catch(fallo);
   };
   return d;
+}
+
+/* hoy-2 (17-nov-2026, etapa 5): el widget «Hoy» de Android abre Timón con
+   ?solapa=inicio&abrir=it:<id> — la `clave` del renglón de `hoy/{uid}` —, y
+   el ítem aparece con su ficha abierta. Una clave que no es de un ítem, o de
+   uno que ya no está, abre «Hoy» y nada más. */
+export function irAItem(clave) {
+  const m = /^it:(.{1,80})$/.exec(String(clave || ""));
+  abierto = m ? m[1] : null;
+  filtro = "todo";
 }
 
 export function pintarInicio() {
