@@ -787,6 +787,30 @@ prueba("modo súper: pasillos en su orden, lo tildado NO se mueve, sin pasillo a
   assert.deepEqual(sin.secciones, []);
   assert.deepEqual(recorridoDeCompra(sin).map((g) => g.items.length), [1]);
 });
+prueba("las compras de Casa Verde (compras-7): por lugar, sin las hechas, tildadas por su motor y sin copia", async () => {
+  if (!globalThis.document) globalThis.document = { addEventListener() {} };
+  const { comprasDeCasaVerde } = await import("./compras.js");
+  // El motor de mentira hace lo mismo que Core.itemsDeCompra de Casa Verde (core-3).
+  const Core = {
+    itemsDeCompra: (it) => { const l = String(it.detalle || "").split("\n").map((x) => x.trim()).filter(Boolean); return l.length ? l : (it.esCompra && it.titulo ? [it.titulo.trim()] : []); },
+    compradosDe: (it) => it.comprados || []
+  };
+  const g = comprasDeCasaVerde([
+    { id: "a", esCompra: true, titulo: "bicarbonato" },
+    { id: "b", esCompra: true, titulo: "Súper", proveedor: "super", detalle: "Pan\nHarina", comprados: ["Pan"] },
+    { id: "c", titulo: "Pintar" },
+    { id: "d", esCompra: true, titulo: "placa", proveedor: "casol" },
+    { id: "e", esCompra: true, titulo: "ya está", hecho: true }
+  ], Core);
+  assert.deepEqual(g.map((x) => x.lugar), ["casol", "super", ""], "los lugares en orden; sin definir, al final");
+  assert.deepEqual(g[1].acts[0].comprados, [true, false]);
+  assert.deepEqual(g[2].acts[0].items, ["bicarbonato"], "una compra con sólo el título es una cosa");
+  assert.deepEqual(comprasDeCasaVerde([{ id: "a", esCompra: true, titulo: "x" }], null), [], "sin Casa Verde, nada");
+  const c = fs.readFileSync("compras.js", "utf8");
+  assert.match(c, /CV\.Core\.tildarCompra\(actId, txt, c\.checked\)/, "se tilda por el motor de Casa Verde");
+  assert.doesNotMatch(c, /arrayUnion|arrayRemove|"actividades"/, "Timón no escribe la actividad de Casa Verde por su cuenta");
+  assert.match(c, /function comprasDeCasaVerde\(acts = E\.cvActs/, "lee lo que ya escucha: ni una lectura más");
+});
 prueba("el modo súper destilda sin borrar y pide la pantalla encendida sin depender de ella", () => {
   const c = fs.readFileSync("compras.js", "utf8");
   assert.ok(/\[i\.id, \{ hecho: false \}\]/.test(c));

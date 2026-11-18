@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// compras.js — La lista de compras de la casa. Sello: compras-6 (17-nov: «reglas de Timón»)
+// compras.js — La lista de compras de la casa. Sello: compras-7 (18-nov: las de Casa Verde)
 //
 // Pedido de Mauro, 30-sep-2026, desde el globo 💡: «Falta la lista de compras.
 // En categorías editables —súper, ferretería, o alimentos, materiales—;
@@ -33,13 +33,22 @@
 // copias. «Cerrar el enlace» las trae de vuelta y borra el documento. La
 // regla (v13) deja leer sin sesión sólo con el token y antes de que venza, y
 // cambiar sólo las cosas: ni el vencimiento, ni el nombre, ni quién la abrió.
+//
+// compras-7 (18-nov-2026). Mauro: «en Timón no logro ver las compras que se
+// registraron en Casa Verde». Las de Casa Verde son actividades con «Es una
+// compra» (una cosa por línea; sin líneas, el título). Se muestran acá en su
+// propia tarjeta, POR LUGAR, leídas de lo que Timón ya escucha de Casa Verde
+// (`E.cvActs`: ni una lectura más) y tildadas por su motor
+// (`CV.Core.tildarCompra`, conector-1): es el mismo dato que ve el equipo
+// allá —si Flor tilda la cinta acá, Esteban no la compra de nuevo—. Timón no
+// guarda copia (regla 2 de ARQUITECTURA: un negocio se muestra por su contrato).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { db, F } from "./firebase-init.js";
+import { db, F, CV, CASA_VERDE } from "./firebase-init.js";
 import { esc, listasDeCompras, recorridoDeCompra, idNuevo, LISTAS_DE_ENTRADA, tokenNuevo, documentoCompartido, HORAS_COMPARTIDA } from "./nucleo.js";
 import { E, repintar, fallo, nombreDe } from "./estado.js";
 
-const abiertas = new Set();
+const abiertas = new Set(["cv"]);   // compras-7: la de Casa Verde, abierta de entrada
 let enSuper = null;          // la lista abierta en modo súper, en ESTE teléfono
 let despierta = null;        // el pedido de pantalla encendida
 let vistos = null;           // lo tildado en la pintada anterior, para iluminar lo nuevo
@@ -173,6 +182,7 @@ export function pintarCompras(v) {
   else {
   if (!listas.length) h += `<p class="gris">Todavía no hay listas. Empezá por una de éstas o creá la tuya abajo:</p>
     <div class="botones">${LISTAS_DE_ENTRADA.map((n) => `<button class="mini" data-lista-base="${esc(n)}">＋ ${esc(n)}</button>`).join("")}</div>`;
+  h += pintarCasaVerde();
   for (const l of listas) {
     const ab = abiertas.has(l.id);
     h += `<div class="tarjeta compra">
@@ -225,6 +235,13 @@ export function pintarCompras(v) {
     // puede leer `miembros/` para saber quién es el uid.
     escribirLista(l, { items: { [iid]: { hecho: c.checked, por: E.yo.uid, porNombre: l.compartida ? nombreDe(E.yo.uid) : F.deleteField() } } });
   });
+  todos("[data-cv-compra]", (c) => c.onchange = () => {
+    const [actId, i] = c.dataset.cvCompra.split("|");
+    const a = comprasDeCasaVerde().flatMap((g) => g.acts).find((x) => x.id === actId);
+    const txt = a && a.items[Number(i)];
+    if (!txt) return;
+    CV.Core.tildarCompra(actId, txt, c.checked).catch(fallo);
+  });
   todos("[data-nuevo-item]", (f) => f.onsubmit = (ev) => {
     ev.preventDefault();
     const t = f.texto.value.trim(); if (!t) return;
@@ -253,3 +270,50 @@ export function pintarCompras(v) {
     guardar({ [l.id]: F.deleteField() });
   });
 }
+
+/* ── Las compras de Casa Verde (compras-7) ────────────────────────────────────
+   Agrupadas por lugar, como en la vista de Compras de allá: «voy a la
+   ferretería, ¿qué había que comprar?». Los lugares con nombre primero y en
+   orden; «sin definir dónde» al final. */
+export function comprasDeCasaVerde(acts = E.cvActs, Core = CV && CV.Core) {
+  if (!Core || !Core.itemsDeCompra || !Array.isArray(acts)) return [];
+  const grupos = {};
+  for (const a of acts) {
+    if (!a || !a.esCompra || a.hecho) continue;
+    const items = Core.itemsDeCompra(a);
+    if (!items.length) continue;
+    const cp = new Set(Core.compradosDe(a));
+    const lugar = String(a.proveedor || "").trim();
+    (grupos[lugar] = grupos[lugar] || []).push({ id: a.id, titulo: a.titulo || "", items, comprados: items.map((t) => cp.has(t)) });
+  }
+  const lugares = Object.keys(grupos).filter((l) => l).sort((x, y) => x.localeCompare(y));
+  if (grupos[""]) lugares.push("");
+  return lugares.map((lugar) => ({ lugar, acts: grupos[lugar] }));
+}
+
+function pintarCasaVerde() {
+  if (!E.cv) return "";
+  const grupos = comprasDeCasaVerde();
+  const todas = grupos.flatMap((g) => g.acts);
+  const faltan = todas.reduce((n, a) => n + a.comprados.filter((x) => !x).length, 0);
+  const ab = abiertas.has("cv");
+  let h = `<div class="tarjeta compra cv">
+    <div class="fila"><button class="flecha" data-abrir-lista="cv" aria-expanded="${ab}">${ab ? "▾" : "▸"}</button>
+      <span class="txt" data-abrir-lista="cv"><b>🏡 Casa Verde</b>
+        <small class="gris">${faltan ? `${faltan} por comprar` : todas.length ? "todo comprado" : "nada para comprar"} · lo ve todo el equipo</small></span></div>`;
+  if (ab) {
+    for (const g of grupos) {
+      h += `<div class="cv-lugar"><small class="gris">📍 ${g.lugar ? esc(g.lugar) : "Sin definir dónde"}</small>`;
+      for (const a of g.acts) {
+        const sola = a.items.length === 1 && a.items[0] === a.titulo.trim();
+        h += a.items.map((t, i) => `<div class="item-compra${a.comprados[i] ? " hecho" : ""}">
+          <label class="check"><input type="checkbox" data-cv-compra="${esc(a.id)}|${i}"${a.comprados[i] ? " checked" : ""}> ${esc(t)}${!sola && i === 0 ? ` <small class="gris">· ${esc(a.titulo)}</small>` : ""}</label>
+          <a class="mini nota" href="${esc(CASA_VERDE + "actividades.html?a=" + encodeURIComponent(a.id))}" target="_blank" rel="noopener" title="Abrir en Casa Verde">↗</a></div>`).join("");
+      }
+      h += `</div>`;
+    }
+    h += `<small class="gris">Se cargan en Casa Verde (Actividades → «Es una compra»). Lo que tildás acá queda tildado allá.</small>`;
+  }
+  return h + `</div>`;
+}
+

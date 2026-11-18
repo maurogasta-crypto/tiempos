@@ -137,6 +137,12 @@ El cronómetro de arriba aparece en todas las pestañas, sólo mientras algo cor
   el enlace» la trae de vuelta y borra el documento. El token (22 letras al
   azar) es la llave: la regla no deja listar sin sesión, ni leer vencida, ni
   cambiar otra cosa que las cosas de la lista.
+  **Las de Casa Verde** (compras-7, 18-nov-2026): arriba, la tarjeta «🏡 Casa
+  Verde» muestra las actividades de allá con «Es una compra» (una cosa por
+  línea; sin líneas, el título), por lugar, y se tildan acá por su motor
+  (`Core.tildarCompra` del conector-1): es el mismo dato que ve el equipo en
+  Casa Verde. Sale de lo que Timón ya escucha (`E.cvActs`): ninguna lectura
+  más. Una compra nueva de Casa Verde todavía se carga allá.
 - **Chicos**: la semana o el mes, con un señalador por persona y por chico.
   Sale de **lo acordado** para cada día de la semana, y un día distinto se
   cambia tocándolo. Las **actividades** —básquet, kung fu, amigos, la
@@ -671,7 +677,7 @@ Florencia la acuerden.
 | `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra) | `app-41` |
 | `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-3` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
-| `compras.js` | la lista de compras, en `familia/compras` | `compras-4` |
+| `compras.js` | la lista de compras, en `familia/compras`, y las de Casa Verde por su conector | `compras-7` |
 | `lista.html` + `lista.js` | la lista compartida sin cuenta (`?c=<token>`); fuera del SHELL | `lista-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-3` |
@@ -687,7 +693,7 @@ Florencia la acuerden.
 | `familia.js` | Hoy y Chicos | `familia-6` |
 | `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar; desde init-5 Casa Verde entra por su conector; desde init-6 el servidor va por `servidor-1.js` de datos | `init-6` |
 | `estilos.css` | | `estilos-30` |
-| `sw.js` | el cascarón sin señal | `tiempos-71` |
+| `sw.js` | el cascarón sin señal | `tiempos-77` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v14 |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
