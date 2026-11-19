@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// hoy.js — La pantalla «Hoy»: los ítems de todos mis espacios. Sello: hoy-2
+// hoy.js — La pantalla «Hoy»: los ítems de todos mis espacios. Sello: hoy-3 (19-nov-2026: cada ítem puede ser de un proyecto)
 //
 // Plan «Timón», etapa 4 (16-nov-2026; prototipo aprobado por Mauro ese día):
 // «Hoy» junta lo de todos los espacios de la persona en UNA lista —tildás,
@@ -22,7 +22,7 @@
 
 import { db, auth, F } from "./firebase-init.js";
 import { esc, idNuevo, isoDe, TIPOS_ITEM, IMPORTANCIAS, espacioPersonal, esEspacioMio, nombreEspacio,
-         ordenarItems, cuandoItem, urgenciaItem, validarItem, materializarHoy } from "./nucleo.js";
+         ordenarItems, cuandoItem, urgenciaItem, validarItem, materializarHoy, cuentasDe, idsDeCuenta } from "./nucleo.js";
 import { E, $, aviso, nombreDe, fallo, repintar } from "./estado.js";
 
 /* El filtro de espacio es de esta pantalla y de este teléfono, como el
@@ -30,13 +30,21 @@ import { E, $, aviso, nombreDe, fallo, repintar } from "./estado.js";
 let filtro = (() => { try { return localStorage.getItem("tiempos:espacio") || "todo"; } catch { return "todo"; } })();
 let abierto = null;
 
+/* hoy-3: el filtro de proyecto también es de esta pantalla y de este teléfono.
+   "" = todos, "-" = sin proyecto, otro = el id de una cuenta (y sus partes).
+   Los proyectos son las cuentas de Plata → Cuentas: no hay un catálogo aparte. */
+let filtroProy = (() => { try { return localStorage.getItem("tiempos:proyecto") || ""; } catch { return ""; } })();
+const cuentas = () => cuentasDe(E.cuentasDoc);
+const nombreProyecto = (id) => (cuentas().find((c) => c.id === id) || {}).nombre || "";
+const delProyecto = (i) => filtroProy === "" || (filtroProy === "-" ? !i.proyecto : idsDeCuenta(cuentas(), filtroProy).has(i.proyecto));
+
 const COLOR_ESPACIO = { mio: "#d8a657", fam: "#c87f5a" };
 const puntoDe = (espacio) =>
   `<span class="punto" style="--c:${espacio === "familia" ? COLOR_ESPACIO.fam : COLOR_ESPACIO.mio}" title="${espacio === "familia" ? "Familia" : "Mío"}"></span>`;
 
 const misItems = () => (E.items || []).filter((i) => esEspacioMio(i.espacio, E.yo.uid));
 const visibles = () => misItems().filter((i) =>
-  filtro === "todo" || (filtro === "fam" ? i.espacio === "familia" : i.espacio === espacioPersonal(E.yo.uid)));
+  (filtro === "todo" || (filtro === "fam" ? i.espacio === "familia" : i.espacio === espacioPersonal(E.yo.uid))) && delProyecto(i));
 
 function filaItem(it) {
   const f = document.createElement("div");
@@ -47,7 +55,8 @@ function filaItem(it) {
   f.innerHTML = `<div class="fila">
       <button class="tilde" aria-label="${it.hecho ? "Volver a pendiente" : "Marcar hecha"}">${it.hecho ? "✓" : "○"}</button>
       <span class="txt">${esc(it.titulo)}${it.importancia === 2 && !it.hecho ? ` <b class="alta" title="Importancia alta">!</b>` : ""}
-        ${cuando ? ` <small class="${vencido ? "mal" : "gris"}">${esc(cuando)}</small>` : ""}</span>
+        ${cuando ? ` <small class="${vencido ? "mal" : "gris"}">${esc(cuando)}</small>` : ""}
+        ${it.proyecto && nombreProyecto(it.proyecto) ? ` <small class="gris">· ${esc(nombreProyecto(it.proyecto))}</small>` : ""}</span>
       ${puntoDe(it.espacio)}
       <button class="mas" aria-label="Más">${esta ? "▴" : "⋯"}</button></div>`;
   f.querySelector(".tilde").onclick = () =>
@@ -67,6 +76,11 @@ function fichaItem(it) {
       ${IMPORTANCIAS.map(([v, n]) => `<button type="button" class="mini${(it.importancia == null ? 1 : it.importancia) === v ? " on" : ""}" data-v="${v}">${n}</button>`).join("")}
     </div>
     <label>Título <input data-a="titulo" maxlength="120" value="${esc(it.titulo || "")}"></label>
+    <label>Proyecto <select data-a="proyecto">
+      <option value="">Sin proyecto</option>
+      ${cuentas().map((c) => `<option value="${esc(c.id)}"${it.proyecto === c.id ? " selected" : ""}>${esc(c.ruta)}</option>`).join("")}
+      ${it.proyecto && !nombreProyecto(it.proyecto) ? `<option value="${esc(it.proyecto)}" selected>(cuenta que ya no está)</option>` : ""}
+    </select></label>
     <label>El día <input type="date" data-a="dia" value="${esc(it.dia || "")}"> <small class="gris">sin día, flota en hoy</small></label>
     <label>Hora <input type="time" data-a="hora" value="${esc(it.hora || "")}"></label>
     <div class="botones">${it.hecho ? `<button class="mini" data-a="reabrir">Volver a pendiente</button>` : ""}
@@ -78,6 +92,7 @@ function fichaItem(it) {
     if (!titulo) { ev.target.value = it.titulo; return aviso("El título no puede quedar vacío.", true); }
     up({ titulo });
   };
+  d.querySelector('[data-a="proyecto"]').onchange = (ev) => up({ proyecto: ev.target.value || null });
   d.querySelector('[data-a="dia"]').onchange = (ev) => up({ dia: ev.target.value || null });
   d.querySelector('[data-a="hora"]').onchange = (ev) => up({ hora: ev.target.value || null });
   const re = d.querySelector('[data-a="reabrir"]');
@@ -97,7 +112,7 @@ function fichaItem(it) {
 export function irAItem(clave) {
   const m = /^it:(.{1,80})$/.exec(String(clave || ""));
   abierto = m ? m[1] : null;
-  filtro = "todo";
+  filtro = "todo"; filtroProy = "";
 }
 
 export function pintarInicio() {
@@ -114,6 +129,22 @@ export function pintarInicio() {
     repintar();
   };
   v.append(nav);
+
+  // hoy-3: y el proyecto, si hay cuentas. Un filtro que apunta a una cuenta dada de baja se suelta.
+  const cs = cuentas().filter((c) => c.nivel === 0);
+  if (filtroProy && filtroProy !== "-" && !cuentas().some((c) => c.id === filtroProy)) filtroProy = "";
+  if (cs.length) {
+    const np = document.createElement("nav");
+    np.className = "solapas chicas"; np.setAttribute("aria-label", "Proyecto");
+    np.innerHTML = [["", "Todos"], ...cs.map((c) => [c.id, c.nombre]), ["-", "Sin proyecto"]]
+      .map(([k, t]) => `<button data-proy="${esc(k)}" aria-selected="${filtroProy === k}">${esc(t)}</button>`).join("");
+    for (const b of np.querySelectorAll("[data-proy]")) b.onclick = () => {
+      filtroProy = b.dataset.proy; abierto = null;
+      try { localStorage.setItem("tiempos:proyecto", filtroProy); } catch { /* sin memoria: igual anda */ }
+      repintar();
+    };
+    v.append(np);
+  }
 
   // La lista, en el orden de nucleo.js: lo hecho al final, tachado.
   const lista = ordenarItems(visibles(), E.hoy);
@@ -135,6 +166,8 @@ export function pintarInicio() {
     if (!titulo) return;
     const it = { tipo: "tarea", espacio: filtro === "fam" ? "familia" : espacioPersonal(E.yo.uid),
       titulo, importancia: 1, hecho: false, creadoPor: E.yo.uid };
+    // hoy-3: lo que se agrega mirando un proyecto nace en ese proyecto.
+    if (filtroProy && filtroProy !== "-") it.proyecto = filtroProy;
     const e = validarItem(it, E.yo.uid);
     if (e.length) return aviso("No se pudo: " + e[0], true);
     try {
@@ -159,7 +192,7 @@ export function publicarHoy() {
   if (!E.yo || !E.miembro) return;
   clearTimeout(timerHoy);
   timerHoy = setTimeout(async () => {
-    const doc = materializarHoy(misItems(), E.yo.uid, E.hoy);
+    const doc = materializarHoy(misItems(), E.yo.uid, E.hoy, { cuentas: cuentas() });
     const firma = JSON.stringify(doc);
     if (firma === ultimoHoy) return;
     try {

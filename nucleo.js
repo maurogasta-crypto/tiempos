@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-47 (17-nov-2026, plan «Timón» etapa 5: el renglón de hoy/ trae también cómo deshacer)
+// Sello: nucleo-48 (19-nov-2026, ítems con proyecto: `proyecto` = id de una cuenta de Plata → Cuentas; itemsDeProyecto; el renglón de hoy/ lo nombra)
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1043,6 +1043,12 @@ export function cuentasDe(doc) {
 }
 /** Una cuenta y sus partes (el depósito suma a su lugar). */
 export const idsDeCuenta = (cuentas, id) => new Set([id, ...(cuentas || []).filter((c) => c.padre === id).map((c) => c.id)]);
+/** nucleo-48: los ítems de un proyecto (y de sus partes, como el depósito de un lugar).
+    Es lo que muestra la pantalla del proyecto y lo que pide cada sitio: una sola consulta. */
+export const itemsDeProyecto = (items, cuentas, id) => {
+  const ids = idsDeCuenta(cuentas, id);
+  return (items || []).filter((i) => i && ids.has(i.proyecto));
+};
 
 /* La cuenta que se nombró, sin mayúsculas ni tildes, también por la ruta
    («depósito de general flores»). Si dos se parecen igual, ninguna. */
@@ -2160,6 +2166,8 @@ export function validarItem(it, uid) {
   if (!it || ![0, 1, 2].includes(it.importancia)) e.push("la importancia es 0, 1 o 2");
   if (it && it.dia != null && it.dia !== "" && !esISO(it.dia)) e.push("el día es AAAA-MM-DD o nada");
   if (it && it.hora != null && it.hora !== "" && !/^\d{2}:\d{2}$/.test(it.hora)) e.push("la hora es HH:MM o nada");
+  // nucleo-48: el proyecto es el id de una cuenta (Plata → Cuentas), no un catálogo aparte.
+  if (it && it.proyecto != null && it.proyecto !== "" && !(typeof it.proyecto === "string" && it.proyecto.length <= 60)) e.push("el proyecto es el id de una cuenta (hasta 60) o nada");
   return e;
 }
 
@@ -2171,7 +2179,7 @@ export function validarItem(it, uid) {
    no conoce la forma de un ítem ni ordena nada. Lo vencido flota en hoy.
    El documento lo escribe la sesión del dueño y lo lee sólo él (la regla
    lo exige; está en `selladas` de firestore.mjs de datos). */
-export function materializarHoy(items, uid, hoy, { dias = 7, tope = 70 } = {}) {
+export function materializarHoy(items, uid, hoy, { dias = 7, tope = 70, cuentas = [] } = {}) {
   const hasta = sumarDias(hoy, dias - 1);
   const visibles = (items || [])
     .filter((i) => i && !i.hecho && esEspacioMio(i.espacio, uid))
@@ -2183,6 +2191,8 @@ export function materializarHoy(items, uid, hoy, { dias = 7, tope = 70 } = {}) {
       dia: i.diaVisto,
       texto: String(i.titulo || "").slice(0, 160),
       espacio: i.espacio === "familia" ? "fam" : "mio",
+      // nucleo-48: el NOMBRE del proyecto, ya resuelto: el widget sólo lo pinta.
+      proyecto: ((cuentas || []).find((c) => c.id === i.proyecto) || {}).nombre || null,
       hora: cuandoItem(i, hoy) || null,
       clave: "it:" + i.id,
       // nucleo-47 (etapa 5): y cómo DESHACERLO, por si fue un dedo de más. El

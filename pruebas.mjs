@@ -249,7 +249,10 @@ prueba("la pizarra se escribe con la MISMA forma que la app del teléfono, y tac
   assert.match(p, /\["pizarra\." \+ E\.yo\.uid\]: si \? true : F\.deleteField\(\)/);
   assert.match(p, /hecho: true, hechoPor: E\.yo\.uid/);
   const h = fs.readFileSync("index.html", "utf8");
-  assert.ok(h.indexOf('data-solapa="pizarra"') < h.indexOf('data-solapa="tareas"') && h.indexOf('data-solapa="tareas"') < h.indexOf('data-solapa="hoy"'), "Pizarra primero, Tareas segunda");
+  // app-44: la barra de abajo es Hoy, Tareas, Agenda; lo demás (Pizarra incluida) va en «Más».
+  assert.ok(h.indexOf('data-solapa="inicio"') < h.indexOf('data-solapa="tareas"') && h.indexOf('data-solapa="tareas"') < h.indexOf('data-solapa="agenda"'), "Hoy, Tareas y Agenda, en ese orden");
+  assert.ok(h.indexOf('id="mas-panel"') > h.indexOf('data-solapa="agenda"') && h.indexOf('data-solapa="pizarra"') > h.indexOf('id="mas-panel"'), "Pizarra queda en «Más» hasta la semana de prueba");
+  for (const id of ["pizarra", "tareas", "hoy", "agenda", "chicos", "plata", "balance", "inicio"]) assert.ok(h.includes(`data-solapa="${id}"`), `la solapa ${id} sigue existiendo: los widgets entran por ?solapa=`);
   assert.ok(!/data-solapa="ahora"/.test(h));
 });
 
@@ -2213,6 +2216,67 @@ prueba("la pantalla nueva existe y toca el SDK sólo por firebase-init", () => {
   assert.ok(!/gstatic\.com/.test(src), "hoy.js no importa el SDK por su cuenta");
   const sw = fs.readFileSync(path.join(import.meta.dirname, "sw.js"), "utf8");
   assert.ok(sw.includes('"hoy.js"'), "hoy.js está en el SHELL del sw");
+});
+
+titulo("nucleo-48 / hoy-3 / app-44: cada ítem puede ser de un proyecto (19-nov)");
+prueba("validar: el proyecto es opcional y es el id de una cuenta, acotado", () => {
+  assert.deepEqual(validarItem(UNIT({ proyecto: "c:casa-verde" }), "U1"), []);
+  assert.deepEqual(validarItem(UNIT({ proyecto: null }), "U1"), []);
+  assert.deepEqual(validarItem(UNIT({ proyecto: "" }), "U1"), []);
+  assert.ok(validarItem(UNIT({ proyecto: 7 }), "U1").length);
+  assert.ok(validarItem(UNIT({ proyecto: "x".repeat(61) }), "U1").length);
+});
+prueba("itemsDeProyecto: los de la cuenta y los de sus partes, nada más", async () => {
+  const N = await import("./nucleo.js");
+  const cuentas = N.cuentasDe({ cuentas: { "c:cv": { nombre: "Casa Verde", clase: "proyecto" }, "c:cv-dep": { nombre: "Depósito", clase: "lugar", padre: "c:cv" },
+    "c:yurt": { nombre: "Casa Yurt", clase: "proyecto" } } });
+  const items = [UNIT({ id: "a", proyecto: "c:cv" }), UNIT({ id: "b", proyecto: "c:cv-dep" }), UNIT({ id: "c", proyecto: "c:yurt" }), UNIT({ id: "d" })];
+  assert.deepEqual(N.itemsDeProyecto(items, cuentas, "c:cv").map((i) => i.id).sort(), ["a", "b"]);
+  assert.deepEqual(N.itemsDeProyecto(items, cuentas, "c:yurt").map((i) => i.id), ["c"]);
+  assert.deepEqual(N.itemsDeProyecto(items, cuentas, "c:nada"), []);
+});
+prueba("el renglón de hoy/ lleva el NOMBRE del proyecto (o null) y el orden no cambia", async () => {
+  const N = await import("./nucleo.js");
+  const cuentas = N.cuentasDe({ cuentas: { "c:cv": { nombre: "Casa Verde", clase: "proyecto" } } });
+  const items = [UNIT({ id: "a", proyecto: "c:cv", dia: HOY, hora: "17:00" }), UNIT({ id: "b", dia: HOY })];
+  const con = materializarHoy(items, "U1", HOY, { cuentas });
+  assert.equal(con.renglones.find((r) => r.clave === "it:a").proyecto, "Casa Verde");
+  assert.equal(con.renglones.find((r) => r.clave === "it:b").proyecto, null);
+  const sin = materializarHoy(items, "U1", HOY);
+  assert.deepEqual(sin.renglones.map((r) => r.clave), con.renglones.map((r) => r.clave), "el proyecto no mueve el orden: lo manda ordenarItems");
+  assert.equal(sin.renglones[0].proyecto, null, "sin cuentas, el proyecto va vacío y no rompe");
+});
+prueba("la regla v26 acepta `proyecto` opcional en items; hoy/ sigue sin nombrar al agente", () => {
+  const reglas = fs.readFileSync(path.join(import.meta.dirname, "firestore.rules"), "utf8");
+  const items = reglas.split("match /items/{id}")[1].split("match /")[0];
+  assert.ok(/'proyecto' in d/.test(items) && /d\.proyecto\.size\(\) <= 60/.test(items), "formaItem valida el proyecto");
+  assert.ok(!/esAgente/.test(reglas.split("match /hoy/{uid}")[1].split("match /")[0]));
+});
+prueba("hoy.js: ficha con «Proyecto», chips de proyecto y el alta que hereda el filtro; la pantalla del proyecto lista lo de Hoy", () => {
+  const hoy = fs.readFileSync(path.join(import.meta.dirname, "hoy.js"), "utf8");
+  assert.match(hoy, /data-a="proyecto"/);
+  assert.match(hoy, /tiempos:proyecto/);
+  assert.match(hoy, /it\.proyecto = filtroProy/);
+  assert.match(hoy, /materializarHoy\(misItems\(\), E\.yo\.uid, E\.hoy, \{ cuentas: cuentas\(\) \}\)/);
+  const pr = fs.readFileSync(path.join(import.meta.dirname, "proyecto.js"), "utf8");
+  assert.match(pr, /data-p-item/);
+  assert.match(pr, /itemsDeProyecto/);
+});
+prueba("app-44: «Más» abre y cierra, y «Hoy» es la pantalla de arranque", () => {
+  const app = fs.readFileSync(path.join(import.meta.dirname, "app.js"), "utf8");
+  assert.match(app, /function marcarMas\(\)/);
+  assert.match(app, /\$\("btn-mas"\)\.onclick/);
+  assert.match(app, /ganchos\.irAItem/);
+  assert.match(app, /PizarraApp\\\//, "los ajustes de la app de Android se piden desde «Más», sólo dentro de la app");
+  assert.ok(fs.readFileSync(path.join(import.meta.dirname, "index.html"), "utf8").includes('id="mas-ajustes"'));
+  const est = fs.readFileSync(path.join(import.meta.dirname, "estado.js"), "utf8");
+  assert.match(est, /solapa: "inicio"/);
+  const css = fs.readFileSync(path.join(import.meta.dirname, "estilos.css"), "utf8");
+  assert.match(css, /--piso: calc\(env\(safe-area-inset-bottom, 0px\) \+ 24px \+ var\(--barra\)\)/, "la barra de abajo entra en --piso: nada de números a mano");
+  const sw = fs.readFileSync(path.join(import.meta.dirname, "sw.js"), "utf8");
+  assert.ok(sw.includes("app.js?v=44") && sw.includes("estilos.css?v=32"), "el sw sirve la versión nueva");
+  const html = fs.readFileSync(path.join(import.meta.dirname, "index.html"), "utf8");
+  assert.ok(html.includes("app.js?v=44") && html.includes("estilos.css?v=32"));
 });
 
 await Promise.all(esperando);

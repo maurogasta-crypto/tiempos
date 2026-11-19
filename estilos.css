@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-31 (16-nov-2026, etapa 4: la solapa «Hoy»)
+/* estilos.css — Tiempos. Sello: estilos-32 (19-nov-2026: la barra de abajo y «Más»)
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -6,7 +6,8 @@
   --texto:#e8e6e1; --gris:#a8a49c; --acento:#d8a657; --ok:#8fbf7f; --mal:#e08b8b;
   --r:12px;
   --techo: env(safe-area-inset-top, 0px);
-  --piso: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  --barra: 56px;
+  --piso: calc(env(safe-area-inset-bottom, 0px) + 24px + var(--barra));
 }
 @media (prefers-color-scheme: light) {
   :root { --tinta:#f6f4ef; --tinta2:#fff; --tinta3:#eeeae2; --linea:#e0dbd0;
@@ -62,6 +63,19 @@ textarea { display:block; width:100%; margin-top:.25rem; padding:.7rem; font:inh
   background:var(--tinta2); border:1px solid var(--linea); border-radius:10px; resize:vertical; }
 h4 { font-size:.9rem; margin:1rem 0 .3rem; }
 .solapas.chicas { margin:8px 0; } .solapas.chicas button { padding:.45rem; font-size:.85rem; }
+/* app-44: la barra de abajo (Hoy, Tareas, Agenda, Más). Su alto entra en --piso, así
+   el contenido y el ❓ (.globo) la esquivan sin números a mano. */
+.barra-baja { position:fixed; left:0; right:0; bottom:0; margin:0; gap:0; z-index:10; background:var(--tinta);
+  border-top:1px solid var(--linea); padding:0 8px env(safe-area-inset-bottom, 0px); overflow:visible; }
+.barra-baja button { flex:1 1 0; min-height:var(--barra); border:0; border-radius:0; background:none; color:var(--gris);
+  font-size:.8rem; padding:.4rem .25rem; }
+.barra-baja button[aria-selected="true"] { background:none; border-color:transparent; color:var(--acento); font-weight:700; }
+.mas-panel { position:fixed; left:8px; right:8px; bottom:calc(var(--barra) + env(safe-area-inset-bottom, 0px) + 8px); z-index:11;
+  display:flex; flex-direction:column; background:var(--tinta2); border:1px solid var(--linea); border-radius:var(--r); padding:6px;
+  max-width:680px; margin:0 auto; }
+.mas-panel[hidden], .mas-panel button[hidden] { display:none; }
+.mas-panel button { min-height:48px; text-align:left; border:0; border-radius:10px; background:none; color:var(--texto); font-size:1rem; padding:.7rem 1rem; }
+.mas-panel button[aria-selected="true"] { color:var(--acento); font-weight:700; background:var(--tinta3); }
 .tarjeta.chica { padding:10px 12px; margin:8px 0; font-size:.92rem; }
 .mas { flex:0 0 40px; height:40px; border:0; background:none; color:var(--gris); font-size:1.2rem; border-radius:10px; }
 .play.apagado { display:inline-flex; align-items:center; justify-content:center; background:var(--tinta3); color:var(--ok); }

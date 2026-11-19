@@ -16,7 +16,7 @@ export const E = {
   // Casa Verde
   cv: null, cvNombre: "", cvActs: [], enCursoCV: null, cvAgenda: {}, cvNombres: {},
   // Pantalla
-  solapa: "pizarra", abierta: null, reloj: null,
+  solapa: "inicio", abierta: null, reloj: null,
   hoy: isoDe(), diaVisto: isoDe(), vistaTareas: "todas",
 };
 

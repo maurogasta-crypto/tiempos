@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // proyecto.js — La pantalla de UN proyecto, con todo lo que se le va juntando.
-// Sello: proyecto-1
+// Sello: proyecto-2 (19-nov-2026: lo pendiente de Hoy que es de este proyecto)
 //
 // Mauro, 15-oct-2026: «dame una interfaz para los proyectos como el de General
 // Flores, donde se pueda visualizar toda la información que se va acumulando,
@@ -23,7 +23,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { db, F } from "./firebase-init.js";
-import { esc, fichaDeProyecto, cuentasDe, CATEGORIAS, idNuevo, pendientesComoMovs } from "./nucleo.js";
+import { esc, fichaDeProyecto, cuentasDe, CATEGORIAS, idNuevo, pendientesComoMovs, esEspacioMio, ordenarItems, itemsDeProyecto } from "./nucleo.js";
 import { agendaUnida } from "./agenda.js";
 import { E, $, aviso, fallo, nombreDe, ganchos } from "./estado.js";
 
@@ -62,6 +62,7 @@ export function pintarProyecto() {
     return;
   }
   const c = f.cuenta;
+  const enHoy = ordenarItems(itemsDeProyecto((E.items || []).filter((i) => !i.hecho && esEspacioMio(i.espacio, E.yo.uid)), cuentasDe(E.cuentasDoc), abierto), E.hoy);
   const monedas = Object.entries(f.plata || {});
   h.innerHTML = `<div class="hoja-caja proyecto-caja">
     <div class="hoja-cab"><button class="link" data-p-volver>← Volver</button><small class="gris">${esc(c.pais || "")}</small></div>
@@ -72,6 +73,11 @@ export function pintarProyecto() {
       ${f.pendientes.length ? f.pendientes.map((t) => `<button type="button" class="fila-elegir boton-fila" data-p-tarea="${esc(t.id)}">○ ${esc(t.titulo)}${t.detalle ? ` <small class="gris">${esc(String(t.detalle).slice(0, 80))}</small>` : ""}</button>`).join("")
         : `<p class="gris">Nada pendiente con este nombre.</p>`}
       <p class="gris chica">Tocá una para abrirla en Tareas. Una tarea nueva para este proyecto se agrega en Tareas, adentro de «${esc(c.nombre)}».</p></section>
+
+    <section class="tarjeta"><h3>En Hoy <small class="gris">${enHoy.length}</small></h3>
+      ${enHoy.length ? enHoy.map((i) => `<button type="button" class="fila-elegir boton-fila" data-p-item="${esc(i.id)}">○ ${esc(i.titulo)}</button>`).join("")
+        : `<p class="gris">Nada de Hoy es de «${esc(c.nombre)}» todavía.</p>`}
+      <p class="gris chica">Se asigna desde la ficha de cada ítem de Hoy, en «Proyecto». Los sitios piden esta misma lista.</p></section>
 
     <section class="tarjeta"><h3>Lo que viene <small class="gris">${f.agenda.filter((x) => x.dia >= E.hoy).length}</small></h3>
       ${f.agenda.length || f.avisos.length ? `<ul class="resp-lista">${f.agenda.map((x) => `<li class="${x.dia < E.hoy ? "gris" : ""}"><b>${esc(DIA(x.dia))}</b> ${esc(x.hora || "")}${x.horaFin ? "–" + esc(x.horaFin) : ""} ${esc(x.titulo)}${x.lugar ? ` <small class="gris">· ${esc(x.lugar)}</small>` : ""}</li>`).join("")}
@@ -102,6 +108,7 @@ export function pintarProyecto() {
   </div>`;
 
   h.querySelector("[data-p-volver]").onclick = cerrar;
+  for (const b of h.querySelectorAll("[data-p-item]")) b.onclick = () => { cerrar(); if (ganchos.irAItem) ganchos.irAItem("it:" + b.dataset.pItem); };
   for (const b of h.querySelectorAll("[data-p-tarea]")) b.onclick = () => { cerrar(); if (ganchos.irATarea) ganchos.irATarea("f:" + b.dataset.pTarea); };
   h.querySelector("[data-p-gasto]").onclick = () => { const id = abierto; cerrar(); if (ganchos.abrirGasto) ganchos.abrirGasto("", id); };
   const fe = h.querySelector("[data-p-enlace]");

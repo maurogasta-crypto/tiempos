@@ -1,6 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-43
+// Sello: app-44
+//
+// app-44 (19-nov-2026, rediseño de «Timón»): la barra de abajo trae Hoy, Tareas y
+//   Agenda, y «Más» abre Pizarra, Cotidianas, Chicos, Plata y Balance. Los ids de
+//   solapa no cambian (los widgets siguen entrando por ?solapa=) y «Hoy» es la
+//   pantalla de arranque. Cada ítem puede ser de un proyecto (una cuenta de
+//   Plata → Cuentas): se elige en la ficha y se filtra con chips (hoy.js).
 //
 // app-43 (17-nov-2026, plan «Timón», etapa 5): el widget «Hoy» de Android abre
 //   esta app en el ítem tocado (?solapa=inicio&abrir=it:<id>, hoy.js irAItem);
@@ -177,6 +183,7 @@ async function entrarAlaApp() {
     // app-43: y desde el widget «Hoy», el ítem tocado.
     if (solapaPedida === "inicio") irAItem(params.get("abrir"));
     for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x.dataset.solapa === solapaPedida));
+    marcarMas();
     pintar();
   }
   // app-38: ?proyecto=<cuenta> abre la pantalla de ese proyecto (acceso directo).
@@ -452,9 +459,28 @@ async function cargarRegistrosCV(id) {
 }
 
 /* ── Dibujar ──────────────────────────────────────────────────────────────── */
+/* app-44: «Más» abre las pantallas que no entran en la barra de abajo; al elegir una se
+   cierra, y «Más» queda marcado cuando la pantalla actual es una de ellas. */
+function marcarMas() {
+  const btn = $("btn-mas"), panel = $("mas-panel");
+  if (btn && panel) btn.setAttribute("aria-selected", String(!!panel.querySelector('[data-solapa][aria-selected="true"]')));
+}
+function cerrarMas() {
+  const btn = $("btn-mas"), panel = $("mas-panel");
+  if (btn && panel) { panel.hidden = true; btn.setAttribute("aria-expanded", "false"); }
+}
+if (/PizarraApp\//.test(navigator.userAgent)) {   // la app de Android: sus ajustes se piden desde «Más»
+  $("mas-ajustes").hidden = false;
+  $("mas-ajustes").onclick = () => { location.href = location.pathname + "?app=ajustes"; };
+}
+$("btn-mas").onclick = () => {
+  const panel = $("mas-panel"), abrir = panel.hidden;
+  panel.hidden = !abrir; $("btn-mas").setAttribute("aria-expanded", String(abrir));
+};
 for (const b of document.querySelectorAll("[data-solapa]")) b.onclick = () => {
   E.solapa = b.dataset.solapa; E.abierta = null;
   for (const x of document.querySelectorAll("[data-solapa]")) x.setAttribute("aria-selected", String(x === b));
+  cerrarMas(); marcarMas();
   pintar();
   scrollTo(0, 0);
 };
@@ -519,6 +545,7 @@ function pintar() {
 }
 ganchos.pintar = pintar;
 ganchos.irATarea = (clave) => { irA("tareas"); irATarea(clave); };
+ganchos.irAItem = (clave) => { irA("inicio"); irAItem(clave); };   // app-44: desde la pantalla de un proyecto
 ganchos.abrirGasto = abrirGasto;
 
 function pintarCrono() {

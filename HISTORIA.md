@@ -503,3 +503,14 @@ credenciales) y propone.
   `[Claude]`; si aplica a mano algo de Gemini, con `[Gemini]`.
 
 Detalle: `protocolos/PROTOCOLO-GENERAL.md` § 2.1 nonies de `datos`.
+
+## 19-nov-2026 · El proyecto de un ítem y la barra de abajo (`nucleo-48`, `hoy-3`, `proyecto-2`, `app-44`, `tiempos-78`; `pizarra-85`)
+
+Rediseño de «Timón» para la presentación (propuesta de Mauro, llegada como `timon-cambios.zip`: LEEME, `cambios.patch` y las
+dos carpetas): cada ítem de Hoy puede ser de un **proyecto** —una cuenta de Plata → Cuentas, no un catálogo nuevo—, con chips
+para filtrar y alta que hereda el filtro; la pantalla del proyecto suma «En Hoy»; el renglón de `hoy/` lleva el nombre del
+proyecto y el widget lo pinta; **barra de abajo** (Hoy, Tareas, Agenda, «Más») con los mismos ids de solapa; «Hoy» arranca la
+app; y en Android sale el ⚙ flotante: los ajustes se piden desde «Más». El parche se aplicó sin cambios (se revisó entero: ningún
+valor de credencial, ninguna dirección nueva). **Regla v26** (`proyecto` opcional en `items/`): la publica Mauro. No se hizo
+«Foco de hoy», ni los campos de `tareas/` en la ficha de Hoy, ni apagar Tareas y Pizarra (regla 8), ni el cliente de otros sitios.
+
