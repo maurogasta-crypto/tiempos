@@ -717,6 +717,7 @@ Florencia la acuerden.
 | `estilos.css` | | `estilos-32` |
 | `sw.js` | el cascarón sin señal | `tiempos-78` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v26 |
+| `CONTEXTO.md` | **para una sesión nueva sin conocimiento del ecosistema**: qué es, cómo funciona, mapa de archivos, flujos, datos, reglas con su porqué, cómo se verifica y despliega, estado y glosario | — |
 
 ## Lo que vino de Casa Verde (29-sep-2026)
 
