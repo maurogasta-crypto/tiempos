@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Manual de Timón</title>
+<meta name="description" content="Qué se puede hacer en Timón, para qué sirve cada cosa y cómo se hace, con un esquema simple de cada acción.">
+<meta name="theme-color" content="#14161a">
+<!--
+  manual.html — El MANUAL DE USO de Timón, para compartir. Sello: manual-1 (22-nov-2026)
+  · Cada acción con su objetivo, un diagrama de flujo simple, el paso a paso y «Más detalle».
+    Escrito a partir del código y la documentación al app-47 (el mismo texto que el artefacto
+    https://claude.ai/artifact/Guh73mU78q4aB7XRVpS9mE, que es privado; éste se comparte con el enlace).
+  · Página suelta: no usa Firebase ni el núcleo, no está en el SHELL de sw.js (se sirve de la red)
+    y no se indexa (noindex). Los diagramas los dibuja mermaid, bajado del CDN; sin red se ven como texto.
+  · Si cambia lo que hace la app, cambia este manual en la misma tanda (y sube el sello).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: una columna de lectura, un mapa arriba y una ficha por acción (para qué · esquema · pasos · más detalle). */
+:root{
+  --tinta:#14161a; --tinta2:#1b1e24; --tinta3:#232830; --linea:#2e343e;
+  --texto:#e8e6e1; --gris:#a8a49c; --acento:#d8a657; --familia:#c87f5a; --ok:#8fbf7f; --mal:#e08b8b;
+  --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-titulo:"Space Grotesk","Inter",system-ui,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --tinta:#f6f4ef; --tinta2:#ffffff; --tinta3:#eeeae2; --linea:#e0dbd0;
+  --texto:#1d1d1b; --gris:#6b6862; --acento:#9a6b1f; --familia:#a8603d; --ok:#3f7a3a; --mal:#a23b2a; color-scheme:light } }
+:root[data-theme="light"]{
+  --tinta:#f6f4ef; --tinta2:#ffffff; --tinta3:#eeeae2; --linea:#e0dbd0;
+  --texto:#1d1d1b; --gris:#6b6862; --acento:#9a6b1f; --familia:#a8603d; --ok:#3f7a3a; --mal:#a23b2a; color-scheme:light }
+
+body{margin:0;background:var(--tinta);color:var(--texto);font-family:var(--f-texto);font-size:16px;line-height:1.6}
+.hoja{max-width:760px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-titulo);line-height:1.2;text-wrap:balance;margin:0}
+h1{font-size:2.4rem;letter-spacing:-.02em}
+h2{font-size:1.45rem;margin-top:8px}
+h3{font-size:1.05rem;margin-top:18px}
+p{margin:10px 0}
+a{color:var(--acento)}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--acento);outline-offset:3px;border-radius:6px}
+.bajada{color:var(--gris);font-size:1.05rem;max-width:62ch}
+.eti{font-size:.72rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--gris)}
+.cabeza{display:flex;flex-direction:column;gap:6px;padding-bottom:20px;border-bottom:1px solid var(--linea)}
+.como{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:18px}
+.como div{background:var(--tinta2);border:1px solid var(--linea);border-radius:12px;padding:10px 12px;font-size:.9rem;min-width:0}
+.como b{display:block;font-family:var(--f-titulo);font-size:.95rem}
+.indice{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 8px;padding:0;list-style:none}
+.indice a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--tinta2);border:1px solid var(--linea);color:var(--texto);text-decoration:none;font-size:.9rem}
+.indice a:hover{border-color:var(--acento)}
+section{padding-top:34px;scroll-margin-top:12px}
+.accion{background:var(--tinta2);border:1px solid var(--linea);border-radius:14px;padding:14px 16px;margin-top:14px;min-width:0}
+.accion h3{margin-top:0}
+.para{color:var(--gris);margin:4px 0 8px}
+.para b{color:var(--texto);font-weight:600}
+.diagrama{overflow-x:auto;background:var(--tinta);border-radius:10px;padding:10px;margin:10px 0}
+.diagrama pre{margin:0;text-align:center}
+ol.pasos{margin:8px 0;padding-left:1.3em}
+ol.pasos li{margin:4px 0}
+details{margin-top:8px;border-top:1px dashed var(--linea);padding-top:8px}
+summary{cursor:pointer;color:var(--acento);font-weight:600;font-size:.95rem}
+details p,details li{color:var(--texto);font-size:.95rem}
+details ul{padding-left:1.2em;margin:6px 0}
+.nota{border-left:3px solid var(--acento);padding:6px 12px;background:var(--tinta3);border-radius:0 10px 10px 0;font-size:.95rem;margin:12px 0}
+.punto{display:inline-block;width:.6em;height:.6em;border-radius:50%;vertical-align:middle;margin-right:4px}
+code{font-size:.88em;background:var(--tinta3);padding:1px 5px;border-radius:5px}
+.pie{margin-top:40px;padding-top:16px;border-top:1px solid var(--linea);color:var(--gris);font-size:.9rem}
+dl.glosario{display:grid;grid-template-columns:minmax(110px,auto) 1fr;gap:6px 14px;margin:10px 0}
+dl.glosario dt{font-weight:600}
+dl.glosario dd{margin:0;color:var(--gris);min-width:0}
+@media (max-width:480px){ h1{font-size:2rem} dl.glosario{grid-template-columns:1fr} dl.glosario dd{margin-bottom:6px} }
+@media (prefers-reduced-motion:reduce){ *{scroll-behavior:auto!important} }
+pre.mermaid{visibility:hidden}
+pre.mermaid[data-processed="true"]{visibility:visible}
+.diagrama svg{max-width:none;height:auto}
+.diagrama{-webkit-overflow-scrolling:touch}
+.diagrama pre{min-width:min-content}
+.volver{display:inline-flex;align-items:center;gap:6px;font-size:.9rem;font-weight:600;text-decoration:none;color:var(--acento)}
+</style>
+</head>
+<body>
+<div class="hoja">
+
+<header class="cabeza">
+  <a class="volver" href="./">← Abrir Timón</a>
+  <span class="eti">Timón · manual de uso · al 22 de noviembre de 2026</span>
+  <h1>Manual de Timón</h1>
+  <p class="bajada">Qué se puede hacer en Timón, para qué sirve cada cosa y cómo se hace, con un esquema simple de cada acción. Si querés saber más, cada ficha tiene «Más detalle».</p>
+  <div class="como">
+    <div><b>Para qué</b>El objetivo de la acción, en una línea.</div>
+    <div><b>El esquema</b>Un diagrama de flujo, lo más simple posible.</div>
+    <div><b>Paso a paso</b>Qué tocás y qué pasa.</div>
+    <div><b>Más detalle</b>Las reglas de fondo, para quien quiera profundizar.</div>
+  </div>
+</header>
+
+<nav aria-label="Índice">
+<ul class="indice">
+  <li><a href="#mapa">El mapa</a></li>
+  <li><a href="#entrar">Entrar</a></li>
+  <li><a href="#hoy">Hoy</a></li>
+  <li><a href="#tareas">Tareas</a></li>
+  <li><a href="#reloj">El reloj</a></li>
+  <li><a href="#agenda">Agenda</a></li>
+  <li><a href="#pizarra">Pizarra</a></li>
+  <li><a href="#cotidianas">Cotidianas</a></li>
+  <li><a href="#chicos">Chicos</a></li>
+  <li><a href="#compras">Compras</a></li>
+  <li><a href="#plata">Plata</a></li>
+  <li><a href="#proyecto">Un proyecto</a></li>
+  <li><a href="#balance">Balance</a></li>
+  <li><a href="#preguntar">Preguntar y avisar</a></li>
+  <li><a href="#android">En el teléfono</a></li>
+  <li><a href="#claude">Lo que hace Claude</a></li>
+  <li><a href="#glosario">Glosario</a></li>
+</ul>
+</nav>
+
+<!-- ───────────────────────── EL MAPA ───────────────────────── -->
+<section id="mapa">
+  <span class="eti">Antes de empezar</span>
+  <h2>El mapa de la app</h2>
+  <p>Timón es la app de todos los días de Mauro y Florencia: lo personal, lo de la familia y lo de los lugares donde trabajan, en un solo lugar. Abajo hay una barra con tres pantallas fijas y un botón «Más» con el resto.</p>
+  <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  E["Entrás a Timón"] --> H["Hoy: lo de hoy en una lista"]
+  E --> T["Tareas: el árbol de pendientes"]
+  E --> A["Agenda: tu semana"]
+  E --> M["Más"]
+  M --> P["Pizarra"]
+  M --> C["Cotidianas"]
+  M --> K["Chicos"]
+  M --> PL["Plata"]
+  M --> B["Balance"]
+  M --> Q["❓ Preguntar o avisar"]
+  </pre></div>
+  <p>Y alrededor de la app hay tres cosas más que conviene tener en la cabeza:</p>
+  <div class="diagrama"><pre class="mermaid">
+flowchart LR
+  TW["Timón en el navegador"] --> BT[("Los datos de Timón")]
+  AN["Timón en Android: widgets, avisos y alarmas"] --> BT
+  TW -- "por su conector" --> CV[("Casa Verde")]
+  CL["Claude, la ronda"] -. "lee, propone y avisa" .-> BT
+  </pre></div>
+  <details><summary>Más detalle</summary>
+    <ul>
+      <li><b>Lo de todos los días</b> está en la barra (Hoy, Tareas, Agenda). Lo que se usa menos, en «Más».</li>
+      <li><b>Casa Verde se usa, no se copia</b>: Timón muestra sus tareas, compras, llegadas y salidas leyendo directamente de Casa Verde, y lo que tildás acá queda tildado allá. Es el mismo dato.</li>
+      <li><b>Timón en Android</b> es la misma app adentro del teléfono, más lo que la web no puede: widgets en la pantalla de inicio, avisos, alarmas y «Compartir».</li>
+      <li><b>Claude</b> pasa tres veces por día («la ronda»): lee, prepara propuestas y avisos. Nunca escribe plata ni le escribe a alguien de afuera.</li>
+      <li>Funciona <b>sin señal</b> para abrir y mirar; lo que cambiás se sube cuando vuelve la conexión.</li>
+    </ul>
+  </details>
+</section>
+
+<!-- ───────────────────────── ENTRAR ───────────────────────── -->
+<section id="entrar">
+  <span class="eti">Acceso</span>
+  <h2>Entrar</h2>
+  <article class="accion">
+    <h3>Entrar por primera vez y después</h3>
+    <p class="para"><b>Para qué:</b> que cada persona vea lo suyo y lo de la familia, y nada más.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Abrís Timón"] --> B{"¿Ya tenés acceso?"}
+  B -- "No" --> C["Creás tu mail y contraseña"]
+  C --> D["Queda una solicitud"]
+  D --> E["Se aprueba y te llega el acceso"]
+  E --> F["Entrás con mail y contraseña"]
+  B -- "Sí" --> F
+  F --> G["Se abre «Hoy»"]
+    </pre></div>
+    <ol class="pasos">
+      <li>Poné tu mail y tu contraseña. La contraseña tiene un ojo 👁 para verla.</li>
+      <li>La primera vez queda una <b>solicitud</b>. Hasta que se aprueba no se ve nada.</li>
+      <li>Si trabajás en Casa Verde y te la pide, poné una vez la contraseña de Casa Verde: así Timón puede mostrar lo de allá.</li>
+    </ol>
+    <details><summary>Más detalle</summary>
+      <p>La solicitud la aprueba el agente (Claude) creando tu ficha de miembro; sin esa ficha la base no te deja leer nada. Ningún mail ni identificador de una persona se guarda en el código de la app. «Salir» está al pie de «Más».</p>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── HOY ───────────────────────── -->
+<section id="hoy">
+  <span class="eti">Barra de abajo</span>
+  <h2>Hoy</h2>
+  <p>La pantalla de arranque. Junta en una sola lista lo pendiente tuyo y de la familia, con lo urgente arriba.</p>
+
+  <article class="accion">
+    <h3>Agregar un pendiente</h3>
+    <p class="para"><b>Para qué:</b> anotar algo en dos segundos, decidiendo si es tuyo o de la familia.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Escribís en «Agregar…»"] --> B{"¿De quién es?"}
+  B -- "Mío" --> C["Lo ves sólo vos"]
+  B -- "Familia" --> D["Lo ven los dos"]
+  C --> E["Aparece en la lista, en su lugar"]
+  D --> E
+  E --> F["Se actualiza el widget del teléfono"]
+    </pre></div>
+    <ol class="pasos">
+      <li>Abajo, elegí <b>Mío</b> o <b>Familia</b> (se recuerda la última vez).</li>
+      <li>Escribí y tocá <b>Agregar</b>.</li>
+      <li>Si estabas mirando un proyecto (los chips de arriba), el pendiente nace en ese proyecto.</li>
+    </ol>
+  </article>
+
+  <article class="accion">
+    <h3>Tildar y destildar</h3>
+    <p class="para"><b>Para qué:</b> marcar lo hecho sin abrir nada.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Tocás el círculo ○"] --> B["Queda hecho ✓, tachado, al final"]
+  B --> C["El widget se entera solo"]
+  B -. "¿Te equivocaste?" .-> D["Abrís la ficha: «Volver a pendiente»"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Ver y cambiar el detalle</h3>
+    <p class="para"><b>Para qué:</b> darle día, hora, importancia o proyecto a un pendiente.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Tocás el texto"] --> B["Se abre la ficha"]
+  B --> C["Importancia: alta, normal o baja"]
+  B --> D["Día y hora"]
+  B --> E["Proyecto: una de tus cuentas"]
+  B --> F["Borrar"]
+  B --> G["Si es una tarea: «Abrir en Tareas»"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>En qué orden aparece todo</h3>
+    <p class="para"><b>Para qué:</b> que lo primero que ves sea lo que más apura.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["¿Tiene fecha?"] --> B["Vencido"]
+  B --> C["Hoy"]
+  C --> D["Mañana y después"]
+  A -. "sin fecha" .-> C
+  D --> E["Dentro de cada día: tu importancia"]
+  E --> F["Lo hecho, al final y tachado"]
+    </pre></div>
+    <ol class="pasos">
+      <li><b>Foco de hoy</b>: las cinco primeras, en una tarjeta. El resto, con «Ver lo que sigue».</li>
+      <li><b>Chips de proyecto</b> arriba: sólo los que tienen algo pendiente, con cuántos. Tocá uno para ver sólo eso.</li>
+    </ol>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>La <b>fecha</b> pone la urgencia; <b>vos</b> ponés la importancia. Lo que no tiene día «flota» en hoy hasta que lo hacés.</li>
+        <li>«Hoy» muestra los pendientes nuevos <b>y las tareas de siempre</b> que se hacen (las de la pantalla Tareas), sin copiarlas: tildar una acá es lo mismo que «✔ Hecha» allá.</li>
+        <li>Cada proyecto tiene su <b>color suave</b>: un fondo leve en el chip y un punto en el renglón. <span class="punto" style="background:var(--familia)"></span>Familia, el terracota de siempre; <span class="punto" style="background:var(--acento)"></span>lo tuyo, el dorado.</li>
+        <li>Cada vez que algo cambia, la app deja armada tu lista de los próximos siete días para el widget del teléfono, con lo que hay que escribir al tildar cada renglón. Por eso el widget no necesita «pensar»: pinta y tilda.</li>
+        <li>Un pendiente <b>Mío</b> lo ve sólo su dueño; uno de <b>Familia</b>, los dos. Lo decide la base de datos, no la pantalla.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── TAREAS ───────────────────────── -->
+<section id="tareas">
+  <span class="eti">Barra de abajo</span>
+  <h2>Tareas</h2>
+  <p>El árbol completo de pendientes, por categoría: producción, mantenimiento, chicos, casa y comida, y personal. Una tarea puede tener otras adentro, sin límite de niveles; un proyecto es una tarea con otras adentro.</p>
+
+  <article class="accion">
+    <h3>Crear una tarea</h3>
+    <p class="para"><b>Para qué:</b> anotar algo con su lugar en el árbol.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["＋ el botón redondo"] --> B["Título y categoría"]
+  B --> C{"¿Va adentro de otra?"}
+  C -- "Sí" --> D["Elegís la tarea madre: hereda categoría y color"]
+  C -- "No" --> E["Queda suelta en su categoría"]
+  D --> F{"¿De quién?"}
+  E --> F
+  F -- "De los dos" --> G["La ven los dos"]
+  F -- "Sólo mía" --> H["La ves sólo vos"]
+    </pre></div>
+    <ol class="pasos">
+      <li>Desde la ficha de cualquier tarea, <b>«＋ Tarea adentro»</b> crea una hija.</li>
+      <li>Cada categoría muestra cinco y «Ver las N restantes».</li>
+    </ol>
+  </article>
+
+  <article class="accion">
+    <h3>Quién se ocupa: tomarla o pedirla</h3>
+    <p class="para"><b>Para qué:</b> que quede claro de quién es cada cosa, sin discutirlo de palabra.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Abrís la ficha"] --> B{"¿Quién se ocupa?"}
+  B -- "Me ocupo yo" --> C["Pasa a ser tuya"]
+  B -- "Pedírsela al otro" --> D["Le aparece «te la pidieron», con tu nota"]
+  D --> E{"La otra persona responde"}
+  E -- "Me ocupo" --> F["Pasa a ser suya"]
+  E -- "No puedo" --> G["Vuelve a quien la pidió"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Meta de la semana, a la agenda y hecha</h3>
+    <p class="para"><b>Para qué:</b> elegir en qué te enfocás, ubicarlo en tu semana y cerrarlo.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Ficha de la tarea"] --> B["★ Meta de la semana"]
+  B --> C["Aparece en la pizarra de la semana"]
+  C -. "si no se terminó" .-> D["Sigue la semana siguiente"]
+  A --> E["A mi agenda y ubicarla"]
+  E --> F["Te lleva a la agenda para ponerla en un día"]
+  A --> G["✔ Hecha, fijo abajo"]
+  G --> H["Se tacha en todos lados, también en el widget"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Mirar una parte: el filtro de quién y ordenar</h3>
+    <p class="para"><b>Para qué:</b> ver sólo lo tuyo, lo del otro o lo que nadie tomó.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart LR
+  A["Filtro arriba"] --> B["Todo"]
+  A --> C["Lo mío"]
+  A --> D["Sin encargado"]
+  A --> E["Lo del otro"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li><b>Lo mío</b> es lo personal, lo que tenés de encargado y lo que te pidieron; de Casa Verde, lo que tenés asignado. Un grupo se ve si algo adentro pasa el filtro.</li>
+        <li>El filtro se recuerda en tu teléfono y no cambia nada para el otro.</li>
+        <li><b>Ordenar</b> es un modo: aparecen el agarre ⠿, la flecha ↩ y «＋ Grupo propio». El orden es tuyo; no cambia la tarea ni lo que ve el otro.</li>
+        <li>La ficha de una tarea es una pantalla aparte: «‹ volver» a la tarea madre, quién, cuándo, «Adentro · N», el detalle y «Más opciones» (categoría, color, borrar).</li>
+        <li>Las tareas de <b>Casa Verde</b> aparecen también acá: su ficha muestra fechas, cada cuánto se repite, monto, quiénes y los registros de tiempo. Se pueden dar por hechas sin reloj y abrir en Casa Verde.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── RELOJ ───────────────────────── -->
+<section id="reloj">
+  <span class="eti">Dentro de Tareas</span>
+  <h2>El reloj</h2>
+  <article class="accion">
+    <h3>Medir el tiempo de lo que se cobra</h3>
+    <p class="para"><b>Para qué:</b> saber cuánto tiempo llevó un trabajo pago. Lo demás no se cronometra: se tilda.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A{"¿Se cobra?"} -- "No" --> B["No lleva reloj: se tilda ○"]
+  A -- "Sí: Casa Verde o «⏱ Lleva reloj»" --> C["▶ Arrancar"]
+  C --> D{"¿Hay otro corriendo?"}
+  D -- "Sí" --> E["No arranca: hay uno solo a la vez"]
+  D -- "No" --> F["Corre arriba, en todas las pantallas"]
+  F --> G{"Al parar"}
+  G -- "Queda pendiente" --> H["Se guarda el tiempo y la tarea sigue"]
+  G -- "Terminé" --> I["Se guarda el tiempo y queda hecha"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>Hay <b>un solo cronómetro</b> para Timón y Casa Verde juntos: mientras corre uno, no arranca otro en ninguna de las dos.</li>
+        <li>Llevan reloj las actividades de Casa Verde y las tareas marcadas «⏱ Lleva reloj» (o las que están adentro de un proyecto que lo lleva).</li>
+        <li><b>El tiempo con los chicos no se cronometra</b>: sale del calendario de <a href="#chicos">Chicos</a>.</li>
+        <li>Un reloj que quedó corriendo de más aparece en la auditoría del <a href="#balance">Balance</a>.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── AGENDA ───────────────────────── -->
+<section id="agenda">
+  <span class="eti">Barra de abajo</span>
+  <h2>Agenda</h2>
+  <p>Tu semana en mañana, tarde y noche. Es de cada uno: el otro no la ve. Muestra también, sin que la puedas mover, lo de los chicos y quién entra y sale de Casa Verde.</p>
+
+  <article class="accion">
+    <h3>Agregar algo a la semana</h3>
+    <p class="para"><b>Para qué:</b> ubicar un trabajo, una tarea, algo personal o con los chicos en un día y una franja.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["＋ Actividad"] --> B["Escribís qué"]
+  B --> C{"¿Es alguna de éstas?"}
+  C -- "Sí, ésta" --> D["Usa la tarea que ya tenés"]
+  C -- "No, agregar una nueva" --> E["Crea una pieza nueva"]
+  D --> F["Día y franja: mañana, tarde o noche, o «Sin día»"]
+  E --> F
+  F --> G{"¿Se repite todas las semanas?"}
+  G -- "Sí" --> H["Aparece cada semana"]
+  G -- "No" --> I["Sólo ese día"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Mover una pieza</h3>
+    <p class="para"><b>Para qué:</b> reacomodar la semana arrastrando.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Agarrás la pieza del ⠿"] --> B["La soltás en otro día o franja"]
+  B --> C{"¿Es de las que se repiten?"}
+  C -- "Sí" --> D["Se mueve sólo ese día"]
+  C -- "No" --> E["Se mueve la pieza"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Que te avise</h3>
+    <p class="para"><b>Para qué:</b> que suene el teléfono antes de algo.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["En la pieza: «Avisarme»"] --> B["Elegís cuánto antes"]
+  B --> C["Queda guardada la alarma"]
+  C --> D["Timón en Android la programa"]
+  D --> E["Suena a su hora"]
+  A -. "si sacás la pieza" .-> F["Se van sus avisos"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Semana, mes y lo que sólo se mira</h3>
+    <p class="para"><b>Para qué:</b> ver de un vistazo el mes y lo de los demás.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Semana o Mes"] --> B["Mes: cuánto hay cada día"]
+  B --> C["Tocás un día: abre esa semana"]
+  A --> D["Lo de los chicos: con quién están y sus actividades"]
+  A --> E["Casa Verde: llegadas y salidas"]
+  E --> F["Tocás una: abre la reserva en Casa Verde"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>En el mes, el dorado es lo tuyo y el violeta lo de los chicos; un 🏠 marca los días con llegadas o salidas de Casa Verde.</li>
+        <li>Las llegadas y salidas se <b>leen</b> de Casa Verde: se ven a su hora (14:00 y 10:00 si la reserva no dice otra), con la cabaña y cuántos son; no se arrastran ni se editan. Una reserva anulada no aparece.</li>
+        <li>En la agenda todo es una <b>pieza</b>: lo que agregás, una tarea con día, una actividad de Casa Verde. El orden de tus proyectos y tareas es tuyo y no cambia nada para el otro.</li>
+        <li><b>«🤝 Claude organiza mi agenda»</b> (en tus lugares): sólo si lo encendés, Claude puede ordenar tu agenda, siempre con una copia de cómo estaba antes. Lo que propone para tu semana lo ves en la <a href="#pizarra">Pizarra</a>.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── PIZARRA ───────────────────────── -->
+<section id="pizarra">
+  <span class="eti">En «Más»</span>
+  <h2>Pizarra</h2>
+  <p>Para anotar rápido, preguntar y elegir lo que querés tener a mano en el widget del teléfono. También muestra lo que Claude te propone, los recordatorios, las alarmas y los deseos.</p>
+
+  <article class="accion">
+    <h3>Anotar o preguntar</h3>
+    <p class="para"><b>Para qué:</b> sacarte algo de la cabeza o consultar algo que ya está cargado.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Escribís o dictás con el 🎤 del teclado"] --> B{"¿Qué es?"}
+  B -- "Una pregunta" --> C["❓ Preguntar"]
+  C --> D["Busca en tu agenda, plata y horas"]
+  D --> E["Contesta; no cambia nada"]
+  B -- "Algo para hacer" --> F["Va por su ficha: ＋ de la agenda, de la pizarra o Plata"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Mi pizarra: lo que va al widget</h3>
+    <p class="para"><b>Para qué:</b> tener en la pantalla del teléfono las pocas tareas que importan ahora.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["📝 Mi pizarra: ＋ Elegir"] --> B["Ventana con tus tareas por categoría"]
+  B --> C["Marcás las que querés"]
+  C --> D["Aparecen en el widget"]
+  D --> E["Tachar en el widget = ✔ Hecha"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Lo que Claude propone</h3>
+    <p class="para"><b>Para qué:</b> decidir sobre las sugerencias de Claude sin que haga nada solo.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Llega una propuesta"] --> B{"Vos decidís"}
+  B -- "Aceptar" --> C["Se hace lo propuesto"]
+  B -- "Ahora no" --> D["Queda para después"]
+  B -- "Responder" --> E["Le contestás: queda en «Lo que se dijo»"]
+  B -- "✓ Leído" --> F["Se archiva"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Deseos y «hoy se puede»</h3>
+    <p class="para"><b>Para qué:</b> no perder planes que gustan (una clase, un evento) y verlos el día que se pueden hacer.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["＋ Agregar a mano, o un flyer"] --> B["Cada semana, una fecha o sin fecha"]
+  B --> C["⭐ Hoy se puede: los de ese día"]
+  C --> D{"¿Lo hacemos?"}
+  D -- "Ya lo acordamos: agendar" --> E["Abre el ＋ de la agenda con el deseo escrito"]
+  D -- "Ya no" --> F["Deja de aparecer"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>De un flyer, la IA lee los días y horas (si es semanal) o la fecha (si es un evento); lo que no entiende queda vacío para que lo completes con ✏️.</li>
+        <li>Los deseos los editan los dos; los borra quien los cargó.</li>
+        <li>Desde octubre la IA <b>sólo contesta</b>: ya no arma planes ni escribe. Lo que se agrega, se agrega por su ficha.</li>
+        <li>«Pizarra» y su widget conviven con «Hoy» mientras se prueba lo nuevo: nada se apaga hasta que lo nuevo se usó una semana.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── COTIDIANAS ───────────────────────── -->
+<section id="cotidianas">
+  <span class="eti">En «Más»</span>
+  <h2>Cotidianas</h2>
+  <article class="accion">
+    <h3>Tildar lo de todos los días</h3>
+    <p class="para"><b>Para qué:</b> que quede quién hizo cada cosa de la casa, sin cronometrar nada.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Tocás: desayuno, almuerzo, basura, lavar…"] --> B["Queda quién y a qué hora"]
+  B --> C["Si querés, una observación"]
+  D["＋ Agregar otra"] --> E["Se suma para todos los días"]
+  E -. "las agregadas" .-> F["Se sacan con ✕"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <p>La vajilla aparece al lado de cada comida. Abajo se ven las del día. Las cotidianas de siempre no se pueden sacar; las que agregaste, sí.</p>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── CHICOS ───────────────────────── -->
+<section id="chicos">
+  <span class="eti">En «Más»</span>
+  <h2>Chicos</h2>
+  <article class="accion">
+    <h3>Con quién están y sus actividades</h3>
+    <p class="para"><b>Para qué:</b> tener claro, día por día, con quién están los chicos y qué tienen. De acá sale el tiempo con ellos para el Balance.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Lo acordado cada semana: qué día con quién"] --> B["Cada día del calendario"]
+  B --> C{"¿Este día es distinto?"}
+  C -- "Sí" --> D["Tocás el día y lo cambiás"]
+  D -. "para deshacerlo" .-> E["Volver a lo acordado"]
+  B --> F["＋ Actividad ese día o ＋ Nueva actividad"]
+  F --> G["Puede repetirse cada semana"]
+  B --> H["＋ nota: observaciones del día"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>Se ve por semana o por mes, con un señalador por persona y por chico.</li>
+        <li>Las actividades (básquet, kung fu, amigos…) las ven los dos siempre, las cargue quien las cargue, y aparecen en la agenda de los dos.</li>
+        <li>Los chicos no se agregan desde la app: son los que están configurados en la familia. Sus nombres no salen nunca hacia la IA.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── COMPRAS ───────────────────────── -->
+<section id="compras">
+  <span class="eti">Dentro de Tareas</span>
+  <h2>Compras</h2>
+  <article class="accion">
+    <h3>Una lista y el modo súper</h3>
+    <p class="para"><b>Para qué:</b> anotar lo que falta y recorrer el local sin olvidarte nada.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Elegís o creás una lista"] --> B["Agregás cosas, con su pasillo y una nota"]
+  B --> C["🛒 Ir al súper con esta lista"]
+  C --> D["Tildás por pasillo; la pantalla no se apaga"]
+  D --> E["Lo que tildó el otro dice quién"]
+  D --> F["↺ Destildar todo, para la próxima"]
+  B --> G["Sacar lo comprado"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Compartir una lista con alguien sin cuenta</h3>
+    <p class="para"><b>Para qué:</b> que otra persona (quien hace el mandado) vea y tilde la lista sin instalar nada.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["🔗 Compartir"] --> B["Se crea un enlace secreto por 48 horas"]
+  B --> C["Quien lo abre pone su nombre una vez"]
+  C --> D["Tilda y agrega; vos lo ves al instante"]
+  D --> E{"Al terminar"}
+  E -- "Cerrar el enlace" --> F["La lista vuelve a casa y el enlace deja de andar"]
+  E -- "+48 h" --> B
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Las compras de Casa Verde</h3>
+    <p class="para"><b>Para qué:</b> ver y tildar desde Timón lo que hay que comprar para Casa Verde.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart LR
+  A["Tarjeta 🏡 Casa Verde"] --> B["Las compras de allá, por lugar"]
+  B --> C["Tildás acá"]
+  C --> D["Queda tildado en Casa Verde: es el mismo dato"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>Las listas son en vivo para los dos. Los pasillos siguen el orden en que se camina el local; hoy los arma Claude y desde la app se elige el pasillo al agregar.</li>
+        <li>El enlace sin cuenta lleva una llave de 22 letras al azar: sin ella no se puede abrir, y vencido no se lee. Es lo único de Timón que se abre sin sesión.</li>
+        <li>Una compra nueva de Casa Verde todavía se carga en Casa Verde.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── PLATA ───────────────────────── -->
+<section id="plata">
+  <span class="eti">En «Más»</span>
+  <h2>Plata</h2>
+  <p>Lo disponible, los gastos, las entradas y el año, de la familia. Tiene secciones: Día a día, Fijos, Año, Reparto, Extractos, Proyectos y Cuentas.</p>
+  <p class="nota"><b>Cada moneda es un sistema aparte.</b> Reales, pesos uruguayos y dólares nunca se suman ni se convierten.</p>
+
+  <article class="accion">
+    <h3>Cargar un gasto</h3>
+    <p class="para"><b>Para qué:</b> registrar un gasto en segundos, dejando que la IA lea la factura.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["＋ Gasto"] --> B{"¿Tenés la factura?"}
+  B -- "Sí" --> C["📷 Foto o 🖼 archivo"]
+  C --> D["La IA lee monto, moneda, fecha, comercio y renglones"]
+  D --> E["Revisás monto, moneda, fecha, categoría, comercio y proyecto"]
+  B -- "No" --> E
+  E --> F["Guardar"]
+  F --> G["Recién ahí se sube la foto y se guarda el gasto"]
+    </pre></div>
+    <ol class="pasos">
+      <li>Lo que la IA lee es una <b>sugerencia</b>: todo se puede corregir antes de guardar.</li>
+      <li>En «Más detalles»: quién pagó, para quién, el detalle, si es pago automático y lo que la IA sacó de la factura.</li>
+      <li>«＋ Entrada» registra plata que entra, igual.</li>
+    </ol>
+  </article>
+
+  <article class="accion">
+    <h3>Pagos automáticos</h3>
+    <p class="para"><b>Para qué:</b> que los gastos que se repiten cada mes no se olviden ni se carguen a mano.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Gasto marcado: pago automático"] --> B["Cada mes, pasado su día, pregunta"]
+  B --> C{"¿Se pagó?"}
+  C -- "Pagado" --> D["Se registra con el monto que confirmás"]
+  C -- "Este mes no" --> E["Ese mes no cuenta"]
+  A -. "cuando termina" .-> F["Dar de baja"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Por aprobar: lo que propone Claude</h3>
+    <p class="para"><b>Para qué:</b> que lo que Claude encuentra (en un chat, un mail o un extracto) llegue listo, pero que lo decidas vos.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Claude encuentra un gasto o una entrada"] --> B["Deja una propuesta completa y editable"]
+  B --> C["Aparece en «Por aprobar», arriba en Plata"]
+  C --> D{"Vos"}
+  D -- "Aprobar" --> E["Recién ahora se escribe el movimiento"]
+  D -- "Descartar" --> F["No se guarda nada"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Fijos, Año y Reparto</h3>
+    <p class="para"><b>Para qué:</b> mirar lo que cuesta vivir, más allá del mes.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Fijos: lo estimado y lo pagado"] --> B["Registrar el pago de cada fijo"]
+  A --> C["Año: lo que costó vivir un año"]
+  C --> D["＋ Gasto del año, o «Sumar al Año» un fijo"]
+  C --> E["Reparto: el ajuste del trimestre"]
+  E --> F["Cuenta cuando los dos tocan «Estoy de acuerdo»"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Extractos del banco</h3>
+    <p class="para"><b>Para qué:</b> que lo que dice el banco se cruce con lo cargado, sin cargar nada dos veces.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Claude carga las líneas del extracto"] --> B["Sólo las que faltan: nunca repite"]
+  B --> C["Cada línea queda para registrar"]
+  C --> D["Una persona la registra y le pone su cuenta"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li><b>Toda la plata es de la familia</b>; la cuenta sólo dice <b>a qué fue</b> (el destino) y no cambia el reparto.</li>
+        <li>La factura se lee completa: además del total, el RUT o CNPJ, el número, el medio de pago y los renglones. Sirve para reconocer el mismo gasto en un extracto y no cargarlo dos veces.</li>
+        <li><b>La moneda y la fecha de la factura ganan</b> a las del formulario (antes una boleta en pesos quedaba en reales).</li>
+        <li>La foto se sube <b>al guardar</b>, no al elegirla, para no dejar fotos sueltas.</li>
+        <li><b>Claude no escribe plata</b>: la propone. Aplica a gastos, entradas y acuerdos.</li>
+        <li><b>«📊 Análisis de Claude»</b> arma un análisis de la plata, siempre por moneda.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── PROYECTO ───────────────────────── -->
+<section id="proyecto">
+  <span class="eti">Dentro de Plata</span>
+  <h2>La pantalla de un proyecto</h2>
+  <article class="accion">
+    <h3>Todo lo de un proyecto, en una pantalla</h3>
+    <p class="para"><b>Para qué:</b> ver junto lo que se acumula de un proyecto (General Flores, Santa Fe, la Hilux…) como si fuera una app aparte.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Plata, Proyectos: «Abrir»"] --> P["La pantalla del proyecto"]
+  P --> B["Lo que falta y lo hecho"]
+  P --> C["Lo que viene: agenda, chicos y avisos"]
+  P --> D["La plata de 12 meses, por moneda"]
+  P --> E["Documentos y bitácora"]
+  D --> F["＋ Gasto con la cuenta ya puesta"]
+  E --> G["Anotar: queda quién y cuándo"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>Un proyecto <b>es una cuenta</b> de Plata, con sus partes (por ejemplo, el depósito suma a su lugar). Los pendientes de «Hoy» con ese proyecto aparecen acá.</li>
+        <li>Junta lo que ya existe <b>sin copiarlo</b>. Lo único que se escribe en esta pantalla son los <b>documentos</b> (enlaces) y la <b>bitácora</b>: lo que no es tarea ni gasto, como una charla con un inquilino, un trabajo o una habilitación. Una nota la saca sólo quien la escribió.</li>
+        <li>Se puede abrir desde afuera con un acceso directo en el teléfono. «← Volver» la cierra.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── BALANCE ───────────────────────── -->
+<section id="balance">
+  <span class="eti">En «Más»</span>
+  <h2>Balance</h2>
+  <article class="accion">
+    <h3>La regla del tiempo</h3>
+    <p class="para"><b>Para qué:</b> que el tiempo de cada uno se mire con la misma vara.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A{"¿Qué estás haciendo?"} -- "A cargo de los chicos o produciendo" --> B["Carga"]
+  A -- "Algo personal, sin los chicos" --> C["Tiempo liberado"]
+  A -- "No producís y el otro está solo con los dos" --> C
+    </pre></div>
+    <ol class="pasos">
+      <li>Se ve <b>esta semana</b> o <b>este mes</b>, con las horas por tipo.</li>
+      <li>Cuenta lo medido (relojes, el calendario de Chicos) y lo acordado que los dos confirmaron.</li>
+    </ol>
+  </article>
+
+  <article class="accion">
+    <h3>Un acuerdo de tiempo</h3>
+    <p class="para"><b>Para qué:</b> dejar por escrito algo como «semana de trabajo afuera» o «me quedo con los dos», y que cuente sólo si pasó.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["＋ Acuerdo"] --> B["Pasa la fecha"]
+  B --> C{"Cada uno confirma lo suyo"}
+  C -- "Sí, se cumplió: los dos" --> D["Cuenta en el balance"]
+  C -- "No se cumplió" --> E["No cuenta"]
+    </pre></div>
+  </article>
+
+  <article class="accion">
+    <h3>Salidas y auditoría</h3>
+    <p class="para"><b>Para qué:</b> anotar las salidas y ver lo que quedó raro.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["＋ Salida"] --> B["Se cuentan en días"]
+  C["Auditoría: se revisa sola"] --> D["Relojes olvidados, gastos sin boleta, acuerdos sin confirmar, días sin nada"]
+  C --> E["Observaciones de Claude"]
+  E --> F["Visto, o le respondés"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>Una semana de trabajo afuera con el otro a cargo de los dos es neutra: los dos tienen carga y nadie gasta tiempo liberado.</li>
+        <li>Un acuerdo cuenta sólo cuando <b>los dos</b> lo confirmaron; cada uno firma lo suyo.</li>
+        <li>Las horas no entran al reparto de plata.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── PREGUNTAR ───────────────────────── -->
+<section id="preguntar">
+  <span class="eti">En «Más»</span>
+  <h2>Preguntar, sugerir o avisar una falla</h2>
+  <article class="accion">
+    <h3>El botón ❓</h3>
+    <p class="para"><b>Para qué:</b> consultar algo, o mandar una idea o una falla para que se arregle.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Más: ❓"] --> B{"¿Qué querés?"}
+  B -- "Preguntar" --> C["La IA contesta con tus datos; no cambia nada"]
+  B -- "Sugerencia o algo anda mal" --> D["Elegís qué tan urgente y escribís"]
+  D --> E["Claude lo lee en la ronda"]
+  E --> F["Pasa al panel de Mauro como pendiente"]
+  F --> G["Puede tardar hasta un día"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>La IA <b>sólo contesta</b>: dice qué buscar y la respuesta la arma la app con lo que ve tu sesión (agenda de dos meses atrás a seis adelante, gastos, balances, horas). Los números los calcula la app, por moneda.</li>
+        <li>Hacia la IA no salen los nombres de los chicos, ni documentos, teléfonos o mails de lo que pegues.</li>
+        <li>«✨ Explicar» y «📊 Análisis de Claude» siguen disponibles. Abajo ves lo que mandaste.</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── ANDROID ───────────────────────── -->
+<section id="android">
+  <span class="eti">Timón en Android</span>
+  <h2>En el teléfono</h2>
+  <article class="accion">
+    <h3>Widgets, dictado, compartir y alarmas</h3>
+    <p class="para"><b>Para qué:</b> usar Timón sin abrirlo: desde la pantalla de inicio, la voz o el menú «Compartir».</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  W1["Widget «Hoy»"] -- "○ tildar" --> X["Lo mismo que tildar en la app"]
+  W1 -- "tocar el texto" --> Y["Abre Timón en ese pendiente"]
+  W2["Widget de la Pizarra"] -- "tachar" --> Z["✔ Hecha"]
+  W3["Widget «Mi agenda»"] --> Q["Tu semana"]
+  S["Compartir a Timón desde Instagram, WhatsApp…"] --> R["Abre con el enlace; para Instagram pide una 📷 captura"]
+  G["Botón $"] --> GA["＋ Gasto, con la foto primero"]
+  AL["Alarmas de «Avisarme»"] --> SU["Suenan desde la app"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>El widget «Hoy» muestra lo mismo que la pantalla Hoy, con el nombre del proyecto en cada renglón. Si tildás y la base dice que no se pudo, el renglón vuelve.</li>
+        <li>Lo que tilda otra persona aparece en tu widget cuando abrís Timón (el encabezado dice cuándo se armó).</li>
+        <li>Guardar algo en Timón «despierta» a los teléfonos para que se actualicen, sin mandar el contenido.</li>
+        <li>Dentro de la app aparece «Ajustes de la app» en «Más». La guía para instalarla está en «📲 Timón en Android», al pie de «Más».</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── CLAUDE ───────────────────────── -->
+<section id="claude">
+  <span class="eti">Detrás de la app</span>
+  <h2>Lo que hace Claude</h2>
+  <article class="accion">
+    <h3>La ronda</h3>
+    <p class="para"><b>Para qué:</b> que alguien ordene, revise y prepare, sin decidir por ustedes.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  C["Claude, tres veces por día"] --> L["Lee pendientes, reportes, agenda y plata"]
+  C --> P["Propone gastos y entradas: «Por aprobar»"]
+  C --> O["Ordena tu agenda, sólo si lo encendiste"]
+  C --> A["Deja avisos en tu buzón"]
+  C --> R["Respalda las bases"]
+  C -. "nunca" .-> N["Escribe plata sola ni le escribe a alguien de afuera"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>Claude entra con un usuario común, con permisos limitados por las reglas de la base.</li>
+        <li>Puede crear y editar tareas comunes y sesiones, siempre <b>guardando antes una copia</b> de cómo estaba (sin copia, no cambia nada).</li>
+        <li>No toca tu lista de «Hoy» ni tu agenda (salvo que enciendas «🤝 Claude organiza mi agenda»), ni lo personal.</li>
+        <li>Los avisos por WhatsApp a alguien del equipo salen sólo si esa persona los encendió (enlace al pie de «Más»).</li>
+      </ul>
+    </details>
+  </article>
+</section>
+
+<!-- ───────────────────────── GLOSARIO ───────────────────────── -->
+<section id="glosario">
+  <span class="eti">Para consultar</span>
+  <h2>Glosario</h2>
+  <dl class="glosario">
+    <dt>Pendiente o ítem</dt><dd>Algo para hacer, en «Hoy». Por ahora son tareas; más adelante también citas, compras, pedidos y preguntas.</dd>
+    <dt>Mío / Familia</dt><dd>Quién lo ve: sólo vos, o los dos.</dd>
+    <dt>Proyecto</dt><dd>Una cuenta de Plata (General Flores, Santa Fe, la Hilux…). Ordena pendientes, gastos, documentos y bitácora.</dd>
+    <dt>Categoría</dt><dd>Producción, mantenimiento, chicos, casa y comida, o personal.</dd>
+    <dt>Pieza</dt><dd>Cualquier cosa ubicada en la agenda.</dd>
+    <dt>Meta de la semana</dt><dd>Una tarea elegida para esta semana; si no se termina, pasa a la siguiente.</dd>
+    <dt>Carga / tiempo liberado</dt><dd>Estar a cargo o producir / tener tiempo propio. Ver Balance.</dd>
+    <dt>Por aprobar</dt><dd>Lo que propone Claude en Plata; se escribe recién cuando lo aprobás.</dd>
+    <dt>La ronda</dt><dd>La pasada automática de Claude, tres veces por día.</dd>
+    <dt>Conector</dt><dd>El acuerdo por el que Timón lee y tilda cosas de Casa Verde sin copiarlas.</dd>
+  </dl>
+</section>
+
+<p class="pie">Escrito a partir de la app tal como está el 22 de noviembre de 2026 (versión app-47). Si la app cambia, cambia el manual. · <span id="sello">manual-1</span> · <a href="./">Abrir Timón</a></p>
+
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+  /* Los diagramas: tema oscuro o claro según el teléfono, en tamaño natural. Si uno no entra a lo ancho,
+     se prueba también de costado (de izquierda a derecha) y queda el MÁS ANGOSTO de los dos: a los que se
+     abren en muchas ramas les conviene de costado; a las cadenas de pasos, de arriba abajo. Lo que siga sin
+     entrar se desliza adentro de su caja. Si el CDN no responde, queda el texto del diagrama. */
+  (async function () {
+    var pres = Array.prototype.slice.call(document.querySelectorAll("pre.mermaid"));
+    if (!window.mermaid) { pres.forEach(function (p) { p.style.visibility = "visible"; }); return; }
+    var oscuro = matchMedia("(prefers-color-scheme: dark)").matches;
+    mermaid.initialize({ startOnLoad: false, theme: oscuro ? "dark" : "neutral", flowchart: { useMaxWidth: false, htmlLabels: true, wrappingWidth: innerWidth < 600 ? 140 : 190 }, securityLevel: "strict" });
+    /* El texto de cada caja se corta en renglones (wrappingWidth): sin esto una frase larga ensancha todo. */
+    var textos = pres.map(function (p) {
+      return p.textContent.replace(/\["([^"`]+)"\]/g, '["`$1`"]').replace(/\{"([^"`]+)"\}/g, '{"`$1`"}').replace(/\[\("([^"`]+)"\)\]/g, '[("`$1`")]');
+    });
+    pres.forEach(function (p, k) { p.textContent = textos[k]; });
+    try { await mermaid.run({ nodes: pres }); } catch (e) {}
+    for (var k = 0; k < pres.length; k++) {
+      var p = pres[k], svg = p.querySelector("svg");
+      if (!svg || !/flowchart TD/.test(textos[k]) || svg.getBoundingClientRect().width <= p.parentElement.clientWidth - 8) continue;
+      try {
+        var r = await mermaid.render("costado" + k, textos[k].replace("flowchart TD", "flowchart LR"));
+        var prueba = document.createElement("div"); prueba.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0";
+        prueba.innerHTML = r.svg; document.body.appendChild(prueba);
+        var ancho = prueba.querySelector("svg").getBoundingClientRect().width; document.body.removeChild(prueba);
+        if (ancho < svg.getBoundingClientRect().width) p.innerHTML = r.svg;
+      } catch (e) {}
+    }
+    /* Último ajuste: el que siga sin entrar se achica hasta el 72 % (la letra se sigue leyendo) y, si aun así
+       no entra, se desliza adentro de su caja. */
+    pres.forEach(function (p) {
+      var svg = p.querySelector("svg"); if (!svg) return;
+      var w = svg.getBoundingClientRect().width, caja = p.parentElement.clientWidth - 20;
+      if (w > caja) { svg.style.width = Math.round(Math.max(caja, w * 0.72)) + "px"; svg.style.height = "auto"; }
+    });
+  })();
+</script>
+</body>
+</html>

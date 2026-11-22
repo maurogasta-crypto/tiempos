@@ -721,6 +721,7 @@ Florencia la acuerden.
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
 | `compras.js` | la lista de compras, en `familia/compras`, y las de Casa Verde por su conector | `compras-7` |
 | `lista.html` + `lista.js` | la lista compartida sin cuenta (`?c=<token>`); fuera del SHELL | `lista-1` |
+| `manual.html` | el **manual de uso** para compartir (https://maurogasta-crypto.github.io/tiempos/manual.html): cada acción con su objetivo, un diagrama de flujo, el paso a paso y «Más detalle». Página suelta: sin Firebase, fuera del SHELL, `noindex`; los diagramas los dibuja mermaid desde el CDN. **Si cambia lo que hace la app, cambia el manual en la misma tanda** | `manual-1` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-3` |
 | `sugerir.js` | el globo ❓: preguntarle a la IA (sólo contesta), sugerencias y fallas, a `reportes/` | `sugerir-22` |
