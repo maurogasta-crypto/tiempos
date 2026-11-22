@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// hoy.js — La pantalla «Hoy»: los ítems de todos mis espacios. Sello: hoy-3 (19-nov-2026: cada ítem puede ser de un proyecto)
+// hoy.js — La pantalla «Hoy»: los ítems de todos mis espacios. Sello: hoy-5 (22-nov-2026: cada proyecto con su color suave en el chip y en el renglón, el punto de Familia, y al agregar se elige Mío o Familia). hoy-4 (20-nov-2026: la versión simplificada; muestra también las tareas de siempre, de sólo lectura, con su proyecto)
 //
 // Plan «Timón», etapa 4 (16-nov-2026; prototipo aprobado por Mauro ese día):
 // «Hoy» junta lo de todos los espacios de la persona en UNA lista —tildás,
@@ -22,13 +22,13 @@
 
 import { db, auth, F } from "./firebase-init.js";
 import { esc, idNuevo, isoDe, TIPOS_ITEM, IMPORTANCIAS, espacioPersonal, esEspacioMio, nombreEspacio,
-         ordenarItems, cuandoItem, urgenciaItem, validarItem, materializarHoy, cuentasDe, idsDeCuenta } from "./nucleo.js";
-import { E, $, aviso, nombreDe, fallo, repintar } from "./estado.js";
+         ordenarItems, cuandoItem, urgenciaItem, validarItem, materializarHoy, cuentasDe, idsDeCuenta, tareasComoItems, lunesDe, colorDeProyecto } from "./nucleo.js";
+import { E, $, aviso, nombreDe, fallo, repintar, ganchos } from "./estado.js";
 
-/* El filtro de espacio es de esta pantalla y de este teléfono, como el
-   «de quién» de Tareas: no se guarda en la base. */
-let filtro = (() => { try { return localStorage.getItem("tiempos:espacio") || "todo"; } catch { return "todo"; } })();
 let abierto = null;
+/* hoy-5: lo que se agrega es «Mío» o «Familia», a elección (lo recuerda este teléfono). Antes de hoy-5,
+   sin proyecto nacía siempre en lo mío y la otra persona no lo veía. */
+let nuevoEsp = (() => { try { return localStorage.getItem("tiempos:nuevo") === "fam" ? "fam" : "mio"; } catch { return "mio"; } })();
 
 /* hoy-3: el filtro de proyecto también es de esta pantalla y de este teléfono.
    "" = todos, "-" = sin proyecto, otro = el id de una cuenta (y sus partes).
@@ -38,13 +38,20 @@ const cuentas = () => cuentasDe(E.cuentasDoc);
 const nombreProyecto = (id) => (cuentas().find((c) => c.id === id) || {}).nombre || "";
 const delProyecto = (i) => filtroProy === "" || (filtroProy === "-" ? !i.proyecto : idsDeCuenta(cuentas(), filtroProy).has(i.proyecto));
 
-const COLOR_ESPACIO = { mio: "#d8a657", fam: "#c87f5a" };
-const puntoDe = (espacio) =>
-  `<span class="punto" style="--c:${espacio === "familia" ? COLOR_ESPACIO.fam : COLOR_ESPACIO.mio}" title="${espacio === "familia" ? "Familia" : "Mío"}"></span>`;
+/* hoy-5: el color de un proyecto (colorDeProyecto, en el orden de Plata → Cuentas) y el terracota de
+   Familia, el mismo del widget de Android. Lo mío sin proyecto no lleva punto: es lo de siempre. */
+const COLOR_FAMILIA = "#c87f5a";
+const colorProy = (id) => colorDeProyecto(cuentas(), id);
+const puntoP = (c) => (c ? `<span class="pp" style="--p:${c}" aria-hidden="true"></span>` : "");
 
 const misItems = () => (E.items || []).filter((i) => esEspacioMio(i.espacio, E.yo.uid));
-const visibles = () => misItems().filter((i) =>
-  (filtro === "todo" || (filtro === "fam" ? i.espacio === "familia" : i.espacio === espacioPersonal(E.yo.uid))) && delProyecto(i));
+/* hoy-4: lo de Hoy = mis ítems + las tareas de siempre (de sólo lectura, sin copiar). Todo junto:
+   para una persona no importa si es suya o de la familia, importa el foco del día. */
+const lasTareas = () => tareasComoItems(E.tareas, cuentas(), E.yo.uid, E.hoy);
+const todos = () => [...misItems(), ...lasTareas()];
+const visibles = () => todos().filter(delProyecto);
+const FOCO = 5;            // lo primero de la lista es el foco del día; el resto espera
+let verTodo = false;
 
 function filaItem(it) {
   const f = document.createElement("div");
@@ -52,18 +59,41 @@ function filaItem(it) {
   const esta = abierto === it.id;
   const cuando = cuandoItem(it, E.hoy);
   const vencido = urgenciaItem(it, E.hoy) === "vencido";
+  const proy = nombreProyecto(it.proyecto);
+  const origen = proy ? puntoP(colorProy(it.proyecto)) + esc(proy)
+    : it.espacio === "familia" && !it.rama ? puntoP(COLOR_FAMILIA) + "Familia"
+    : it.rama ? esc(it.rama) : "";
+  const sub = [origen, cuando && `<span class="${vencido ? "mal" : ""}">${esc(cuando)}</span>`].filter(Boolean).join(" · ");
   f.innerHTML = `<div class="fila">
       <button class="tilde" aria-label="${it.hecho ? "Volver a pendiente" : "Marcar hecha"}">${it.hecho ? "✓" : "○"}</button>
-      <span class="txt">${esc(it.titulo)}${it.importancia === 2 && !it.hecho ? ` <b class="alta" title="Importancia alta">!</b>` : ""}
-        ${cuando ? ` <small class="${vencido ? "mal" : "gris"}">${esc(cuando)}</small>` : ""}
-        ${it.proyecto && nombreProyecto(it.proyecto) ? ` <small class="gris">· ${esc(nombreProyecto(it.proyecto))}</small>` : ""}</span>
-      ${puntoDe(it.espacio)}
-      <button class="mas" aria-label="Más">${esta ? "▴" : "⋯"}</button></div>`;
-  f.querySelector(".tilde").onclick = () =>
-    F.updateDoc(F.doc(db, "items", it.id), { hecho: !it.hecho, hechoPor: it.hecho ? null : E.yo.uid, actualizadoEn: F.serverTimestamp() }).catch(fallo);
-  f.querySelector(".mas").onclick = () => { abierto = esta ? null : it.id; repintar(); };
-  if (esta) f.append(fichaItem(it));
+      <button class="txt abrir" aria-expanded="${esta}">${esc(it.titulo)}${it.importancia === 2 && !it.hecho ? ` <b class="alta" title="Importante">!</b>` : ""}
+        ${sub ? `<small class="gris sub">${sub}</small>` : ""}</button></div>`;
+  f.querySelector(".tilde").onclick = () => {
+    const x = { hecho: !it.hecho, hechoPor: it.hecho ? null : E.yo.uid, actualizadoEn: F.serverTimestamp() };
+    F.updateDoc(F.doc(db, it.origen === "tareas" ? "tareas" : "items", it.origen === "tareas" ? it.tareaId : it.id), x).catch(fallo);
+  };
+  f.querySelector(".abrir").onclick = () => { abierto = esta ? null : it.id; repintar(); };
+  if (esta) f.append(it.origen === "tareas" ? fichaTarea(it) : fichaItem(it));
   return f;
+}
+
+/* hoy-4: la ficha de una tarea de siempre. Acá sólo se ORDENA (meta de la semana y «Para cuándo»,
+   con la misma forma que Tareas); todo lo demás se edita en Tareas. */
+function fichaTarea(it) {
+  const t = (E.tareas || []).find((x) => x.id === it.tareaId) || {};
+  const lunes = lunesDe(E.hoy);
+  const d = document.createElement("div");
+  d.className = "ficha";
+  d.innerHTML = `<p class="gris">${it.rama ? "De «" + esc(it.rama) + "» · " : ""}viene de Tareas: ahí se edita todo; acá se ordena.</p>
+    ${t.alcance !== "personal" ? `<div class="botones"><button type="button" class="mini${t.meta ? " on" : ""}" data-a="meta">${t.meta ? "★" : "☆"} Meta de la semana</button></div>` : ""}
+    <label>Para cuándo <input type="date" data-a="limite" value="${esc(t.limite || "")}"> <small class="gris">sin fecha, flota en hoy</small></label>
+    <div class="botones"><button type="button" class="mini" data-a="abrir">Abrir en Tareas</button></div>`;
+  const up = (x) => F.updateDoc(F.doc(db, "tareas", it.tareaId), { ...x, actualizadoEn: F.serverTimestamp() }).catch(fallo);
+  const m = d.querySelector('[data-a="meta"]');
+  if (m) m.onclick = () => up({ meta: t.meta ? null : lunes });
+  d.querySelector('[data-a="limite"]').onchange = (ev) => up({ limite: ev.target.value || null });
+  d.querySelector('[data-a="abrir"]').onclick = () => { if (ganchos.irATarea) ganchos.irATarea("f:" + it.tareaId); };
+  return d;
 }
 
 function fichaItem(it) {
@@ -112,50 +142,70 @@ function fichaItem(it) {
 export function irAItem(clave) {
   const m = /^it:(.{1,80})$/.exec(String(clave || ""));
   abierto = m ? m[1] : null;
-  filtro = "todo"; filtroProy = "";
+  filtroProy = "";
 }
 
 export function pintarInicio() {
   const v = $("v-inicio"); v.replaceChildren();
 
-  // Mirar: el filtro de espacio (Casa Verde y los otros negocios llegan con la etapa 8).
-  const nav = document.createElement("nav");
-  nav.className = "solapas chicas"; nav.setAttribute("aria-label", "Espacio");
-  nav.innerHTML = [["todo", "Todo"], ["mio", "Mío"], ["fam", "Familia"]]
-    .map(([k, t]) => `<button data-esp="${k}" aria-selected="${filtro === k}">${t}</button>`).join("");
-  for (const b of nav.querySelectorAll("[data-esp]")) b.onclick = () => {
-    filtro = b.dataset.esp; abierto = null;
-    try { localStorage.setItem("tiempos:espacio", filtro); } catch { /* sin memoria: igual anda */ }
-    repintar();
-  };
-  v.append(nav);
+  const cab = document.createElement("div"); cab.className = "hoy-cab";
+  const fecha = new Date(E.hoy + "T12:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "numeric" });
+  cab.innerHTML = `<h2>Hoy</h2><span class="gris">${esc(fecha)}</span>`;
+  v.append(cab);
 
-  // hoy-3: y el proyecto, si hay cuentas. Un filtro que apunta a una cuenta dada de baja se suelta.
+  // El proyecto: un solo filtro, discreto; sólo los que tienen algo pendiente (y el elegido).
   const cs = cuentas().filter((c) => c.nivel === 0);
   if (filtroProy && filtroProy !== "-" && !cuentas().some((c) => c.id === filtroProy)) filtroProy = "";
-  if (cs.length) {
+  const pendientes = todos().filter((i) => !i.hecho);
+  const cuantas = (k) => k === "" ? pendientes.length : k === "-" ? pendientes.filter((i) => !i.proyecto).length
+    : pendientes.filter((i) => idsDeCuenta(cuentas(), k).has(i.proyecto)).length;
+  const opciones = [["", "Todos"], ...cs.map((c) => [c.id, c.nombre]), ["-", "Sin proyecto"]]
+    .filter(([k]) => k === "" || k === filtroProy || cuantas(k) > 0);
+  if (cs.length && opciones.length > 1) {
     const np = document.createElement("nav");
-    np.className = "solapas chicas"; np.setAttribute("aria-label", "Proyecto");
-    np.innerHTML = [["", "Todos"], ...cs.map((c) => [c.id, c.nombre]), ["-", "Sin proyecto"]]
-      .map(([k, t]) => `<button data-proy="${esc(k)}" aria-selected="${filtroProy === k}">${esc(t)}</button>`).join("");
+    np.className = "chips"; np.setAttribute("aria-label", "Proyecto");
+    // hoy-5: cada chip lleva el color suave de su proyecto (el fondo al 10 %, un punto); el elegido, neutro y marcado.
+    np.innerHTML = opciones.map(([k, t]) => { const c = k && k !== "-" ? colorProy(k) : "";
+      return `<button data-proy="${esc(k)}" aria-selected="${filtroProy === k}"${c ? ` class="con-p" style="--p:${c}"` : ""}>${puntoP(c)}${esc(t)}${k !== "" ? ` <small>${cuantas(k)}</small>` : ""}</button>`; }).join("");
     for (const b of np.querySelectorAll("[data-proy]")) b.onclick = () => {
-      filtroProy = b.dataset.proy; abierto = null;
+      filtroProy = b.dataset.proy; abierto = null; verTodo = false;
       try { localStorage.setItem("tiempos:proyecto", filtroProy); } catch { /* sin memoria: igual anda */ }
       repintar();
     };
     v.append(np);
   }
 
-  // La lista, en el orden de nucleo.js: lo hecho al final, tachado.
+  // La lista, en el orden de nucleo.js: el foco primero; el resto, plegado.
   const lista = ordenarItems(visibles(), E.hoy);
+  const abiertas = lista.filter((i) => !i.hecho), hechas = lista.filter((i) => i.hecho);
+  const foco = abiertas.slice(0, FOCO), resto = [...abiertas.slice(FOCO), ...hechas];
+  const seccion = (t) => { const h = document.createElement("h3"); h.className = "sec-hoy"; h.textContent = t; return h; };
   if (!lista.length) {
     const p = document.createElement("p"); p.className = "gris";
-    p.textContent = "Nada por acá. Agregá abajo, o seguí usando Tareas: durante la semana de prueba conviven.";
+    p.textContent = "Nada pendiente por acá. Agregá abajo.";
     v.append(p);
   }
-  for (const it of lista) v.append(filaItem(it));
+  // hoy-5: cada sección en su tarjeta (un tono de superficie, sin bordes).
+  const caja = (filas) => { const c = document.createElement("div"); c.className = "caja-hoy"; for (const it of filas) c.append(filaItem(it)); return c; };
+  if (foco.length) { v.append(seccion("Foco de hoy")); v.append(caja(foco)); }
+  if (resto.length) {
+    const ver = document.createElement("button"); ver.type = "button"; ver.className = "link ver-resto";
+    ver.textContent = verTodo ? "Ocultar el resto" : `Ver lo que sigue (${resto.length})`;
+    ver.onclick = () => { verTodo = !verTodo; repintar(); };
+    if (verTodo) { v.append(seccion("Después")); v.append(caja(resto)); }
+    v.append(ver);
+  }
 
-  // Hacer: agregar al espacio del filtro («Todo» anota en Mío).
+  // Hacer: agregar. Mirando un proyecto nace en él; Mío o Familia lo elige la persona (hoy-5).
+  const quien = document.createElement("div");
+  quien.className = "segmentado chico"; quien.setAttribute("role", "group"); quien.setAttribute("aria-label", "De quién es lo que agregás");
+  quien.innerHTML = [["mio", "Mío"], ["fam", "Familia"]].map(([k, t]) => `<button type="button" data-nuevo="${k}" aria-pressed="${nuevoEsp === k}" aria-selected="${nuevoEsp === k}">${t}</button>`).join("");
+  for (const b of quien.querySelectorAll("[data-nuevo]")) b.onclick = () => {
+    nuevoEsp = b.dataset.nuevo;
+    try { localStorage.setItem("tiempos:nuevo", nuevoEsp); } catch { /* sin memoria: igual anda */ }
+    for (const x of quien.querySelectorAll("[data-nuevo]")) { const si = x === b; x.setAttribute("aria-pressed", String(si)); x.setAttribute("aria-selected", String(si)); }
+  };
+  v.append(quien);
   const form = document.createElement("form");
   form.className = "fila-agregar";
   form.innerHTML = `<input id="inicio-texto" maxlength="120" placeholder="Agregar…" aria-label="Agregar un pendiente" autocomplete="off">
@@ -164,10 +214,11 @@ export function pintarInicio() {
     ev.preventDefault();
     const titulo = form.querySelector("input").value.trim().slice(0, 120);
     if (!titulo) return;
-    const it = { tipo: "tarea", espacio: filtro === "fam" ? "familia" : espacioPersonal(E.yo.uid),
+    const conProyecto = filtroProy && filtroProy !== "-";
+    const it = { tipo: "tarea", espacio: nuevoEsp === "fam" ? "familia" : espacioPersonal(E.yo.uid),
       titulo, importancia: 1, hecho: false, creadoPor: E.yo.uid };
     // hoy-3: lo que se agrega mirando un proyecto nace en ese proyecto.
-    if (filtroProy && filtroProy !== "-") it.proyecto = filtroProy;
+    if (conProyecto) it.proyecto = filtroProy;
     const e = validarItem(it, E.yo.uid);
     if (e.length) return aviso("No se pudo: " + e[0], true);
     try {
@@ -176,10 +227,6 @@ export function pintarInicio() {
     } catch (err) { fallo(err); }
   };
   v.append(form);
-
-  const pie = document.createElement("p"); pie.className = "gris chico";
-  pie.textContent = "Los puntos: dorado es tuyo, terracota es de la familia. El orden: la fecha pone la urgencia y vos la importancia.";
-  v.append(pie);
 }
 
 /* ── Publicar `hoy/{uid}` (la materialización) ───────────────────────────────
@@ -192,7 +239,8 @@ export function publicarHoy() {
   if (!E.yo || !E.miembro) return;
   clearTimeout(timerHoy);
   timerHoy = setTimeout(async () => {
-    const doc = materializarHoy(misItems(), E.yo.uid, E.hoy, { cuentas: cuentas() });
+    // hoy-5: el widget muestra lo mismo que la pantalla: los ítems Y las tareas de siempre (su tilde va a tareas/).
+    const doc = materializarHoy(todos(), E.yo.uid, E.hoy, { cuentas: cuentas() });
     const firma = JSON.stringify(doc);
     if (firma === ultimoHoy) return;
     try {

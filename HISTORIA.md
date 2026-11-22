@@ -514,3 +514,19 @@ app; y en Android sale el ⚙ flotante: los ajustes se piden desde «Más». El 
 valor de credencial, ninguna dirección nueva). **Regla v26** (`proyecto` opcional en `items/`): la publica Mauro. No se hizo
 «Foco de hoy», ni los campos de `tareas/` en la ficha de Hoy, ni apagar Tareas y Pizarra (regla 8), ni el cliente de otros sitios.
 
+## 20 y 22-nov-2026 · Timón simplificado y colores leves (`app-46/47`, `hoy-4/5`, `nucleo-49/50`, `estilos-33 a 36`, `sugerir-25`, `tiempos-82`)
+
+Mauro mandó `timon-hoy-simplificado.zip` (Tareas simple, la ficha aparte, Hoy con foco y con las tareas de siempre) y pidió revisarlo
+buscando «una usabilidad más rápida e intuitiva… minimalista y estéticamente atractiva… colores leves para agrupar», con referencias
+(Things 3, Microsoft To Do «Mi día», Todoist, Recordatorios, Sunsama, Structured, las superficies tonales de Material 3). La
+revisión encontró siete cosas; vio la maqueta y dijo «dale, pasalo al código con los arreglos». Lo que se arregló sobre el zip:
+1. la app y el widget mostraban cosas distintas (el widget sólo ítems) → `hoy/` se arma con lo mismo, y el tilde de una tarea va a `tareas/`;
+2. Hoy había perdido el color → cada proyecto con su color suave (`colorDeProyecto`) y Familia con su terracota;
+3. agregar desde Hoy decidía solo de quién era (sin proyecto, siempre «mío») → selector Mío / Familia;
+4. dos botones redondos apilados y el ＋ corrido 68 px a mano → el ❓ a «Más», el ＋ en `var(--piso)`;
+5. «✔ Hecha» al fondo de la ficha → fijo abajo;
+6. en «Hechas» y «Te pidieron» una rama plegada de antes no se podía abrir (la fila ya no tenía flecha) → se ven enteras;
+7. restos del filtro de espacio en `hoy.js` → fuera.
+Además: las categorías de Tareas son bloques con un fondo leve de su color, sin bordes. El zip traía un `CLAUDE.md` que no
+aplicaba: el que Mauro subió a mano el 20-nov había perdido la línea del proyecto y la barra de abajo; volvió.
+

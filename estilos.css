@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-32 (19-nov-2026: la barra de abajo y «Más»)
+/* estilos.css — Tiempos. Sello: estilos-36 (22-nov-2026: colores leves para agrupar: el color de cada proyecto, las categorías en bloques, la tarjeta del foco; un solo botón redondo; «Hecha» fijo en la ficha); estilos-35 (20-nov-2026: Tareas simple, la ficha aparte, el botón redondo; estilos-34: el tono de las ramas abiertas; estilos-33: «Hoy» simplificado y el pie dentro de «Más»; estilos-32: la barra de abajo)
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -76,6 +76,56 @@ h4 { font-size:.9rem; margin:1rem 0 .3rem; }
 .mas-panel[hidden], .mas-panel button[hidden] { display:none; }
 .mas-panel button { min-height:48px; text-align:left; border:0; border-radius:10px; background:none; color:var(--texto); font-size:1rem; padding:.7rem 1rem; }
 .mas-panel button[aria-selected="true"] { color:var(--acento); font-weight:700; background:var(--tinta3); }
+.mas-pie { border-top:1px solid var(--linea); margin-top:6px; padding:12px 12px 8px; display:flex; flex-direction:column; gap:10px; font-size:.85rem; }
+.mas-pie button { min-height:0; padding:0; display:inline; font-size:inherit; }
+/* estilos-33: la versión simplificada de «Hoy»: un título, un filtro discreto, el foco primero. */
+.hoy-cab { display:flex; align-items:baseline; justify-content:space-between; margin:14px 0 2px; }
+.hoy-cab h2 { margin:0; font-size:1.7rem; letter-spacing:-.02em; }
+.chips { display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; margin:10px 0 4px; }
+.chips button { flex:none; border:1px solid var(--linea); background:none; color:var(--texto); border-radius:999px; padding:.4rem .85rem;
+  font:inherit; font-size:.88rem; white-space:nowrap; }
+.chips button small { color:var(--gris); margin-left:.25rem; }
+.chips button[aria-selected="true"] { background:var(--tinta3); border-color:var(--gris); font-weight:600; }
+.sec-hoy { margin:18px 0 2px; font-size:.78rem; font-weight:500; letter-spacing:.06em; text-transform:uppercase; color:var(--gris); }
+.fila .txt.abrir { background:none; border:0; color:inherit; font:inherit; text-align:left; padding:0; cursor:pointer; }
+.fila .txt .sub { display:block; margin-top:2px; font-size:.8rem; }
+.ver-resto { display:block; margin:12px 0 4px; }
+/* estilos-34: una rama abierta (la que tiene cosas adentro y está desplegada) lleva un tono de fondo sutil, del color de
+   su categoría (--rama), que une a la que contiene con lo de adentro además de la sangría. Cada rama abierta dentro de
+   otra lo refuerza un poco. La que corre conserva su propio fondo. */
+.fila-tarea.en-rama { background:color-mix(in srgb, var(--rama, var(--gris)) 9%, transparent); }
+.fila-tarea.en-rama[data-prof="2"] { background:color-mix(in srgb, var(--rama, var(--gris)) 15%, transparent); }
+.fila-tarea.en-rama[data-prof="3"] { background:color-mix(in srgb, var(--rama, var(--gris)) 21%, transparent); }
+.fila-tarea.corriendo.en-rama { background:color-mix(in srgb, var(--acento) 12%, transparent); }
+/* estilos-35: Tareas simple (app-46). Un renglón es círculo + título + una línea gris; la ficha, una pantalla aparte. */
+.vistas { display:flex; gap:22px; margin:6px 0 2px; border-bottom:1px solid var(--linea); overflow-x:auto; scrollbar-width:none; }
+.vistas button { flex:none; background:none; border:0; border-bottom:2px solid transparent; color:var(--gris); font:inherit; font-size:.95rem; padding:.55rem 0; }
+.vistas button[aria-selected="true"] { color:var(--texto); font-weight:600; border-bottom-color:var(--acento); }
+.segmentado { display:flex; gap:2px; background:var(--tinta2); border-radius:12px; padding:4px; margin:10px 0 4px; overflow-x:auto; scrollbar-width:none; }
+.segmentado button { flex:1 1 auto; border:0; background:none; color:var(--gris); border-radius:9px; padding:.5rem .7rem; font:inherit; font-size:.85rem; white-space:nowrap; }
+.segmentado button[aria-selected="true"] { background:var(--tinta3); color:var(--texto); font-weight:600; }
+.t-herr { display:flex; justify-content:flex-end; margin:2px 0 0; }
+#t-botones { margin:0; }
+#abrir-tarea { position:fixed; right:16px; bottom:var(--piso); z-index:12; width:56px; height:56px; border-radius:50%; padding:0;
+  font-size:0; box-shadow:0 8px 20px rgba(0, 0, 0, .45); }
+#abrir-tarea::before { content:"＋"; font-size:1.7rem; line-height:56px; }
+#nuevo-grupo { display:none; } body.ordenando #nuevo-grupo { display:inline-block; }
+.fila-tarea .fila { align-items:flex-start; }
+.fila-tarea .fila > .tilde, .fila-tarea .fila > .play { margin-top:.1rem; }
+.enc { flex:none; width:26px; height:26px; border-radius:50%; background:var(--tinta3); color:var(--gris); font-size:.75rem; font-weight:700;
+  display:inline-flex; align-items:center; justify-content:center; margin-top:.15rem; }
+.enc.yo { background:color-mix(in srgb, var(--acento) 22%, transparent); color:var(--acento); }
+.sub .ped { color:var(--acento); }
+.pantalla-ficha { position:fixed; inset:0; z-index:15; background:var(--tinta); overflow-y:auto; padding:0 16px; }
+.pantalla-ficha[hidden] { display:none; }
+.ficha-cab { position:sticky; top:0; z-index:1; background:var(--tinta); padding:var(--techo) 0 6px; }
+.ficha-cab .atras { background:none; border:0; color:var(--acento); font:inherit; font-size:1rem; padding:.5rem 0; }
+.pantalla-ficha .ficha { background:none; padding:0; max-width:680px; margin:0 auto; }
+.adentro { background:color-mix(in srgb, var(--rama, var(--gris)) 9%, transparent); border-radius:12px; padding:2px 12px 12px; margin:14px 0; }
+.adentro .sec-hoy { margin:12px 0 2px; }
+.adentro .fila { border-top:0; }
+.mas-opciones { margin:14px 0; } .mas-opciones summary { color:var(--gris); cursor:pointer; padding:.4rem 0; }
+body.con-ficha { overflow:hidden; }
 .tarjeta.chica { padding:10px 12px; margin:8px 0; font-size:.92rem; }
 .mas { flex:0 0 40px; height:40px; border:0; background:none; color:var(--gris); font-size:1.2rem; border-radius:10px; }
 .play.apagado { display:inline-flex; align-items:center; justify-content:center; background:var(--tinta3); color:var(--ok); }
@@ -416,3 +466,32 @@ select option { font-weight:400; color:var(--texto); }
 .fila-agregar .boton { flex:none; width:48px; padding:6px 0; }
 .fila-tarea .alta { color:var(--mal); font-weight:700; margin-left:2px; }
 .gris.chico { font-size:.78rem; }
+
+/* ── estilos-36 (22-nov-2026, app-47 / hoy-5): colores leves para agrupar ─────────────────────────────
+   El color de cada proyecto (colorDeProyecto) va como --p; el de cada categoría, como --c. Siempre como
+   fondo muy leve (9–10 %) o un punto: nunca un borde de color. En claro, el punto se oscurece para que se vea. */
+.pp { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--p); margin-right:6px; vertical-align:1px; flex:none; }
+.chips button.con-p { background:color-mix(in srgb, var(--p) 10%, transparent); }
+.chips button.con-p[aria-selected="true"] { background:var(--tinta3); }
+.chips button { display:inline-flex; align-items:center; }
+.caja-hoy { background:var(--tinta2); border-radius:18px; padding:2px 14px; }
+.caja-hoy .fila { border-top:1px solid color-mix(in srgb, var(--texto) 7%, transparent); }
+.caja-hoy .fila-tarea:first-child .fila { border-top:0; }
+.fila .txt .sub { display:flex; flex-wrap:wrap; align-items:center; gap:0 .3rem; }
+.segmentado.chico { display:inline-flex; margin:14px 0 0; }
+.segmentado.chico button { flex:none; padding:.4rem .8rem; }
+.segmentado button[aria-pressed="true"] { background:var(--tinta3); color:var(--texto); font-weight:600; }
+.cat-bloque { background:color-mix(in srgb, var(--c, var(--gris)) 9%, var(--tinta)); border-radius:18px; padding:0 12px 6px; margin:10px 0; }
+.cat-bloque > .cat-cab { background:none; border-left:0; border-radius:0; margin:0; padding:10px 0 4px; }
+.cat-bloque > .cat-cab b { color:var(--c, var(--texto)); }
+.cat-bloque .fila { border-top-color:color-mix(in srgb, var(--texto) 8%, transparent); }
+.cat-bloque .ver-resto { margin:6px 0 4px; }
+/* La ficha: «✔ Hecha» fijo abajo, siempre a mano, por encima del respiro del sistema. */
+.pantalla-ficha .botones.grandes { position:sticky; bottom:0; margin:12px -16px 0; padding:12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  background:var(--tinta); border-top:1px solid var(--linea); }
+@media (prefers-color-scheme: light) {
+  .pp { background:color-mix(in srgb, var(--p) 72%, #000); }
+  .cat-bloque > .cat-cab b { color:color-mix(in srgb, var(--c, var(--texto)) 55%, #000); }
+  .caja-hoy { box-shadow:0 1px 2px rgba(29, 29, 27, .06); }
+}
+

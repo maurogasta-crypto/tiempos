@@ -1,6 +1,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-44
+// Sello: app-47
+//
+// app-47 (22-nov-2026, «colores leves para agrupar», con la maqueta que vio Mauro): cada categoría
+//   de Tareas es un BLOQUE con un fondo muy leve de su color (sin bordes); las ramas de «Hechas» y
+//   «Te pidieron» se ven enteras (ya no hay flecha para desplegarlas); cambiar una tarea rearma
+//   también `hoy/` (el widget «Hoy» trae ahora las tareas de siempre); el ❓ vive en «Más» y el ＋
+//   es el único botón redondo; «✔ Hecha» queda fijo abajo de la ficha.
+//
+// app-46 (20-nov-2026, «simplificar lo visual»): Tareas es una lista simple. Cada renglón es un
+//   círculo, el título y, en gris, lo que importa (cuántas hay adentro, la meta, un pedido); la
+//   inicial de quién se ocupa va a la derecha. Tocar el título abre la FICHA, que es una pantalla
+//   aparte (pintarFichaTarea) y es donde vive lo de adentro («Adentro · N», con su tono de fondo),
+//   en el orden y el lugar de cada uno. Una tarea ya no se despliega en la lista: sólo las carpetas
+//   (📂 y Casa Verde). Cada categoría muestra lo primero y «Ver las N restantes». El agarre ⠿, el ↩
+//   y el grupo propio aparecen sólo al «Ordenar». «＋ Tarea» es el botón redondo de abajo.
+//
+// app-45 (20-nov-2026): una rama abierta —la tarea que tiene cosas adentro y está
+//   desplegada— lleva un tono de fondo sutil, del color de su categoría, que une a la
+//   que contiene con lo de adentro además de la sangría (tonoDeRama). Cada rama
+//   abierta dentro de otra refuerza el tono un poco. Sólo CSS y una clase por fila.
 //
 // app-44 (19-nov-2026, rediseño de «Timón»): la barra de abajo trae Hoy, Tareas y
 //   Agenda, y «Más» abre Pizarra, Cotidianas, Chicos, Plata y Balance. Los ids de
@@ -237,7 +256,7 @@ for (const b of document.querySelectorAll("[data-salir]")) b.onclick = async () 
 function escucharFamilia() {
   const c = F.collection(db, "tareas");
   let comunes = [], mias = [];
-  const unir = () => { E.tareas = [...comunes, ...mias]; pintar(); };
+  const unir = () => { E.tareas = [...comunes, ...mias]; publicarHoy(); pintar(); };   // app-47: el widget también las muestra
   const mal = (que) => (e) => aviso(`No se pudo leer ${que}: ${e.code || e.message}`, true);
   // Dos consultas y no una: cada una tiene que poder probarse contra la regla.
   F.onSnapshot(F.query(c, F.where("alcance", "==", "comun")),
@@ -539,6 +558,7 @@ function pintar() {
   if (E.solapa === "plata") pintarPlata();
   if (E.solapa === "balance") pintarBalance();
   pintarProyecto();                             // app-38: la pantalla de un proyecto, si está abierta
+  pintarFichaTarea();                           // app-46: la ficha de una tarea, aparte de la lista
   $("cv-estado").textContent = !CV ? errorCasaVerde
     : !E.cv ? `Casa Verde: sin sesión para ${E.yo.email}.` : "";
   $("form-cv").hidden = !CV || !!E.cv;
@@ -601,14 +621,26 @@ function flecha(clave, cuantos) {
 const engancharFlecha = (f) => { const b = f.querySelector("[data-plegar]"); if (b) b.onclick = () => alternarPlegado(b.dataset.plegar); };
 
 /* ── Una fila de tarea de la familia, con su ficha desplegable ─────────────── */
-function chipsDe(t, porId) {
-  const tipo = TIPOS[tipoHeredado(t, porId)];
-  const enc = (t.encargados || []).map((u) => `<span class="enc${u === E.yo.uid ? " yo" : ""}">${esc(u === E.yo.uid ? "vos" : nombreDe(u))}</span>`).join("");
+/* app-46: lo que se ve de una tarea en la lista es poco: el título y, en gris, lo que importa (cuántas hay
+   adentro, la meta, lo personal, un pedido, la agenda). La categoría la dice el grupo; el resto, la ficha. */
+function subDe(t, cuantos) {
   const ped = t.pedido && t.pedido.estado === "pendiente"
     ? `<span class="ped">${t.pedido.a === E.yo.uid ? "te la pidieron" : "pedida a " + esc(nombreDe(t.pedido.a))}</span>` : "";
-  return ` <small class="tipo" style="--c:${tipo.color}">${esc(tipo.nombre)}${t.alcance === "personal" ? " · sólo vos" : ""}</small>`
-    + (t.meta ? ` <span class="meta" title="Meta de la semana">★</span>` : "") + enc + ped
-    + (estaEnAgenda("f:" + t.id) ? ` <span class="ag" title="En tu agenda">📅</span>` : "");
+  return [cuantos && `${cuantos} adentro`, t.meta && "★ meta", t.alcance === "personal" && "sólo vos", ped,
+    estaEnAgenda("f:" + t.id) && "📅"].filter(Boolean).join(" · ");
+}
+/* La inicial de quién se ocupa (la tuya, resaltada); el nombre completo, en el título. */
+const avataresDe = (t) => (t.encargados || []).map((u) => {
+  const yo = u === E.yo.uid, n = (yo ? (nombreDe(u) || "yo") : nombreDe(u)) || "?";
+  return `<span class="enc${yo ? " yo" : ""}" title="${esc(yo ? "vos" : n)}">${esc(String(n).trim().charAt(0).toUpperCase() || "?")}</span>`;
+}).join("");
+
+/* app-45: el tono de una rama abierta. `prof` = cuántas ramas abiertas hay desde la raíz hasta
+   esta fila (contándola, si tiene algo adentro y está desplegada). Sin ramas, sin tono. */
+function tonoDeRama(f, prof, color) {
+  if (!prof) return;
+  f.classList.add("en-rama"); f.dataset.prof = String(Math.min(prof, 3));
+  if (color) f.style.setProperty("--rama", color);
 }
 
 function filaTarea(t, nivel, porId, hijos, cuantos = 0) {
@@ -624,19 +656,19 @@ function filaTarea(t, nivel, porId, hijos, cuantos = 0) {
   if (corre) f.classList.add("corriendo");
   // app-31: el reloj, sólo en lo que se cobra (`conReloj`); lo demás se tilda.
   const reloj = conReloj(t, porId);
-  f.innerHTML = `<div class="fila">${flecha("f:" + t.id, cuantos)}
+  const sub = subDe(t, cuantos);
+  // app-46: círculo, título (que abre la ficha) y, a la derecha, la inicial de quién se ocupa.
+  f.innerHTML = `<div class="fila">
       ${t.hecho ? `<span class="play apagado">✓</span>` : corre ? `<button class="play parar" aria-label="Parar">■</button>`
         : reloj ? `<button class="play" aria-label="Empezar">▶</button>` : `<button class="tilde" aria-label="Marcar hecha" title="Marcar hecha">○</button>`}
-      <span class="txt">${esc(t.titulo)}${chipsDe(t, porId)}${cuantos && plegado.has("f:" + t.id) ? ` <small class="gris">· ${cuantos} adentro</small>` : ""}</span>
-      <button class="mas" aria-label="Más">${abierta ? "▴" : "⋯"}</button></div>`;
-  engancharFlecha(f);
+      <button class="txt abrir" aria-expanded="${abierta}">${esc(t.titulo)}${sub ? `<small class="gris sub">${sub}</small>` : ""}</button>
+      ${avataresDe(t)}</div>`;
   const p = f.querySelector("button.play");
   if (p) p.onclick = () => (corre ? frenarFamilia(false) : arrancarFamilia(t)).catch(fallo);
   const tl = f.querySelector("button.tilde");
   if (tl) tl.onclick = () => F.updateDoc(F.doc(db, "tareas", t.id), { hecho: true, hechoPor: E.yo.uid, actualizadoEn: F.serverTimestamp() })
     .then(() => aviso(`Hecha: «${t.titulo}». Si fue sin querer, en «Hechas» está «Volver a pendiente».`)).catch(fallo);
-  f.querySelector(".mas").onclick = () => { E.abierta = abierta ? null : "f:" + t.id; pintar(); };
-  if (abierta) f.append(fichaTarea(t, hijos));
+  f.querySelector(".abrir").onclick = () => { E.abierta = abierta ? null : "f:" + t.id; pintar(); };
   return f;
 }
 
@@ -662,6 +694,35 @@ function engancharAgendar(d) {
   if (s) s.onclick = () => guardarEnAgenda(s.dataset.desagendar, null).then(() => aviso("Salió de tu agenda.")).catch(fallo);
 }
 
+/* app-46: lo que tiene adentro una tarea, EN EL ORDEN Y EL LUGAR DE CADA UNO (el árbol organizado: dónde
+   cuelga algo es personal). `cuenta(clave)` = cuántas cosas hay adentro de esa, a cualquier profundidad. */
+function hijasDe(t) {
+  const nodos = nodosOrganizables();
+  const { hijos } = arbolOrganizado(nodos, E.organizar || {});
+  const porClave = Object.fromEntries(nodos.map((n) => [n.clave, n]));
+  const cuenta = (k, n = 0) => (hijos[k] || []).reduce((a, c) => a + 1 + (n < 30 ? cuenta(c, n + 1) : 0), 0);
+  return { lista: (hijos["f:" + t.id] || []).map((k) => porClave[k]).filter(Boolean), cuenta };
+}
+
+/* app-46: la ficha de una tarea es una pantalla aparte, no un cajón dentro de la lista: título, quién,
+   cuándo, lo de adentro y el detalle. Se abre tocando la tarea y se cierra con «‹». */
+function pintarFichaTarea() {
+  const ov = $("ficha-tarea"), clave = E.abierta || "";
+  const t = clave.startsWith("f:") && E.solapa === "tareas" ? (E.tareas || []).find((x) => x.id === clave.slice(2)) : null;
+  document.body.classList.toggle("con-ficha", !!t);
+  if (!t) { ov.hidden = true; return; }
+  const foco = document.activeElement;
+  if (!ov.hidden && foco && ov.contains(foco) && foco.matches("textarea, input:not([type=checkbox]):not([type=radio])")) return;   // escribiendo: no se pisa
+  const { porId, hijos } = arbol(E.tareas);
+  const k = orgPadre["f:" + t.id] || "";
+  const padre = k.startsWith("f:") ? porId[k.slice(2)] : null;
+  const cab = document.createElement("div"); cab.className = "ficha-cab";
+  cab.innerHTML = `<button class="atras" aria-label="Volver">‹ ${padre ? esc(padre.titulo) : "Tareas"}</button>`;
+  cab.querySelector(".atras").onclick = () => { E.abierta = padre ? "f:" + padre.id : null; pintar(); };
+  ov.replaceChildren(cab, fichaTarea(t, hijos));
+  ov.hidden = false;
+}
+
 function fichaTarea(t, hijos) {
   const d = document.createElement("div");
   d.className = "ficha";
@@ -672,32 +733,46 @@ function fichaTarea(t, hijos) {
   const pedAMi = t.pedido && t.pedido.estado === "pendiente" && t.pedido.a === E.yo.uid;
   const relojPropio = t.reloj === true;
   const relojHeredado = !relojPropio && conReloj(t, arbol(E.tareas).porId);
+  // app-46: la ficha es una pantalla aparte (pintarFichaTarea). Lo de adentro vive ACÁ, no en la lista.
+  const hijas = hijasDe(t);
+  const { porId: porIdF } = arbol(E.tareas);
+  const colorRama = (TIPOS[tipoHeredado(t, porIdF)] || TIPOS.personal).color;
+  const adentro = `<section class="adentro" style="--rama:${colorRama}">
+      <h3 class="sec-hoy">Adentro${hijas.lista.length ? " · " + hijas.lista.length : ""}</h3>
+      ${hijas.lista.map((h) => h.t ? `<div class="fila"><button class="tilde" data-hija-hecha="${esc(h.t.id)}" aria-label="Marcar hecha: ${esc(h.t.titulo)}">○</button>
+        <button class="txt abrir" data-hija-abrir="${esc(h.t.id)}">${esc(h.t.titulo)}${hijas.cuenta(h.clave) ? `<small class="gris sub">${hijas.cuenta(h.clave)} adentro</small>` : ""}</button></div>`
+        : `<p class="gris">${h.grupo ? "📂 " + esc(h.grupo.titulo || "Grupo") : esc((h.a && (h.a.titulo || h.a.nombre)) || "actividad de Casa Verde")}</p>`).join("")}
+      ${!t.hecho ? `<button type="button" class="mini" data-a="adentro">＋ Tarea adentro</button>` : ""}</section>`;
   d.innerHTML = `
     ${t.pedido && t.pedido.texto ? `<p class="gris">Pedido de ${esc(nombreDe(t.pedido.de))}: «${esc(t.pedido.texto)}»</p>` : ""}
     ${pedAMi ? `<div class="botones"><button class="mini ok" data-a="aceptar">Me ocupo</button><button class="mini" data-a="devolver">No puedo</button></div>` : ""}
+    <label>Título <input data-a="titulo" maxlength="120" value="${esc(t.titulo || "")}"></label>
     <div class="botones">
       ${t.hecho ? `<button class="mini" data-a="reabrir">Volver a pendiente</button>` : `
       <button class="mini${mia ? " on" : ""}" data-a="yo">${mia ? "✓ Me ocupo yo" : "Me ocupo yo"}</button>
       ${comun && o ? `<button class="mini" data-a="pedir">Pedírsela a ${esc(o.nombre || "el otro")}</button>` : ""}
       ${comun ? `<button class="mini${t.meta ? " on" : ""}" data-a="meta">${t.meta ? "★ Meta de la semana" : "☆ Meta de la semana"}</button>` : ""}
-      <button class="mini" data-a="adentro">＋ Tarea adentro</button>
-      <button class="mini" data-a="hecha">✔ Hecha</button>
       ${relojPropio || !relojHeredado ? `<button class="mini${relojPropio ? " on" : ""}" data-a="reloj" title="Para lo que se cobra: el reloj reparte la plata por horas">${relojPropio ? "⏱ Con reloj (se cobra)" : "⏱ Lleva reloj: se cobra"}</button>`
         : `<small class="gris">⏱ con reloj: lo pide el proyecto</small>`}`}
-      ${t.duenio === E.yo.uid ? `<button class="mini" data-a="borrar">Borrar</button>` : ""}
     </div>
     ${!t.hecho ? filaAgendar("f:" + t.id) : ""}
-    <label>Título <input data-a="titulo" maxlength="120" value="${esc(t.titulo || "")}"></label>
+    <label>Para cuándo <input type="date" data-a="limite" value="${esc(t.limite || "")}"></label>
+    ${adentro}
+    <label>Detalle <textarea data-a="detalle" rows="3" maxlength="2000" placeholder="Lo que haga falta saber para hacerla">${esc(t.detalle || "")}</textarea></label>
+    <details class="mas-opciones"><summary>Más opciones</summary>
     ${!t.parentId ? `<label>Ámbito <select data-a="tipo">${Object.entries(TIPOS).map(([k, x]) => `<option value="${k}"${t.tipo === k ? " selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></label>` : ""}
     <div class="colores"><span class="gris">Color</span>${COLORES_TAREA.map((c) => `<button class="color${t.color === c ? " on" : ""}" data-color="${c}" style="--c:${c}" aria-label="Color ${c}"></button>`).join("")}
       <button class="mini${t.color ? "" : " on"}" data-color="">${t.parentId ? "el del proyecto" : "sin color"}</button></div>
-    <label>Detalle <textarea data-a="detalle" rows="3" maxlength="2000" placeholder="Lo que haga falta saber para hacerla">${esc(t.detalle || "")}</textarea></label>
-    <label>Para cuándo <input type="date" data-a="limite" value="${esc(t.limite || "")}"></label>`;
+      ${t.duenio === E.yo.uid ? `<button class="mini" data-a="borrar">Borrar</button>` : ""}
+    </details>
+    ${!t.hecho ? `<div class="botones grandes"><button class="boton" data-a="hecha">✔ Hecha</button></div>` : ""}`;
   const up = (x) => F.updateDoc(F.doc(db, "tareas", t.id), { ...x, actualizadoEn: F.serverTimestamp() }).catch(fallo);
   const on = (a, fn) => { const b = d.querySelector(`[data-a="${a}"]`); if (b) b.onclick = fn; };
   on("yo", () => up({ encargados: alternarEncargado(t, E.yo.uid) }));
   on("meta", () => up({ meta: t.meta ? null : lunes }));
-  on("hecha", () => up({ hecho: true, hechoPor: E.yo.uid }));
+  on("hecha", () => { up({ hecho: true, hechoPor: E.yo.uid }); const k = orgPadre["f:" + t.id] || ""; E.abierta = k.startsWith("f:") ? k : null; pintar(); });
+  for (const b of d.querySelectorAll("[data-hija-hecha]")) b.onclick = () => F.updateDoc(F.doc(db, "tareas", b.dataset.hijaHecha), { hecho: true, hechoPor: E.yo.uid, actualizadoEn: F.serverTimestamp() }).catch(fallo);
+  for (const b of d.querySelectorAll("[data-hija-abrir]")) b.onclick = () => { E.abierta = "f:" + b.dataset.hijaAbrir; pintar(); };
   on("reabrir", () => up({ hecho: false }));
   on("reloj", () => up({ reloj: relojPropio ? null : true }));
   engancharAgendar(d);
@@ -749,10 +824,15 @@ function listaFamilia(items, { todas = false } = {}) {
   const { raices, hijos } = arbol(items);
   const cont = document.createElement("div");
   const todosHijos = arbol(E.tareas).hijos;
-  const bajar = (t, nivel) => {
-    cont.append(filaTarea(t, nivel, porId, todosHijos, contarRama(t.id, hijos)));
-    if (plegado.has("f:" + t.id)) return;
-    for (const h of hijos[t.id] || []) bajar(h, nivel + 1);
+  // app-47: acá (Hechas, Te pidieron) la rama se ve entera: la fila ya no tiene flecha para desplegarla,
+  // así que una que quedó plegada de antes no podría abrirse.
+  const bajar = (t, nivel, enRama = 0) => {
+    const hs = hijos[t.id] || [];
+    const prof = enRama + (hs.length ? 1 : 0);
+    const f = filaTarea(t, nivel, porId, todosHijos, contarRama(t.id, hijos));
+    tonoDeRama(f, prof);
+    cont.append(f);
+    for (const h of hs) bajar(h, nivel + 1, prof);
   };
   for (const r of raices) bajar(r, 0);
   if (!raices.length) cont.innerHTML = `<p class="gris">${todas ? "Todavía no hay tareas." : "Nada acá."}</p>`;
@@ -925,6 +1005,8 @@ function nodosOrganizables() {
   for (const [id, g] of Object.entries(E.grupos || {})) if (g) nodos.push({ clave: "g:" + id, padre: "cat:personal", cat: "cat:personal", grupo: g });
   return nodos;
 }
+const TOPE_CATEGORIA = 5;           // app-46
+const verTodas = new Set();         // las categorías desplegadas del todo (sólo en esta pantalla)
 function pintarCategorias(v) {
   const { porId } = arbol(E.tareas);
   const todosHijos = arbol(E.tareas).hijos;
@@ -936,36 +1018,60 @@ function pintarCategorias(v) {
   const o = otro();
   const fq = filtroQuien;
   v.append(barraQuien(o));
+  // app-46: ordenar (arrastrar, volver al lugar de siempre, grupo propio) es un modo, no parte de cada renglón.
+  const herr = document.createElement("div"); herr.className = "t-herr";
+  herr.innerHTML = `<button type="button" class="link" data-ordenar>${E.ordenando ? "Listo" : "Ordenar"}</button>`;
+  herr.querySelector("button").onclick = () => { E.ordenando = !E.ordenando; pintar(); };
+  v.append(herr);
   const ver = fq === "todo" ? null : clavesVisibles(nodos.map((n) => n.clave), padre,
     (k) => pasaFiltroQuien(porClave[k], fq, E.yo.uid, o && o.id, E.cv && E.cv.uid));
   const hijosV = (k) => (hijos[k] || []).filter((c) => !ver || ver.has(c));
   const cuenta = (k) => hijosV(k).reduce((t, c) => t + 1 + cuenta(c), 0);
-  const bajar = (k, nivel) => {
+  let dest = v;                    // app-47: dónde se dibuja (el bloque de la categoría)
+  const bajar = (k, nivel, enRama = 0, color = "") => {
     const n = porClave[k]; if (!n || (ver && !ver.has(k))) return;
+    const hs = hijosV(k);
+    const recorre = !n.t;      // app-46: una tarea no se despliega acá: lo de adentro vive en su ficha. Sólo las carpetas (📂, Casa Verde)
+    const prof = enRama + (recorre && hs.length && !plegado.has(k) ? 1 : 0);      // app-45: el tono de la carpeta abierta
     const f = n.t ? filaTarea(n.t, nivel, porId, todosHijos, cuenta(k)) : n.a ? filaCV(n.a, nivel, cuenta(k)) : filaGrupo(k, n.grupo, nivel, cuenta(k));
+    tonoDeRama(f, prof, color);
     organizable(f, k);
-    v.append(f);
-    if (plegado.has(k)) return;
-    for (const h of hijosV(k)) bajar(h, nivel + 1);
+    dest.append(f);
+    if (plegado.has(k) || !recorre) return;
+    for (const h of hs) bajar(h, nivel + 1, prof, color);
   };
   let algo = false;
   for (const [k, tipo] of Object.entries(TIPOS)) {
     const cat = "cat:" + k, n = cuenta(cat);
     algo = algo || n > 0;
     if (ver && !n) continue;                       // con un filtro, una categoría vacía no se muestra
+    // app-47: la categoría es un bloque con un fondo muy leve de su color; adentro, su título y sus filas.
+    const bloque = document.createElement("section");
+    bloque.className = "cat-bloque"; bloque.style.setProperty("--c", tipo.color);
     const cab = document.createElement("div");
     cab.className = "cat-cab";
     cab.dataset.destino = cat;
     cab.style.setProperty("--c", tipo.color);
     cab.innerHTML = `${flecha(cat, n)}<b>${esc(tipo.nombre)}</b> <small class="gris">${n || "vacía: soltá algo acá"}</small>`;
     engancharFlecha(cab);
-    v.append(cab);
+    bloque.append(cab);
+    v.append(bloque);
+    dest = bloque;
     if (plegado.has(cat)) continue;
-    for (const h of hijosV(cat)) bajar(h, 0);
+    // app-46: cada categoría muestra lo primero; el resto, a pedido (con un filtro o al ordenar, todo).
+    const arriba = hijosV(cat), recorta = !ver && !E.ordenando && arriba.length > TOPE_CATEGORIA && !verTodas.has(cat);
+    for (const h of recorta ? arriba.slice(0, TOPE_CATEGORIA) : arriba) bajar(h, 0, 0, tipo.color);
+    if (!ver && !E.ordenando && arriba.length > TOPE_CATEGORIA) {
+      const mas = document.createElement("button"); mas.type = "button"; mas.className = "link ver-resto";
+      const quedan = arriba.length - TOPE_CATEGORIA;
+      mas.textContent = recorta ? (quedan === 1 ? "Ver la restante" : `Ver las ${quedan} restantes`) : "Ver menos";
+      mas.onclick = () => { verTodas.has(cat) ? verTodas.delete(cat) : verTodas.add(cat); pintar(); };
+      bloque.append(mas);
+    }
   }
   if (!E.cv) v.append(gris("Casa Verde: sin sesión. Entrá arriba para ver sus actividades acá."));
   if (!algo) v.append(gris(ver ? "Nada con este filtro. Tocá «Todo» para ver lo demás." : "Todavía no hay tareas. Tocá «＋ Tarea» arriba."));
-  v.append(gris("Arrastrá del ⠿ y soltá ADENTRO de un proyecto, un grupo o una categoría. Este orden es tuyo: al otro no le cambia nada."));
+  if (E.ordenando) v.append(gris("Arrastrá del ⠿ y soltá ADENTRO de un proyecto, un grupo o una categoría. Este orden es tuyo: al otro no le cambia nada."));
 }
 
 /* app-40: el filtro «de quién» es de esta pantalla y de este teléfono: no se
@@ -973,7 +1079,7 @@ function pintarCategorias(v) {
 let filtroQuien = (() => { try { const x = localStorage.getItem("tiempos:quien"); return FILTROS_QUIEN.includes(x) ? x : "todo"; } catch { return "todo"; } })();
 function barraQuien(o) {
   const nav = document.createElement("nav");
-  nav.className = "solapas chicas"; nav.setAttribute("aria-label", "De quién");
+  nav.className = "segmentado"; nav.setAttribute("aria-label", "De quién");
   const ops = [["todo", "Todo"], ["mio", "Lo mío"], ["sin", "Sin encargado"], ...(o ? [["otro", "Lo de " + (o.nombre || "el otro")]] : [])];
   nav.innerHTML = ops.map(([k, t]) => `<button data-quien="${k}" aria-selected="${filtroQuien === k}">${esc(t)}</button>`).join("");
   for (const b of nav.querySelectorAll("[data-quien]")) b.onclick = () => {
@@ -987,6 +1093,7 @@ function barraQuien(o) {
 /* El agarre y el «volver a su lugar» de una fila organizable. */
 function organizable(f, clave) {
   f.dataset.destino = clave;
+  if (!E.ordenando) return;       // app-46: el agarre ⠿ y el ↩ sólo aparecen al «Ordenar»
   const fila = f.querySelector(".fila");
   const g = document.createElement("span");
   g.className = "pas-agarre org-agarre"; g.textContent = "⠿"; g.title = "Arrastrar";
@@ -1111,10 +1218,12 @@ function opcionesAdentro() {
 /* ── TAREAS: la pizarra de la semana y la lista entera ────────────────────── */
 let lunesPizarra = null;
 let formTareaAbierto = false;
-$("abrir-tarea").onclick = () => { formTareaAbierto = true; pintar(); $("nueva-titulo").focus(); };
+$("abrir-tarea").setAttribute("aria-label", "Nueva tarea");
+$("abrir-tarea").onclick = () => { formTareaAbierto = true; pintar(); window.scrollTo({ top: 0 }); $("nueva-titulo").focus(); };
 $("cerrar-tarea").onclick = () => { formTareaAbierto = false; pintar(); };
 $("nuevo-grupo").onclick = () => nuevoGrupo().catch(fallo);
 function pintarTareas() {
+  document.body.classList.toggle("ordenando", !!E.ordenando && E.vistaTareas === "todas");   // app-46
   const lunes = lunesPizarra || lunesDe(E.hoy);
   for (const b of document.querySelectorAll("[data-vt]")) b.setAttribute("aria-selected", String(b.dataset.vt === E.vistaTareas));
   const sel = $("nueva-padre");

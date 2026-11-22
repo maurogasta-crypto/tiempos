@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-48 (19-nov-2026, ítems con proyecto: `proyecto` = id de una cuenta de Plata → Cuentas; itemsDeProyecto; el renglón de hoy/ lo nombra)
+// Sello: nucleo-50 (22-nov-2026: el widget «Hoy» también trae las tareas de siempre —su tilde va a `tareas/`—, y cada proyecto tiene su color suave, colorDeProyecto). nucleo-49 (20-nov-2026: tareasComoItems, «Hoy» muestra también las tareas de siempre sin copiarlas). nucleo-48 (19-nov-2026, ítems con proyecto: `proyecto` = id de una cuenta de Plata → Cuentas; itemsDeProyecto; el renglón de hoy/ lo nombra)
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -1041,8 +1041,49 @@ export function cuentasDe(doc) {
   }
   return out;
 }
+/* nucleo-50 (22-nov-2026, Mauro: «colores leves para agrupar»): cada proyecto —una cuenta de primer nivel
+   de Plata → Cuentas— tiene un color, en el ORDEN de las cuentas; una parte (el depósito) usa el de su
+   lugar. Pocos colores, apagados, que se distinguen también por la luz; ninguno es el dorado de «lo mío»
+   ni el terracota de «familia» (los puntos de Hoy y del widget). La pantalla los usa al 10 % de fondo. */
+export const COLORES_PROYECTO = ["#8fbf7f", "#7fa6dc", "#c89bd8", "#7fb4bf", "#d88fb5", "#b9b46e"];
+export function colorDeProyecto(cuentas, id) {
+  const cs = cuentas || [];
+  const c = cs.find((x) => x.id === id);
+  if (!c) return "";
+  const raiz = c.padre ? (cs.find((x) => x.id === c.padre) || c) : c;
+  const i = cs.filter((x) => x.nivel === 0).findIndex((x) => x.id === raiz.id);
+  return i < 0 ? "" : COLORES_PROYECTO[i % COLORES_PROYECTO.length];
+}
 /** Una cuenta y sus partes (el depósito suma a su lugar). */
 export const idsDeCuenta = (cuentas, id) => new Set([id, ...(cuentas || []).filter((c) => c.padre === id).map((c) => c.id)]);
+/** nucleo-49 (20-nov-2026): «Hoy» muestra TAMBIÉN las tareas de siempre (`tareas/`), sin copiarlas:
+    es la vista previa de la mudanza al criterio unificado. Entra cada tarea ABIERTA que no tiene nada
+    abierto adentro (la que de verdad se hace; lo que contiene otras es una carpeta) y que es común o es
+    mía. El proyecto sale como en `fichaDeProyecto`: la cuenta que tiene a la RAÍZ de la rama como
+    `tareaId`, o la que se nombra en el título. El orden lo sigue poniendo `ordenarItems`: el día es
+    «Para cuándo» (`limite`) y la importancia es la meta de la semana (`meta`). No escribe nada. */
+export function tareasComoItems(tareas, cuentas, uid, hoy) {
+  const lista = (tareas || []).filter((t) => t && t.id);
+  const porId = Object.fromEntries(lista.map((t) => [t.id, t]));
+  const conHijaAbierta = new Set(lista.filter((t) => !t.hecho && t.parentId).map((t) => t.parentId));
+  const raizDe = (t) => { let x = t, n = 0; while (x && x.parentId && porId[x.parentId] && n++ < 30) x = porId[x.parentId]; return x; };
+  const lunes = lunesDe(hoy);
+  const raices = new Map((cuentas || []).filter((c) => c.tareaId).map((c) => [c.tareaId, c]));
+  const nombres = (cuentas || []).filter((c) => plano(c.nombre).length >= 3).map((c) => [plano(c.nombre), c]);
+  return lista
+    .filter((t) => !t.hecho && !conHijaAbierta.has(t.id) && !raices.has(t.id) && (t.alcance !== "personal" || t.duenio === uid))
+    .map((t) => {
+      const raiz = raizDe(t) || t;
+      let c = raices.get(raiz.id) || null;
+      if (!c) { const p = plano(t.titulo); const h = nombres.find(([n]) => p.includes(n)); c = h ? h[1] : null; }
+      return { id: "f:" + t.id, tipo: "tarea", origen: "tareas", tareaId: t.id,
+        titulo: String(t.titulo || "").slice(0, 120),
+        espacio: t.alcance === "personal" ? "p-" + uid : "familia",
+        importancia: t.meta && t.meta <= lunes ? 2 : 1,
+        dia: esISO(t.limite) ? t.limite : null, hora: null, hecho: false,
+        proyecto: c ? c.id : null, rama: raiz.id !== t.id ? String(raiz.titulo || "") : "" };
+    });
+}
 /** nucleo-48: los ítems de un proyecto (y de sus partes, como el depósito de un lugar).
     Es lo que muestra la pantalla del proyecto y lo que pide cada sitio: una sola consulta. */
 export const itemsDeProyecto = (items, cuentas, id) => {
@@ -2197,8 +2238,11 @@ export function materializarHoy(items, uid, hoy, { dias = 7, tope = 70, cuentas 
       clave: "it:" + i.id,
       // nucleo-47 (etapa 5): y cómo DESHACERLO, por si fue un dedo de más. El
       // widget escribe una u otra tal cual: no sabe qué es un ítem.
-      accion: { coleccion: "items", doc: String(i.id), campos: { hecho: true, hechoPor: uid },
-                deshacer: { hecho: false, hechoPor: null } },
+      // nucleo-50: una tarea de siempre (tareasComoItems) se tilda en `tareas/`, con la misma forma que
+      // «✔ Hecha» de Tareas: así la app y el widget muestran lo mismo y el widget sigue sin saber qué es.
+      accion: i.origen === "tareas"
+        ? { coleccion: "tareas", doc: String(i.tareaId), campos: { hecho: true, hechoPor: uid }, deshacer: { hecho: false, hechoPor: null } }
+        : { coleccion: "items", doc: String(i.id), campos: { hecho: true, hechoPor: uid }, deshacer: { hecho: false, hechoPor: null } },
     })),
   };
 }

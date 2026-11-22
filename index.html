@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex">
 <title>Timón</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilos.css?v=32">
+<link rel="stylesheet" href="estilos.css?v=36">
 </head>
 <body>
 <header id="barra"><span class="marca">Timón</span><span id="quien" class="gris"></span></header>
@@ -56,7 +56,15 @@
       <button data-solapa="plata" role="tab" aria-selected="false">Plata</button>
       <button data-solapa="balance" role="tab" aria-selected="false">Balance</button>
       <!-- Sólo dentro de la app de Android (user agent «PizarraApp/…»): pide ?app=ajustes y la app lo atrapa. -->
+      <!-- sugerir-25 (22-nov-2026): el ❓ vive acá; ya no flota sobre la pantalla. -->
+      <button id="mas-ayuda" type="button">❓ Preguntar, sugerir o avisar una falla</button>
       <button id="mas-ajustes" type="button" hidden>Ajustes de la app</button>
+      <!-- estilos-33: lo que estaba al pie de todas las pantallas vive acá. -->
+      <div class="mas-pie">
+        <a class="link" href="https://casaverdecanas.com.br/interno/avisos.html" target="_blank" rel="noopener">Avisos de Claude por WhatsApp</a>
+        <a class="link" href="https://maurogasta-crypto.github.io/datos/pizarra.html" target="_blank" rel="noopener">📲 Timón en Android (widgets y avisos)</a>
+        <span><button class="link" data-salir>Salir</button> <span class="gris">· app-47</span></span>
+      </div>
     </div>
     <div id="crono" class="tarjeta"></div>
     <div id="cuidado" class="tarjeta chica"></div>
@@ -71,7 +79,7 @@
          agregar —a la semana o a un día de la agenda—, y abajo todo por
          categoría. Por eso el cuadro vive acá, arriba de lo demás. -->
     <div id="t-arriba" hidden>
-      <nav class="solapas chicas">
+      <nav class="vistas" aria-label="Vista de Tareas">
         <button data-vt="todas" aria-selected="true">Por categoría</button>
         <button data-vt="pizarra" aria-selected="false">Pizarra de la semana</button>
         <button data-vt="compras" aria-selected="false">Compras</button>
@@ -104,6 +112,8 @@
     <div id="v-tareas" hidden>
       <div id="v-tareas-lista"></div>
     </div>
+    <!-- app-46: la ficha de una tarea es una pantalla aparte (app.js pintarFichaTarea). -->
+    <div id="ficha-tarea" class="pantalla-ficha" role="dialog" aria-label="Tarea" hidden></div>
 
     <div id="v-chicos" hidden></div>
     <div id="v-plata" hidden></div>
@@ -113,12 +123,9 @@
          consentimiento viven en «Mis avisos» de Casa Verde, porque la gente
          de Tiempos es la misma y el número cargado dos veces sería un dato en
          dos lugares. Ver protocolos/PROTOCOLO-AVISOS.md de datos. -->
-    <p class="pie"><a class="link" href="https://casaverdecanas.com.br/interno/avisos.html" target="_blank" rel="noopener">Avisos de Claude por WhatsApp</a>
-      · <a class="link" href="https://maurogasta-crypto.github.io/datos/pizarra.html" target="_blank" rel="noopener">📲 Timón en Android (widgets y avisos)</a></p>
-    <p class="pie"><button class="link" data-salir>Salir</button> <span class="gris">· app-44</span></p>
-  </section>
+</section>
 </main>
-<script type="module" src="app.js?v=44"></script>
+<script type="module" src="app.js?v=47"></script>
 <script>
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

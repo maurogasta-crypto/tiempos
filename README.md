@@ -52,6 +52,27 @@ en hoy**.
   refresco del widget. Para 10 personas con uso diario queda muy por debajo
   del plan Spark (50 K lecturas / 20 K escrituras por día).
 
+### Timón simplificado y colores leves (nucleo-49/50 · hoy-4/5 · app-46/47 · estilos-33 a 36 · sugerir-25, 20 y 22-nov-2026)
+
+Mauro: «usabilidad más rápida e intuitiva, minimalista y estéticamente atractiva, con colores leves para agrupar». Vino en
+`timon-hoy-simplificado.zip` (app-46, hoy-4, nucleo-49) y se aplicó con los arreglos de la revisión (app-47, hoy-5, nucleo-50),
+después de que Mauro viera la maqueta.
+
+- **Hoy**: un título con la fecha, chips de proyecto (sólo los que tienen algo pendiente, con cuántos) y **«Foco de hoy»**: las 5
+  primeras en una tarjeta; el resto, con «Ver lo que sigue». Junta los ítems **y las tareas de siempre** (`tareasComoItems`, sin
+  copiarlas: las que se hacen, con su proyecto). Cada proyecto tiene **su color suave** (`colorDeProyecto`): fondo al 10 % en el
+  chip y un punto en la línea gris del renglón; Familia, el terracota de siempre. **Al agregar se elige Mío o Familia.**
+- **El widget «Hoy» muestra lo mismo**: `hoy/{uid}` se arma con ítems y tareas; el renglón de una tarea lleva
+  `accion.coleccion: "tareas"` (el widget no cambió: escribe lo que el renglón dice).
+- **Tareas**: cada categoría es un **bloque** con un fondo muy leve de su color; cada renglón, círculo + título + línea gris
+  («4 adentro · ★ meta · te la pidieron · 📅») y la inicial de quién se ocupa. Cada categoría muestra 5 y «Ver las N restantes».
+  Un solo filtro de quién (control segmentado) y «Ordenar» como modo (ahí aparecen ⠿, ↩ y «＋ Grupo propio»).
+- **La ficha de una tarea es una pantalla aparte** («‹ volver al padre»), con quién, cuándo, «Adentro · N» con el tono de su
+  categoría, el detalle, «Más opciones» (ámbito, color, borrar) y **«✔ Hecha» fijo abajo**.
+- **Un solo botón redondo**: el ＋ de Tareas. El ❓ (preguntar, sugerir o avisar una falla) vive en «Más», junto a los enlaces y Salir.
+- Costo contra el cupo: ninguna lectura nueva (las tareas ya se escuchaban); `hoy/` se reescribe también cuando cambia una tarea,
+  con el mismo respiro de 2 s y sólo si cambió.
+
 ### El proyecto de un ítem y la barra de abajo (nucleo-48 · hoy-3 · app-44, 19-nov-2026)
 
 - **Cada ítem puede ser de un proyecto** (`proyecto` en `items/`, regla **v26**: texto de hasta 60 o nada). **El proyecto es una
@@ -693,9 +714,9 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-48` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-50` |
 | `estado.js` | lo que comparten las vistas; «Hoy» es la pantalla de arranque | `estado-6` |
-| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra), la barra de abajo y «Más» | `app-44` |
+| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra), la barra de abajo y «Más»; la ficha de una tarea, aparte | `app-47` |
 | `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-3` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
 | `compras.js` | la lista de compras, en `familia/compras`, y las de Casa Verde por su conector | `compras-7` |
@@ -705,7 +726,7 @@ Florencia la acuerden.
 | `sugerir.js` | el globo ❓: preguntarle a la IA (sólo contesta), sugerencias y fallas, a `reportes/` | `sugerir-22` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-17` |
 | `extractos.js` | Plata → Extractos: las líneas de cada banco, para clasificarlas y registrarlas de a muchas, con cuenta y para quién | `extractos-2` |
-| `hoy.js` | la solapa «Hoy»: los ítems de mis espacios, con su proyecto y sus chips | `hoy-3` |
+| `hoy.js` | la solapa «Hoy»: los ítems y las tareas de siempre, el foco, los colores de cada proyecto | `hoy-5` |
 | `proyecto.js` | la pantalla de UN proyecto: lo que falta, lo de Hoy, lo que viene, la plata, documentos y bitácora | `proyecto-2` |
 | `proyectos.js` | Plata → Proyectos: la economía centralizada, cada destino con lo que se le dedica y su neto, y el libro propio de Casa Verde | `proyectos-2` |
 | `cifras.js` | Plata → Análisis: lo estimado en el Año contra lo real, por categoría, de la familia o de un proyecto | `cifras-1` |
@@ -714,8 +735,8 @@ Florencia la acuerden.
 | `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-22` |
 | `familia.js` | Hoy y Chicos | `familia-6` |
 | `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar; desde init-5 Casa Verde entra por su conector; desde init-6 el servidor va por `servidor-1.js` de datos | `init-6` |
-| `estilos.css` | | `estilos-32` |
-| `sw.js` | el cascarón sin señal | `tiempos-78` |
+| `estilos.css` | | `estilos-36` |
+| `sw.js` | el cascarón sin señal | `tiempos-82` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v26 |
 | `CONTEXTO.md` | **para una sesión nueva sin conocimiento del ecosistema**: qué es, cómo funciona, mapa de archivos, flujos, datos, reglas con su porqué, cómo se verifica y despliega, estado y glosario | — |
 

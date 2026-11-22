@@ -2257,7 +2257,7 @@ prueba("hoy.js: ficha con «Proyecto», chips de proyecto y el alta que hereda e
   assert.match(hoy, /data-a="proyecto"/);
   assert.match(hoy, /tiempos:proyecto/);
   assert.match(hoy, /it\.proyecto = filtroProy/);
-  assert.match(hoy, /materializarHoy\(misItems\(\), E\.yo\.uid, E\.hoy, \{ cuentas: cuentas\(\) \}\)/);
+  assert.match(hoy, /materializarHoy\(todos\(\), E\.yo\.uid, E\.hoy, \{ cuentas: cuentas\(\) \}\)/);
   const pr = fs.readFileSync(path.join(import.meta.dirname, "proyecto.js"), "utf8");
   assert.match(pr, /data-p-item/);
   assert.match(pr, /itemsDeProyecto/);
@@ -2274,9 +2274,133 @@ prueba("app-44: «Más» abre y cierra, y «Hoy» es la pantalla de arranque", (
   const css = fs.readFileSync(path.join(import.meta.dirname, "estilos.css"), "utf8");
   assert.match(css, /--piso: calc\(env\(safe-area-inset-bottom, 0px\) \+ 24px \+ var\(--barra\)\)/, "la barra de abajo entra en --piso: nada de números a mano");
   const sw = fs.readFileSync(path.join(import.meta.dirname, "sw.js"), "utf8");
-  assert.ok(sw.includes("app.js?v=44") && sw.includes("estilos.css?v=32"), "el sw sirve la versión nueva");
+  // app-47: el sw sirve la MISMA versión que pide index.html (sin escribir el número dos veces en el banco).
   const html = fs.readFileSync(path.join(import.meta.dirname, "index.html"), "utf8");
-  assert.ok(html.includes("app.js?v=44") && html.includes("estilos.css?v=32"));
+  const vApp = html.match(/app\.js\?v=(\d+)/)[1], vCss = html.match(/estilos\.css\?v=(\d+)/)[1];
+  assert.ok(sw.includes(`app.js?v=${vApp}`) && sw.includes(`estilos.css?v=${vCss}`), "el sw sirve la versión nueva");
+});
+
+titulo("nucleo-49 / hoy-4: «Hoy» muestra también las tareas de siempre, sin copiarlas (20-nov)");
+prueba("tareasComoItems: sólo lo que se hace, con su proyecto (por la raíz de la rama o por el nombre), y ordena con el criterio de siempre", async () => {
+  const N = await import("./nucleo.js");
+  const cuentas = N.cuentasDe({ cuentas: { "c:cv": { nombre: "Casa Verde", clase: "proyecto", tareaId: "r1" }, "c:flores": { nombre: "General Flores", clase: "lugar" } } });
+  const T = (o) => ({ alcance: "comun", hecho: false, titulo: "t", ...o });
+  const tareas = [
+    T({ id: "r1", titulo: "Casa Verde" }),                                        // la raíz del proyecto: carpeta, no entra
+    T({ id: "g", titulo: "General", parentId: "r1" }),                              // tiene una abierta adentro: carpeta, no entra
+    T({ id: "a", titulo: "Lonas piscina", parentId: "g", meta: "2026-11-16" }),     // hoja de la rama de Casa Verde, meta de esta semana
+    T({ id: "b", titulo: "Comprar chapas en general flores", limite: "2026-11-25" }), // por el nombre
+    T({ id: "c", titulo: "Algo suelto", hecho: true }),                             // hecha: no entra
+    T({ id: "d", titulo: "Privada de otro", alcance: "personal", duenio: "U2" }),   // personal de otro: no entra
+    T({ id: "e", titulo: "Privada mía", alcance: "personal", duenio: "U1" }),
+    T({ id: "f", titulo: "Sin proyecto" }),
+  ];
+  const v = N.tareasComoItems(tareas, cuentas, "U1", HOY);
+  assert.deepEqual(v.map((i) => i.id).sort(), ["f:a", "f:b", "f:e", "f:f"]);
+  const por = Object.fromEntries(v.map((i) => [i.id, i]));
+  assert.equal(por["f:a"].proyecto, "c:cv"); assert.equal(por["f:a"].rama, "Casa Verde"); assert.equal(por["f:a"].importancia, 2);
+  assert.equal(por["f:b"].proyecto, "c:flores"); assert.equal(por["f:b"].dia, "2026-11-25");
+  assert.equal(por["f:e"].espacio, "p-U1"); assert.equal(por["f:f"].proyecto, null);
+  assert.ok(v.every((i) => i.origen === "tareas" && validarItem(i, "U1").length === 0), "son ítems válidos: se ordenan como los de siempre");
+  assert.equal(ordenarItems(v, HOY)[0].id, "f:a", "la meta de la semana pasa adelante");
+  assert.deepEqual(N.tareasComoItems([], cuentas, "U1", HOY), []);
+});
+prueba("hoy-4 / hoy-5: la lista junta ítems y tareas, tildar escribe donde está cada una, y el widget muestra lo mismo", () => {
+  const hoy = fs.readFileSync(path.join(import.meta.dirname, "hoy.js"), "utf8");
+  assert.match(hoy, /tareasComoItems\(E\.tareas, cuentas\(\), E\.yo\.uid, E\.hoy\)/);
+  assert.match(hoy, /it\.origen === "tareas" \? "tareas" : "items"/);
+  assert.match(hoy, /function fichaTarea\(it\)/);
+  assert.match(hoy, /materializarHoy\(todos\(\), E\.yo\.uid, E\.hoy, \{ cuentas: cuentas\(\) \}\)/, "hoy-5: hoy/{uid} (el widget) se arma con lo mismo que muestra la pantalla");
+  const html = fs.readFileSync(path.join(import.meta.dirname, "index.html"), "utf8");
+  assert.ok(html.lastIndexOf("data-salir") > html.indexOf('id="mas-panel"') && html.includes('class="mas-pie"'), "los links y Salir viven en «Más»");
+  assert.ok(!/<p class="pie">/.test(html), "ninguna pantalla lleva pie");
+});
+
+titulo("app-45: una rama abierta lleva un tono de fondo sutil que la une (20-nov)");
+prueba("el tono de la rama: una clase por fila, sin cambiar la estructura; refuerza adentro de otra rama; no pisa a la que corre", () => {
+  const app = fs.readFileSync(path.join(import.meta.dirname, "app.js"), "utf8");
+  assert.match(app, /function tonoDeRama\(f, prof, color\)/);
+  assert.match(app, /tonoDeRama\(f, prof, color\)/, "pintarCategorias lo usa, con el color de la categoría");
+  assert.match(app, /bajar\(h, 0, 0, tipo\.color\)/);
+  assert.match(app, /tonoDeRama\(f, prof\);/, "listaFamilia también");
+  assert.match(app, /enRama \+ \(recorre && hs\.length && !plegado\.has\(k\) \? 1 : 0\)/, "sólo cuenta si es una carpeta desplegada con algo adentro");
+  const css = fs.readFileSync(path.join(import.meta.dirname, "estilos.css"), "utf8");
+  for (const n of ["", '[data-prof="2"]', '[data-prof="3"]']) assert.ok(css.includes(`.fila-tarea.en-rama${n} {`), "tono " + (n || "1"));
+  assert.ok(css.includes(".fila-tarea.corriendo.en-rama"), "la que corre conserva su fondo");
+});
+
+titulo("app-46: Tareas simple: la fila es poca cosa y la ficha es una pantalla aparte con lo de adentro (20-nov)");
+prueba("la fila de una tarea: círculo, título que abre la ficha, una línea gris y la inicial; sin ⋯, sin flecha, sin agarre", () => {
+  const app = fs.readFileSync(path.join(import.meta.dirname, "app.js"), "utf8");
+  const fila = app.split("function filaTarea(")[1].split("/* app-29")[0];
+  assert.ok(fila.includes('class="txt abrir"') && fila.includes("avataresDe(t)") && fila.includes("subDe(t, cuantos)"));
+  assert.ok(!fila.includes('class="mas"') && !fila.includes("flecha(") && !fila.includes("fichaTarea("), "la ficha ya no se despliega dentro de la lista");
+  const org = app.split("function organizable(")[1].split("\n}\n")[0];
+  assert.ok(org.indexOf("if (!E.ordenando) return;") > -1 && org.indexOf("if (!E.ordenando) return;") < org.indexOf("pas-agarre"), "el agarre y el ↩ sólo al ordenar");
+  assert.match(app, /const recorre = !n\.t;/, "una tarea no se despliega en la lista: sólo las carpetas");
+  assert.match(app, /TOPE_CATEGORIA = 5/);
+});
+prueba("la ficha: pantalla aparte, con «Adentro» (en el orden de cada uno), tilde y abrir de cada hija; «Hecha» cierra", () => {
+  const app = fs.readFileSync(path.join(import.meta.dirname, "app.js"), "utf8");
+  assert.match(app, /function pintarFichaTarea\(\)/);
+  assert.match(app, /pintarFichaTarea\(\);\s+\/\/ app-46/, "pintar() la dibuja");
+  assert.match(app, /function hijasDe\(t\)/);
+  assert.ok(app.includes("arbolOrganizado(nodos, E.organizar || {})"), "lo de adentro respeta el orden y el lugar de cada uno");
+  assert.match(app, /data-hija-hecha/); assert.match(app, /data-hija-abrir/);
+  const ficha = app.split("function fichaTarea(")[1].split("function listaFamilia(")[0];
+  for (const a of ["titulo", "limite", "detalle", "adentro", "hecha", "yo", "meta"]) assert.ok(ficha.includes(`data-a="${a}"`), "sigue el campo " + a);
+  assert.equal((ficha.match(/data-a="adentro"/g) || []).length, 1, "un solo «Tarea adentro»");
+  assert.ok(ficha.includes("filaAgendar("), "agendar sigue en la ficha");
+  const html = fs.readFileSync(path.join(import.meta.dirname, "index.html"), "utf8");
+  assert.ok(html.includes('id="ficha-tarea"') && html.includes('class="vistas"'));
+  const css = fs.readFileSync(path.join(import.meta.dirname, "estilos.css"), "utf8");
+  for (const c of [".pantalla-ficha {", ".adentro {", "#abrir-tarea {", ".segmentado {", ".enc {"]) assert.ok(css.includes(c), c);
+});
+
+titulo("nucleo-50 / hoy-5 / app-47 / sugerir-25: colores leves para agrupar, el widget con las tareas y un solo botón redondo (22-nov)");
+prueba("el widget: el renglón de una tarea de siempre se tilda en tareas/, el de un ítem en items/", async () => {
+  const N = await import("./nucleo.js");
+  const tareas = [{ id: "t1", titulo: "Cortar el pasto", alcance: "comun", duenio: "U1", tipo: "casa" }];
+  const lista = [UNIT({ id: "i1", dia: HOY }), ...N.tareasComoItems(tareas, [], "U1", HOY)];
+  const doc = materializarHoy(lista, "U1", HOY);
+  const t = doc.renglones.find((r) => r.clave === "it:f:t1"), i = doc.renglones.find((r) => r.clave === "it:i1");
+  assert.deepEqual(t.accion, { coleccion: "tareas", doc: "t1", campos: { hecho: true, hechoPor: "U1" }, deshacer: { hecho: false, hechoPor: null } });
+  assert.equal(i.accion.coleccion, "items"); assert.equal(i.accion.doc, "i1");
+  assert.ok(/^[A-Za-z0-9_-]+$/.test(t.accion.doc), "el widget sólo acepta ids seguros (NOMBRE_SEGURO de Hoy.kt)");
+});
+prueba("colorDeProyecto: uno por proyecto en el orden de las cuentas; la parte usa el de su lugar; sin cuenta, nada", async () => {
+  const N = await import("./nucleo.js");
+  const cs = N.cuentasDe({ cuentas: { "c:a": { nombre: "Casa Verde", orden: 1 }, "c:b": { nombre: "CasaYourte", orden: 2 },
+    "c:b-dep": { nombre: "Depósito", clase: "lugar", padre: "c:b" } } });
+  assert.equal(N.colorDeProyecto(cs, "c:a"), N.COLORES_PROYECTO[0]);
+  assert.equal(N.colorDeProyecto(cs, "c:b"), N.COLORES_PROYECTO[1]);
+  assert.equal(N.colorDeProyecto(cs, "c:b-dep"), N.COLORES_PROYECTO[1], "el depósito, el color de su lugar");
+  assert.equal(N.colorDeProyecto(cs, "c:nada"), "");
+  assert.ok(!N.COLORES_PROYECTO.includes("#d8a657") && !N.COLORES_PROYECTO.includes("#c87f5a"), "ni el dorado de lo mío ni el terracota de familia");
+});
+prueba("hoy-5: al agregar se elige Mío o Familia, y el chip y el renglón llevan el color de su proyecto", () => {
+  const hoy = fs.readFileSync(path.join(import.meta.dirname, "hoy.js"), "utf8");
+  assert.match(hoy, /espacio: nuevoEsp === "fam" \? "familia" : espacioPersonal\(E\.yo\.uid\)/);
+  assert.match(hoy, /tiempos:nuevo/);
+  assert.match(hoy, /class="con-p" style="--p:/);
+  assert.ok(!/tiempos:espacio/.test(hoy) && !/puntoDe/.test(hoy), "sin restos del filtro de espacio viejo");
+});
+prueba("app-47: las categorías son bloques de su color; Hechas y Te pidieron se ven enteras; tocar una tarea rearma hoy/", () => {
+  const app = fs.readFileSync(path.join(import.meta.dirname, "app.js"), "utf8");
+  assert.match(app, /bloque\.className = "cat-bloque"/);
+  const lf = app.slice(app.indexOf("function listaFamilia("), app.indexOf("function listaFamilia(") + 900);
+  assert.ok(!/plegado/.test(lf), "listaFamilia no depende de lo plegado: la fila ya no tiene flecha");
+  assert.match(app, /E\.tareas = \[\.\.\.comunes, \.\.\.mias\]; publicarHoy\(\);/);
+});
+prueba("sugerir-25 / estilos-36: el ❓ vive en «Más», el ＋ es el único botón redondo y «Hecha» queda fijo; nada de números para esquivar", () => {
+  const html = fs.readFileSync(path.join(import.meta.dirname, "index.html"), "utf8");
+  assert.ok(html.indexOf('id="mas-ayuda"') > html.indexOf('id="mas-panel"'), "el ❓ está en «Más»");
+  const sug = fs.readFileSync(path.join(import.meta.dirname, "sugerir.js"), "utf8");
+  assert.match(sug, /const enMas = \$\("mas-ayuda"\);/);
+  const css = fs.readFileSync(path.join(import.meta.dirname, "estilos.css"), "utf8");
+  assert.match(css, /#abrir-tarea \{ position:fixed; right:16px; bottom:var\(--piso\);/, "el ＋ en el lugar del respiro, sin sumar píxeles");
+  assert.match(css, /\.pantalla-ficha \.botones\.grandes \{ position:sticky; bottom:0;/);
+  assert.match(css, /\.cat-bloque \{ background:color-mix\(in srgb, var\(--c, var\(--gris\)\) 9%, var\(--tinta\)\)/);
 });
 
 await Promise.all(esperando);

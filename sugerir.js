@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // sugerir.js — El globo flotante: preguntarle a la IA, una sugerencia o una
-// falla. Sello: sugerir-24
+// falla. Sello: sugerir-25 (22-nov-2026: el ❓ vive en «Más», no flota: el ＋ de Tareas es el único botón redondo)
 //
 // Pedido de Mauro, 29-sep-2026: «un cuadro flotante con una sugerencia que
 // llegue al chat para que sea tomado en las rutinas diarias, como en los
@@ -186,12 +186,24 @@ function escucharMios() {
   }, () => {});
 }
 
+/* sugerir-25: lo abre «❓ Preguntar o avisar» de «Más» (index.html). Sólo si esa entrada no existe
+   —otra página— vuelve a flotar como antes. */
 export function montarGlobo() {
+  const abrir = () => { abierta = true; escucharMios(); pintarHoja(); };
+  const enMas = $("mas-ayuda");
+  if (enMas) {
+    enMas.onclick = () => {
+      const panel = $("mas-panel"), btn = $("btn-mas");
+      if (panel) panel.hidden = true;
+      if (btn) btn.setAttribute("aria-expanded", "false");
+      abrir();
+    };
+    return;
+  }
   if ($("globo")) return;
   const b = Object.assign(document.createElement("button"), { id: "globo", className: "globo", title: "Preguntar, sugerir algo o avisar una falla" });
   b.innerHTML = "❓";
-  
-  b.onclick = () => { abierta = true; escucharMios(); pintarHoja(); };
+  b.onclick = abrir;
   document.body.append(b);
 }
 
