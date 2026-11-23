@@ -8,7 +8,7 @@
 <meta name="description" content="Qué se puede hacer en Timón, para qué sirve cada cosa y cómo se hace, con un esquema simple de cada acción.">
 <meta name="theme-color" content="#14161a">
 <!--
-  manual.html — El MANUAL DE USO de Timón, para compartir. Sello: manual-1 (22-nov-2026)
+  manual.html — El MANUAL DE USO de Timón, para compartir. Sello: manual-2 (23-nov-2026: tareas que se repiten y actividades de los chicos en varios días). manual-1 (22-nov-2026)
   · Cada acción con su objetivo, un diagrama de flujo simple, el paso a paso y «Más detalle».
     Escrito a partir del código y la documentación al app-47 (el mismo texto que el artefacto
     https://claude.ai/artifact/Guh73mU78q4aB7XRVpS9mE, que es privado; éste se comparte con el enlace).
@@ -319,6 +319,28 @@ flowchart TD
   </article>
 
   <article class="accion">
+    <h3>Una tarea que se repite</h3>
+    <p class="para"><b>Para qué:</b> lo que vuelve cada tanto (limpiar un filtro, cortar el pasto, pagar algo) se anota una sola vez y vuelve sola.</p>
+    <div class="diagrama"><pre class="mermaid">
+flowchart TD
+  A["Ficha de la tarea"] --> B["Se repite: todos los días, todas las semanas, cada 2 semanas, todos los meses, cada 3 o 6 meses, todos los años u Otro"]
+  B --> C["La tildás cuando la hacés"]
+  C --> D["No se cierra: «Para cuándo» pasa a la próxima vez"]
+  D --> E["Aviso: «Hecha. Vuelve el …»"]
+  E --> F["Ese día aparece otra vez en Hoy, en la agenda y en el widget"]
+    </pre></div>
+    <details><summary>Más detalle</summary>
+      <ul>
+        <li>La próxima vez se cuenta desde el día en que la hacés (como las de Casa Verde).</li>
+        <li>En la lista dice «🔁 cada…» y, si ya se hizo, «vuelve el …»; en la ficha, quién la hizo la última vez.</li>
+        <li>En la pizarra y en el widget de tareas fijadas se ve tachada hasta el día en que vuelve; destacharla la trae para hoy.</li>
+        <li>«Otro…» acepta cosas como «10 días», «3 semanas» o «4 meses». «No se repite» la vuelve una tarea común.</li>
+        <li>Una actividad de los chicos (fútbol, básquet) no es una tarea: va en Chicos o en la Agenda.</li>
+      </ul>
+    </details>
+  </article>
+
+  <article class="accion">
     <h3>Mirar una parte: el filtro de quién y ordenar</h3>
     <p class="para"><b>Para qué:</b> ver sólo lo tuyo, lo del otro o lo que nadie tomó.</p>
     <div class="diagrama"><pre class="mermaid">
@@ -539,13 +561,14 @@ flowchart TD
   C -- "Sí" --> D["Tocás el día y lo cambiás"]
   D -. "para deshacerlo" .-> E["Volver a lo acordado"]
   B --> F["＋ Actividad ese día o ＋ Nueva actividad"]
-  F --> G["Puede repetirse cada semana"]
+  F --> G["Se repite todas las semanas: elegís los días (lun, mié, vie…)"]
   B --> H["＋ nota: observaciones del día"]
     </pre></div>
     <details><summary>Más detalle</summary>
       <ul>
         <li>Se ve por semana o por mes, con un señalador por persona y por chico.</li>
         <li>Las actividades (básquet, kung fu, amigos…) las ven los dos siempre, las cargue quien las cargue, y aparecen en la agenda de los dos.</li>
+        <li>Una que es varias veces por semana (fútbol lunes, miércoles y viernes) es <b>una sola actividad</b> con sus días marcados. «Este día no» saca un día suelto sin tocar los demás.</li>
         <li>Los chicos no se agregan desde la app: son los que están configurados en la familia. Sus nombres no salen nunca hacia la IA.</li>
       </ul>
     </details>
@@ -868,7 +891,7 @@ flowchart TD
   </dl>
 </section>
 
-<p class="pie">Escrito a partir de la app tal como está el 22 de noviembre de 2026 (versión app-47). Si la app cambia, cambia el manual. · <span id="sello">manual-1</span> · <a href="./">Abrir Timón</a></p>
+<p class="pie">Escrito a partir de la app tal como está el 22 de noviembre de 2026 (versión app-48, 23-nov). Si la app cambia, cambia el manual. · <span id="sello">manual-2</span> · <a href="./">Abrir Timón</a></p>
 
 </div>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>

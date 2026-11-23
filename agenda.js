@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-23 (17-nov: el aviso suena en «Timón en Android»)
+// agenda.js — Mi semana, ordenada arrastrando. Sello: agenda-24 (23-nov: una actividad de los chicos que se repite elige sus días —`dias`, filaDiasEvento de familia-7—). agenda-23 (17-nov: el aviso suena en «Timón en Android»)
 //
 // La tomamos de la agenda de Casa Verde (`interno/agenda.html`), con sus
 // mismas decisiones:
@@ -38,7 +38,8 @@
 import { db, F, CV, CASA_VERDE } from "./firebase-init.js";
 import { esc, lunesDe, sumarDias, semanaISO, ubicarEnSemana, chicosDelDia, eventosDelDia,
          grillaDelMes, MESES, cuentaDelDia, parecidas, DIAS, FRANJAS, esISO, TIPOS, tipoHeredado, arbol, colorHeredado,
-         CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, AVISO_ANTES, horaDelAviso, movimientosDelDia } from "./nucleo.js";
+         CLASES_ACTIVIDAD, validarMarca, marcasQueSePisan, idNuevo, HORA_NOCHE, franjaDe, horaEnFranja, correrFin, HORA_DE_FRANJA, AVISO_ANTES, horaDelAviso, movimientosDelDia, diasDeEvento, textoDiasEvento } from "./nucleo.js";
+import { filaDiasEvento, diasDelForm } from "./familia.js";
 import { E, $, aviso, repintar, nombreDe, ninoPorId, personas, fallo } from "./estado.js";
 import { bloquesDelDia } from "./balance.js";
 import { pintarLugares, pintarAgente, recordarLugar } from "./lugares.js";
@@ -171,7 +172,7 @@ function piezasDelDia(d, ubDia, agenda) {
   for (const e of eventosDelDia(d, E.eventos)) {
     out[franjaDe({ hora: e.hora })].push({ clase: "chicos", clave: "ev:" + e.id + "|" + d, id: e.id, dia: d, titulo: e.titulo, hora: e.hora || "", hasta: e.horaFin || "",
       color: COLOR_CHICOS, sub: ["con los chicos", (e.ninos || []).map((n) => (ninoPorId(n) || {}).nombre || "").filter(Boolean).join(" y "),
-        (e.quienes || []).length ? "van " + e.quienes.map((u) => nombreDe(u)).join(" y ") : "", e.lugar, e.semanal ? "todas las semanas" : ""].filter(Boolean).join(" · ") });
+        (e.quienes || []).length ? "van " + e.quienes.map((u) => nombreDe(u)).join(" y ") : "", e.lugar, textoDiasEvento(e)].filter(Boolean).join(" · ") });
   }
   // agenda-22 (tiempos:V17): quién entra y quién sale de Casa Verde. Sólo se
   // mira: no se arrastra ni se edita, y el toque lleva a la reserva allá.
@@ -191,7 +192,7 @@ function datosDePieza(p) {
   if (p.clase === "chicos") {
     const e = (E.eventos || []).find((x) => x.id === p.id) || {};
     return { titulo: e.titulo || "", dia: p.dia, hi: e.hora || "", hf: e.horaFin || "", lugar: e.lugar || "", nota: e.nota || "", es: "ninos",
-      ninos: e.ninos || [], quienes: e.quienes || [], semanal: !!e.semanal };
+      ninos: e.ninos || [], quienes: e.quienes || [], semanal: !!e.semanal, dias: diasDeEvento({ ...e, semanal: true }).map(String) };
   }
   const m = agendaUnida()[p.clave] || {};
   return { titulo: p.titulo, dia: esISO(m.dia) ? m.dia : "", hi: m.hora || "", hf: m.hasta || "", lugar: m.lugar || "", nota: m.nota || "", es: CLASE_DE_CAT[p.cat] || "tarea" };
@@ -215,7 +216,8 @@ function editorPieza(p) {
       ${fijo ? `<small class="gris">${p.clase === "chicos" ? "Es una actividad de los chicos: la ven los dos." : `Lo define la tarea (${esc(NOMBRE_CAT(p.cat))}); se cambia en Tareas.`}</small>` : ""}</fieldset>
     ${p.clase === "chicos" ? `<div class="fila-persona"><span>Chicos</span>${ninos.map((n) => `<label class="check"><input type="checkbox" name="ninos" value="${esc(n.id)}"${marcado("ninos", n.id) ? " checked" : ""}> ${esc(n.nombre)}</label>`).join("")}</div>
       <div class="fila-persona"><span>Van</span>${personas().map((x) => `<label class="check"><input type="checkbox" name="quienes" value="${esc(x.id)}"${marcado("quienes", x.id) ? " checked" : ""}> ${esc(x.nombre)}</label>`).join("")}</div>
-      <label class="check"><input type="checkbox" name="semanal"${(v("semanal", null) === null ? d.semanal : v("semanal") === "on") ? " checked" : ""}> Se repite todas las semanas</label>` : ""}
+      <label class="check"><input type="checkbox" name="semanal"${(v("semanal", null) === null ? d.semanal : v("semanal") === "on") ? " checked" : ""}> Se repite todas las semanas</label>
+      ${filaDiasEvento([0, 1, 2, 3, 4, 5, 6].filter((i) => marcado("dias", String(i))))}` : ""}
     <label>Nota <input name="nota" maxlength="300" value="${esc(v("nota", d.nota))}"${cv ? " disabled" : ""}></label>
     ${avisosDePieza(p, v)}
     ${cv ? `<p class="gris">Las de Casa Verde guardan acá el día y la hora; lo demás se cambia en Casa Verde.</p>` : ""}
@@ -286,7 +288,9 @@ async function guardarPieza(p, f) {
     if (!esISO(dia)) return aviso("Falta el día.", true);
     const e = (E.eventos || []).find((x) => x.id === p.id); if (!e) return aviso("Esa actividad ya no está.", true);
     const lista = (n) => [...f.querySelectorAll(`[name="${n}"]:checked`)].map((x) => x.value);
-    const datos = { titulo, hora: hi, horaFin: hf, lugar, nota, ninos: lista("ninos"), quienes: lista("quienes"), semanal: !!(f.semanal && f.semanal.checked), actualizadoEn: F.serverTimestamp() };
+    const semanal = !!(f.semanal && f.semanal.checked);
+    const datos = { titulo, hora: hi, horaFin: hf, lugar, nota, ninos: lista("ninos"), quienes: lista("quienes"), semanal,
+      dias: semanal ? diasDelForm(f, e.fecha) : [], actualizadoEn: F.serverTimestamp() };
     if (dia !== p.dia) { nueva = await moverEvento(e, p.dia, dia, datos); if (!nueva) return; }
     else await F.updateDoc(F.doc(db, "eventos", p.id), datos);
   } else {

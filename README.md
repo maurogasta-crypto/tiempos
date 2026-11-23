@@ -94,6 +94,21 @@ después de que Mauro viera la maqueta.
   23-nov); que los otros sitios lean sus ítems.
 - **Costo contra el cupo:** nada nuevo se lee ni se escribe; el campo `proyecto` va en el mismo documento del ítem.
 
+## Tareas que se repiten y actividades de los chicos en varios días (nucleo-51, app-48, 23-nov-2026)
+
+Mauro, 23-nov: «hay tareas como las de mantenimiento que son con repetición… no encontré dónde marcar una repetición», y el fútbol de los
+chicos («tres veces por semana») estaba cargado como dos tareas.
+
+- **Una tarea lleva `repite`** `{cada: 1…365, unidad: "dias"|"semanas"|"meses"}` («Se repite» en su ficha). **Tildarla no la cierra**:
+  `cuerpoHecha` escribe `limite` (la próxima vez, contada desde el día en que se hizo: `proximaVez`), `ultimaVez` y `hechoPor`. Así Tareas,
+  «Hoy», el widget «Hoy» (escribe la acción del renglón tal cual; `deshacer` la deja como estaba) y la agenda la muestran sola en su
+  próximo día, sin que nada la reabra. Todo tilde de una tarea va por `cuerpoHecha` (el banco lo exige). En la pizarra y en el widget de
+  tareas fijadas se ve tachada hasta que vuelve (`hechaPorAhora`); destacharla la trae para hoy (`cuerpoPendiente`). La misma cuenta está
+  en `proximaVez` / `cuerpoTachar` / `hechaPorAhora` de `Logica.kt` de la Pizarra (pizarra-86). **Sin regla nueva**: `tareas` no limita campos.
+- **Una actividad de los chicos semanal lleva `dias`** (0 = domingo … 6 = sábado): se repite esos días desde su fecha (`diasDeEvento`);
+  sin `dias`, el de su fecha, como siempre. El formulario (Chicos y Agenda, `filaDiasEvento` de familia-7) muestra los días sólo si «Se
+  repite» está marcado. «Este día no» y mover un día suelto siguen igual. `eventoEnDia` de `AgendaLogica.kt` hace la misma cuenta.
+
 ## Qué hace (app-16)
 
 **Desde app-16 (7-oct-2026, `tiempos:V7`) las primeras solapas de siempre son
@@ -720,30 +735,30 @@ Florencia la acuerden.
 
 | Archivo | Qué hace | Sello |
 |---|---|---|
-| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-50` |
+| `nucleo.js` | todas las cuentas, sin Firebase ni pantalla | `nucleo-51` |
 | `estado.js` | lo que comparten las vistas; «Hoy» es la pantalla de arranque | `estado-6` |
-| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra), la barra de abajo y «Más»; la ficha de una tarea, aparte | `app-47` |
-| `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-3` |
+| `app.js` | entrar, los relojes, Tareas (＋ Tarea que se despliega, y el árbol por categoría que cada uno ordena arrastrando; el reloj sólo en lo que se cobra), la barra de abajo y «Más»; la ficha de una tarea, aparte (con «Se repite») | `app-48` |
+| `pizarra.js` | la solapa Pizarra: preguntarle a la IA, Mi pizarra con su ventana por categorías, propuestas, recordatorios y deseos | `pizarra-web-4` |
 | `lugares.js` | mis lugares (casa por país y los lugares de las actividades, con dirección) y el interruptor «Claude organiza mi agenda» | `lugares-3` |
 | `compras.js` | la lista de compras, en `familia/compras`, y las de Casa Verde por su conector | `compras-7` |
 | `lista.html` + `lista.js` | la lista compartida sin cuenta (`?c=<token>`); fuera del SHELL | `lista-1` |
-| `manual.html` | el **manual de uso** para compartir (https://maurogasta-crypto.github.io/tiempos/manual.html): cada acción con su objetivo, un diagrama de flujo, el paso a paso y «Más detalle». Página suelta: sin Firebase, fuera del SHELL, `noindex`; los diagramas los dibuja mermaid desde el CDN. **Si cambia lo que hace la app, cambia el manual en la misma tanda** | `manual-1` |
+| `manual.html` | el **manual de uso** para compartir (https://maurogasta-crypto.github.io/tiempos/manual.html): cada acción con su objetivo, un diagrama de flujo, el paso a paso y «Más detalle». Página suelta: sin Firebase, fuera del SHELL, `noindex`; los diagramas los dibuja mermaid desde el CDN. **Si cambia lo que hace la app, cambia el manual en la misma tanda** | `manual-2` |
 | `propone.js` | lo que Claude propone y te pregunta, tus recordatorios y tus deseos, en Pizarra | `propone-8` |
 | `deseos.js` | los deseos y actividades que les gustan: «hoy se puede», la lista y su edición (días, horas, flyer) | `deseos-3` |
 | `sugerir.js` | el globo ❓: preguntarle a la IA (sólo contesta), sugerencias y fallas, a `reportes/` | `sugerir-22` |
 | `plata.js` | lo disponible, los gastos, las boletas, lo que propone el agente, y sus solapas | `plata-17` |
 | `extractos.js` | Plata → Extractos: las líneas de cada banco, para clasificarlas y registrarlas de a muchas, con cuenta y para quién | `extractos-2` |
-| `hoy.js` | la solapa «Hoy»: los ítems y las tareas de siempre, el foco, los colores de cada proyecto | `hoy-5` |
+| `hoy.js` | la solapa «Hoy»: los ítems y las tareas de siempre, el foco, los colores de cada proyecto | `hoy-6` |
 | `proyecto.js` | la pantalla de UN proyecto: lo que falta, lo de Hoy, lo que viene, la plata, documentos y bitácora | `proyecto-2` |
 | `proyectos.js` | Plata → Proyectos: la economía centralizada, cada destino con lo que se le dedica y su neto, y el libro propio de Casa Verde | `proyectos-2` |
 | `cifras.js` | Plata → Análisis: lo estimado en el Año contra lo real, por categoría, de la familia o de un proyecto | `cifras-1` |
 | `finanzas.js` | Fijos (la planilla mes a mes), Año (los gastos del año) y Reparto (el libre del mes y su cierre) | `finanzas-6` |
 | `balance.js` | el balance del tiempo (los chicos, del calendario), las salidas, los acuerdos, la auditoría | `balance-5` |
-| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-22` |
-| `familia.js` | Hoy y Chicos | `familia-6` |
+| `agenda.js` | mi semana, arrastrando, las actividades propias con su clase, y el mes | `agenda-24` |
+| `familia.js` | Hoy y Chicos (una actividad semanal elige sus días) | `familia-7` |
 | `firebase-init.js` | el único contacto con las dos bases; desde init-4 despierta a las Pizarras al guardar; desde init-5 Casa Verde entra por su conector; desde init-6 el servidor va por `servidor-1.js` de datos | `init-6` |
-| `estilos.css` | | `estilos-36` |
-| `sw.js` | el cascarón sin señal | `tiempos-82` |
+| `estilos.css` | | `estilos-37` |
+| `sw.js` | el cascarón sin señal | `tiempos-84` |
 | `firestore.rules` | las reglas; se publican desde el panel, que pone el UID del agente | v26 |
 | `CONTEXTO.md` | **para una sesión nueva sin conocimiento del ecosistema**: qué es, cómo funciona, mapa de archivos, flujos, datos, reglas con su porqué, cómo se verifica y despliega, estado y glosario | — |
 

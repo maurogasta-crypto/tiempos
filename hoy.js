@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// hoy.js — La pantalla «Hoy»: los ítems de todos mis espacios. Sello: hoy-5 (22-nov-2026: cada proyecto con su color suave en el chip y en el renglón, el punto de Familia, y al agregar se elige Mío o Familia). hoy-4 (20-nov-2026: la versión simplificada; muestra también las tareas de siempre, de sólo lectura, con su proyecto)
+// hoy.js — La pantalla «Hoy»: los ítems de todos mis espacios. Sello: hoy-6 (23-nov-2026: una tarea que se REPITE dice «🔁 cada…» y al tildarla vuelve sola —cuerpoHecha de nucleo-51—, con el aviso «Vuelve el …»). hoy-5 (22-nov-2026: cada proyecto con su color suave en el chip y en el renglón, el punto de Familia, y al agregar se elige Mío o Familia). hoy-4 (20-nov-2026: la versión simplificada; muestra también las tareas de siempre, de sólo lectura, con su proyecto)
 //
 // Plan «Timón», etapa 4 (16-nov-2026; prototipo aprobado por Mauro ese día):
 // «Hoy» junta lo de todos los espacios de la persona en UNA lista —tildás,
@@ -22,7 +22,7 @@
 
 import { db, auth, F } from "./firebase-init.js";
 import { esc, idNuevo, isoDe, TIPOS_ITEM, IMPORTANCIAS, espacioPersonal, esEspacioMio, nombreEspacio,
-         ordenarItems, cuandoItem, urgenciaItem, validarItem, materializarHoy, cuentasDe, idsDeCuenta, tareasComoItems, lunesDe, colorDeProyecto } from "./nucleo.js";
+         ordenarItems, cuandoItem, urgenciaItem, validarItem, materializarHoy, cuentasDe, idsDeCuenta, tareasComoItems, lunesDe, colorDeProyecto, cuerpoHecha, avisoHecha, textoRepite } from "./nucleo.js";
 import { E, $, aviso, nombreDe, fallo, repintar, ganchos } from "./estado.js";
 
 let abierto = null;
@@ -63,12 +63,16 @@ function filaItem(it) {
   const origen = proy ? puntoP(colorProy(it.proyecto)) + esc(proy)
     : it.espacio === "familia" && !it.rama ? puntoP(COLOR_FAMILIA) + "Familia"
     : it.rama ? esc(it.rama) : "";
-  const sub = [origen, cuando && `<span class="${vencido ? "mal" : ""}">${esc(cuando)}</span>`].filter(Boolean).join(" · ");
+  const sub = [origen, cuando && `<span class="${vencido ? "mal" : ""}">${esc(cuando)}</span>`, it.repite && "🔁 " + esc(textoRepite(it.repite))].filter(Boolean).join(" · ");
   f.innerHTML = `<div class="fila">
       <button class="tilde" aria-label="${it.hecho ? "Volver a pendiente" : "Marcar hecha"}">${it.hecho ? "✓" : "○"}</button>
       <button class="txt abrir" aria-expanded="${esta}">${esc(it.titulo)}${it.importancia === 2 && !it.hecho ? ` <b class="alta" title="Importante">!</b>` : ""}
         ${sub ? `<small class="gris sub">${sub}</small>` : ""}</button></div>`;
   f.querySelector(".tilde").onclick = () => {
+    // hoy-6: la tarea que se repite no se cierra: vuelve sola en su próxima vez.
+    if (it.origen === "tareas" && it.repite && !it.hecho)
+      return F.updateDoc(F.doc(db, "tareas", it.tareaId), { ...cuerpoHecha(it, E.yo.uid, E.hoy), actualizadoEn: F.serverTimestamp() })
+        .then(() => aviso(avisoHecha(it, E.hoy))).catch(fallo);
     const x = { hecho: !it.hecho, hechoPor: it.hecho ? null : E.yo.uid, actualizadoEn: F.serverTimestamp() };
     F.updateDoc(F.doc(db, it.origen === "tareas" ? "tareas" : "items", it.origen === "tareas" ? it.tareaId : it.id), x).catch(fallo);
   };
@@ -87,6 +91,7 @@ function fichaTarea(it) {
   d.innerHTML = `<p class="gris">${it.rama ? "De «" + esc(it.rama) + "» · " : ""}viene de Tareas: ahí se edita todo; acá se ordena.</p>
     ${t.alcance !== "personal" ? `<div class="botones"><button type="button" class="mini${t.meta ? " on" : ""}" data-a="meta">${t.meta ? "★" : "☆"} Meta de la semana</button></div>` : ""}
     <label>Para cuándo <input type="date" data-a="limite" value="${esc(t.limite || "")}"> <small class="gris">sin fecha, flota en hoy</small></label>
+    ${it.repite ? `<p class="gris">🔁 Se repite ${esc(textoRepite(it.repite))}: al tildarla vuelve sola. Se cambia en Tareas.</p>` : ""}
     <div class="botones"><button type="button" class="mini" data-a="abrir">Abrir en Tareas</button></div>`;
   const up = (x) => F.updateDoc(F.doc(db, "tareas", it.tareaId), { ...x, actualizadoEn: F.serverTimestamp() }).catch(fallo);
   const m = d.querySelector('[data-a="meta"]');

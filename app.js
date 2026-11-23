@@ -1,6 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // app.js — La pantalla de «tiempos».
-// Sello: app-47
+// Sello: app-48
+//
+// app-48 (23-nov-2026, Mauro: «hay tareas como las de mantenimiento que son con repetición… no
+//   encontré dónde marcar una repetición»): la ficha tiene «Se repite» (todos los días, todas las
+//   semanas, cada 2 semanas, todos los meses, cada 3 o 6 meses, todos los años u otro). Tildarla
+//   NO la cierra: «Para cuándo» pasa a la próxima vez (cuerpoHecha de nucleo-51) y el aviso dice
+//   «Vuelve el …». Todos los tildes de una tarea van por `hechaTarea` (la fila, la ficha, la de
+//   adentro y «dar por terminada» del reloj).
 //
 // app-47 (22-nov-2026, «colores leves para agrupar», con la maqueta que vio Mauro): cada categoría
 //   de Tareas es un BLOQUE con un fondo muy leve de su color (sin bordes); las ramas de «Hechas» y
@@ -102,7 +109,7 @@
 import { cargar, db, auth, F, CV, errorCasaVerde } from "./firebase-init.js";
 import { TIPOS, TIPO_CASA_VERDE, arbolOrganizado, puedeSoltar, tipoHeredado, arbol, fmtHoras, quePuedoArrancar, esc, isoDe, lunesDe, sumarDias,
          alternarEncargado, pedir, responderPedido, pedidosPara, metasDeLaSemana,
-         separarEnCurso, chicosDelDia, eventosDelDia,
+         separarEnCurso, chicosDelDia, eventosDelDia, cuerpoHecha, avisoHecha, leerRepite, textoRepite, proximaVez,
          COLORES_TAREA, colorHeredado, estaCorriendo, idNuevo, conReloj, pasaFiltroQuien, clavesVisibles, FILTROS_QUIEN } from "./nucleo.js";
 import { E, $, aviso, ganchos, nombreDe, otro, personas, ninoPorId, fallo } from "./estado.js";
 import { pintarAgenda, irAPieza, alternarEnAgenda, estaEnAgenda, guardarEnAgenda, agendaUnida } from "./agenda.js";
@@ -376,13 +383,29 @@ async function cerrarSesion(s, extra = {}) {
   return horas;
 }
 
+/* app-48: tildar una tarea, desde donde sea. La que se repite vuelve sola (nucleo: cuerpoHecha). */
+function hechaTarea(id) {
+  const t = (E.tareas || []).find((x) => x.id === id) || {};
+  return F.updateDoc(F.doc(db, "tareas", id), { ...cuerpoHecha(t, E.yo.uid, E.hoy), actualizadoEn: F.serverTimestamp() })
+    .then(() => avisoHecha(t, E.hoy));
+}
+/* Los «Se repite» que se ofrecen; uno guardado que no está acá se muestra igual. */
+const REPITES = [["1:dias"], ["1:semanas"], ["2:semanas"], ["1:meses"], ["3:meses"], ["6:meses"], ["12:meses", "todos los años"]];
+const claveRepite = (r) => (r ? r.cada + ":" + r.unidad : "");
+function opcionesRepite(t) {
+  const r = leerRepite(t.repite), k = claveRepite(r);
+  const ops = REPITES.map(([v, n]) => [v, n || textoRepite({ cada: Number(v.split(":")[0]), unidad: v.split(":")[1] })]);
+  if (r && !ops.some(([v]) => v === k)) ops.push([k, textoRepite(r)]);
+  return `<option value="">No se repite</option>${ops.map(([v, n]) => `<option value="${v}"${v === k ? " selected" : ""}>${esc(n.charAt(0).toUpperCase() + n.slice(1))}</option>`).join("")}<option value="otro">Otro…</option>`;
+}
+
 async function frenarFamilia(terminada) {
   const s = E.enCursoFam; if (!s) return;
   const h = await cerrarSesion(s);
   // «Dar por terminada o dejar en pendiente»: terminada cierra la tarea.
-  if (terminada && s.tareaId)
-    await F.updateDoc(F.doc(db, "tareas", s.tareaId), { hecho: true, hechoPor: E.yo.uid, actualizadoEn: F.serverTimestamp() }).catch(fallo);
-  aviso(`Registrado: ${fmtHoras(h)}${terminada ? " · tarea terminada" : " · queda pendiente"}.`);
+  let vuelve = "";
+  if (terminada && s.tareaId) vuelve = await hechaTarea(s.tareaId).catch(fallo) || "";
+  aviso(`Registrado: ${fmtHoras(h)}${terminada ? (vuelve.includes("Vuelve") ? " · " + vuelve.replace("Hecha. ", "").replace(/\.$/, "") : " · tarea terminada") : " · queda pendiente"}.`);
 }
 
 /* ── Los chicos: del CALENDARIO, no de un reloj ───────────────────────────────
@@ -626,7 +649,10 @@ const engancharFlecha = (f) => { const b = f.querySelector("[data-plegar]"); if 
 function subDe(t, cuantos) {
   const ped = t.pedido && t.pedido.estado === "pendiente"
     ? `<span class="ped">${t.pedido.a === E.yo.uid ? "te la pidieron" : "pedida a " + esc(nombreDe(t.pedido.a))}</span>` : "";
-  return [cuantos && `${cuantos} adentro`, t.meta && "★ meta", t.alcance === "personal" && "sólo vos", ped,
+  // app-48: la que se repite dice cada cuánto y, si ya se hizo, cuándo vuelve.
+  const rep = leerRepite(t.repite);
+  const vuelve = rep ? "🔁 " + textoRepite(rep) + (t.limite && t.limite > E.hoy && t.ultimaVez ? " · vuelve el " + fecha(t.limite) : "") : "";
+  return [cuantos && `${cuantos} adentro`, vuelve, t.meta && "★ meta", t.alcance === "personal" && "sólo vos", ped,
     estaEnAgenda("f:" + t.id) && "📅"].filter(Boolean).join(" · ");
 }
 /* La inicial de quién se ocupa (la tuya, resaltada); el nombre completo, en el título. */
@@ -666,8 +692,8 @@ function filaTarea(t, nivel, porId, hijos, cuantos = 0) {
   const p = f.querySelector("button.play");
   if (p) p.onclick = () => (corre ? frenarFamilia(false) : arrancarFamilia(t)).catch(fallo);
   const tl = f.querySelector("button.tilde");
-  if (tl) tl.onclick = () => F.updateDoc(F.doc(db, "tareas", t.id), { hecho: true, hechoPor: E.yo.uid, actualizadoEn: F.serverTimestamp() })
-    .then(() => aviso(`Hecha: «${t.titulo}». Si fue sin querer, en «Hechas» está «Volver a pendiente».`)).catch(fallo);
+  if (tl) tl.onclick = () => hechaTarea(t.id)
+    .then((m) => aviso(leerRepite(t.repite) ? `«${t.titulo}»: ${m}` : `Hecha: «${t.titulo}». Si fue sin querer, en «Hechas» está «Volver a pendiente».`)).catch(fallo);
   f.querySelector(".abrir").onclick = () => { E.abierta = abierta ? null : "f:" + t.id; pintar(); };
   return f;
 }
@@ -757,6 +783,8 @@ function fichaTarea(t, hijos) {
     </div>
     ${!t.hecho ? filaAgendar("f:" + t.id) : ""}
     <label>Para cuándo <input type="date" data-a="limite" value="${esc(t.limite || "")}"></label>
+    ${!t.hecho ? `<label>Se repite <select data-a="repite">${opcionesRepite(t)}</select></label>
+      ${leerRepite(t.repite) ? `<small class="gris">Al tildarla vuelve sola: «Para cuándo» pasa al ${esc(fecha(proximaVez(t.repite, E.hoy)))} si la hacés hoy.${t.ultimaVez ? " La última vez: " + esc(fecha(t.ultimaVez)) + (t.hechoPor ? ", " + esc(t.hechoPor === E.yo.uid ? "vos" : nombreDe(t.hechoPor)) : "") + "." : ""}</small>` : ""}` : ""}
     ${adentro}
     <label>Detalle <textarea data-a="detalle" rows="3" maxlength="2000" placeholder="Lo que haga falta saber para hacerla">${esc(t.detalle || "")}</textarea></label>
     <details class="mas-opciones"><summary>Más opciones</summary>
@@ -770,8 +798,22 @@ function fichaTarea(t, hijos) {
   const on = (a, fn) => { const b = d.querySelector(`[data-a="${a}"]`); if (b) b.onclick = fn; };
   on("yo", () => up({ encargados: alternarEncargado(t, E.yo.uid) }));
   on("meta", () => up({ meta: t.meta ? null : lunes }));
-  on("hecha", () => { up({ hecho: true, hechoPor: E.yo.uid }); const k = orgPadre["f:" + t.id] || ""; E.abierta = k.startsWith("f:") ? k : null; pintar(); });
-  for (const b of d.querySelectorAll("[data-hija-hecha]")) b.onclick = () => F.updateDoc(F.doc(db, "tareas", b.dataset.hijaHecha), { hecho: true, hechoPor: E.yo.uid, actualizadoEn: F.serverTimestamp() }).catch(fallo);
+  on("hecha", () => { hechaTarea(t.id).then((m) => { if (leerRepite(t.repite)) aviso(m); }).catch(fallo); const k = orgPadre["f:" + t.id] || ""; E.abierta = k.startsWith("f:") ? k : null; pintar(); });
+  for (const b of d.querySelectorAll("[data-hija-hecha]")) b.onclick = () => hechaTarea(b.dataset.hijaHecha).then(aviso).catch(fallo);
+  const selRep = d.querySelector('[data-a="repite"]');
+  if (selRep) selRep.onchange = () => {
+    let v = selRep.value;
+    if (v === "otro") {
+      const x = (prompt("¿Cada cuánto? Por ejemplo: «10 días», «3 semanas», «4 meses».", "") || "").trim().toLowerCase();
+      const m = x.match(/^(\d{1,3})\s*(d|s|m)/);
+      if (!m) { selRep.value = claveRepite(leerRepite(t.repite)); return x && aviso("No entendí cada cuánto: escribí un número y días, semanas o meses.", true); }
+      v = m[1] + ":" + { d: "dias", s: "semanas", m: "meses" }[m[2]];
+    }
+    const [cada, unidad] = v.split(":");
+    const r = v ? leerRepite({ cada: Number(cada), unidad }) : null;
+    if (v && !r) { selRep.value = ""; return aviso("Entre 1 y 365.", true); }
+    up({ repite: r }).then(() => aviso(r ? `Se repite ${textoRepite(r)}. Al tildarla, vuelve sola.` : "Ya no se repite."));
+  };
   for (const b of d.querySelectorAll("[data-hija-abrir]")) b.onclick = () => { E.abierta = "f:" + b.dataset.hijaAbrir; pintar(); };
   on("reabrir", () => up({ hecho: false }));
   on("reloj", () => up({ reloj: relojPropio ? null : true }));

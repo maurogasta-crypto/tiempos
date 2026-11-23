@@ -1,5 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// familia.js — Lo de la casa que ven los dos. Sello: familia-6
+// familia.js — Lo de la casa que ven los dos. Sello: familia-7
+//
+// familia-7 (23-nov-2026, Mauro: el fútbol es «tres veces por semana»): una actividad de los chicos
+// que se repite elige sus DÍAS (`dias`, diasDeEvento de nucleo-51): una sola para lunes, miércoles y
+// viernes. `filaDiasEvento` es la misma fila en Chicos y en la Agenda.
 //
 // HOY    lo cotidiano: desayuno, almuerzo, merienda, cena, la basura, los
 //        cuartos, la ropa. Se TILDA, no se cronometra, y cada tilde puede
@@ -24,7 +28,7 @@
 
 import { db, F } from "./firebase-init.js";
 import { esc, cotidianasDe, idNuevo, progresoDia, chicosDelDia, eventosDelDia, proximosPorDia, grillaDelMes, semanaISO,
-         lunesDe, sumarDias, DIAS, MESES, esISO } from "./nucleo.js";
+         lunesDe, sumarDias, DIAS, MESES, esISO, diasDeEvento, textoDiasEvento, diaSemana } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, ninoPorId, fallo } from "./estado.js";
 import { htmlPosibles, enganchar as engancharDeseos } from "./deseos.js";
 
@@ -190,11 +194,23 @@ function editorDia(iso) {
 function filaEvento(e, iso) {
   if (editandoEvento === e.id) return formEvento(e);
   return `<div class="evento"><span>👦 <b>${esc(e.hora || "")}${e.horaFin ? "–" + esc(e.horaFin) : ""}</b> ${esc(e.titulo)}
-      <small class="gris">${e.semanal ? "todos los " + DIAS[new Date(e.fecha + "T12:00").getDay()] : ""}
+      <small class="gris">${esc(textoDiasEvento(e))}
       ${(e.ninos || []).map((id) => esc((ninoPorId(id) || {}).nombre || "")).join(", ")}${(e.quienes || []).length ? " · van " + e.quienes.map((u) => esc(nombreDe(u))).join(" y ") : ""}</small>
       ${e.nota ? `<small>${esc(e.nota)}</small>` : ""}</span>
     <button class="mini" data-ed-ev="${esc(e.id)}">Editar</button>
     ${e.semanal && iso ? `<button class="mini" data-no-hubo="${esc(e.id)}|${iso}">Este día no</button>` : ""}</div>`;
+}
+
+/* familia-7: qué días de la semana (de lunes a domingo), sólo si se repite (lo esconde el CSS
+   mientras «Se repite» no está marcado). Ninguno marcado = el día de su fecha. */
+export function filaDiasEvento(marcados) {
+  return `<div class="fila-persona dias-ev"><span>Los días</span>${[1, 2, 3, 4, 5, 6, 0].map((i) =>
+    `<label class="check"><input type="checkbox" name="dias" value="${i}"${(marcados || []).includes(i) ? " checked" : ""}> ${esc(DIAS[i].slice(0, 3))}</label>`).join("")}</div>`;
+}
+/* Los días marcados del formulario; si no marcó ninguno, el de la fecha. */
+export function diasDelForm(f, fecha) {
+  const d = [...f.querySelectorAll('[name="dias"]:checked')].map((x) => Number(x.value));
+  return d.length ? d.sort((a, b) => a - b) : (esISO(fecha) ? [diaSemana(fecha)] : []);
 }
 
 export function formEvento(e, diaPorDefecto = null) {
@@ -206,6 +222,7 @@ export function formEvento(e, diaPorDefecto = null) {
       <label>Desde <input type="time" name="hora" value="${esc(x.hora || "")}"></label>
       <label>Hasta <input type="time" name="horaFin" value="${esc(x.horaFin || "")}"></label></div>
     <label class="check"><input type="checkbox" name="semanal"${x.semanal ? " checked" : ""}> Se repite todas las semanas</label>
+    ${filaDiasEvento(x.fecha ? diasDeEvento({ ...x, semanal: true }) : [])}
     <div class="fila-persona"><span>Chicos</span>${ninos.map((n) => `<label class="check"><input type="checkbox" name="nino" value="${esc(n.id)}"${(x.ninos || []).includes(n.id) ? " checked" : ""}> ${esc(n.nombre)}</label>`).join("")}</div>
     <div class="fila-persona"><span>Van</span>${personas().map((p) => `<label class="check"><input type="checkbox" name="quien" value="${esc(p.id)}"${(x.quienes || []).includes(p.id) ? " checked" : ""}> ${esc(p.nombre)}</label>`).join("")}</div>
     <label>Nota <input name="nota" maxlength="300" value="${esc(x.nota || "")}"></label>
@@ -293,6 +310,7 @@ export function engancharEvento(v, alTerminar = () => {}) {
     const datos = {
       titulo: f.titulo.value.trim().slice(0, 120), fecha: f.fecha.value, hora: f.hora.value || "",
       horaFin: f.horaFin.value || "", semanal: f.semanal.checked,
+      dias: f.semanal.checked ? diasDelForm(f, f.fecha.value) : [],
       ninos: [...f.querySelectorAll('[name="nino"]:checked')].map((x) => x.value),
       quienes: [...f.querySelectorAll('[name="quien"]:checked')].map((x) => x.value),
       nota: f.nota.value.slice(0, 300), actualizadoEn: F.serverTimestamp(),

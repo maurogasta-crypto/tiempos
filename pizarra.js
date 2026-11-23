@@ -1,5 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// pizarra.js — La primera solapa: anotar, recordar y la pizarra. Sello: pizarra-web-3
+// pizarra.js — La primera solapa: anotar, recordar y la pizarra. Sello: pizarra-web-4
+//
+// pizarra-web-4 (23-nov-2026): una tarea que se REPITE no se cierra al tacharla: «Para cuándo» pasa a
+// la próxima vez (cuerpoHecha de nucleo-51, igual que `cuerpoTachar` de Logica.kt) y se ve tachada
+// hasta ese día (hechaPorAhora); destacharla la trae para hoy.
 //
 // app-16 (7-oct-2026, tiempos:V7, pedido de Mauro): «la primera corresponde a
 // las anotaciones rápidas con recordatorios, la edición de la pizarra, alarmas
@@ -16,7 +20,7 @@
 
 import { db, F } from "./firebase-init.js";
 import { esc, arbol, TIPOS, tipoHeredado, colorHeredado, bloquesPorConfirmar, automaticosPendientes,
-         enMiPizarra, paraElegirPorCategoria } from "./nucleo.js";
+         enMiPizarra, paraElegirPorCategoria, cuerpoHecha, cuerpoPendiente, hechaPorAhora, avisoHecha, leerRepite } from "./nucleo.js";
 import { E, $, aviso, repintar, personas, fallo } from "./estado.js";
 import { tarjetasPropone, CLASES_PROPONE, alertasYDeseos } from "./propone.js";
 import { abrirConsulta } from "./sugerir.js";
@@ -26,8 +30,11 @@ let categoria = "";             // la categoría abierta en esa ventana
 
 const fijar = (id, si) => F.updateDoc(F.doc(db, "tareas", id),
   { ["pizarra." + E.yo.uid]: si ? true : F.deleteField(), actualizadoEn: F.serverTimestamp() });
-const tachar = (id, hecho) => F.updateDoc(F.doc(db, "tareas", id),
-  hecho ? { hecho: true, hechoPor: E.yo.uid, actualizadoEn: F.serverTimestamp() } : { hecho: false, actualizadoEn: F.serverTimestamp() });
+const tachar = (id, hecho) => {
+  const t = (E.tareas || []).find((x) => x.id === id) || {};
+  return F.updateDoc(F.doc(db, "tareas", id), { ...(hecho ? cuerpoHecha(t, E.yo.uid, E.hoy) : cuerpoPendiente(t, E.hoy)), actualizadoEn: F.serverTimestamp() })
+    .then(() => { if (hecho && leerRepite(t.repite)) aviso(avisoHecha(t, E.hoy)); });
+};
 
 export function pintarPizarra(irA) {
   const v = $("v-pizarra"); v.replaceChildren();
@@ -63,8 +70,8 @@ export function pintarPizarra(irA) {
   const mias = enMiPizarra(E.tareas, E.yo.uid);
   const { porId } = arbol(E.tareas);
   const piz = caja(`<div class="cab-piz"><h2>📝 Mi pizarra</h2><button class="mini" data-elegir>＋ Elegir</button></div>
-    ${mias.length ? mias.map((t) => `<label class="fila-piz${t.hecho ? " hecha" : ""}" style="--c:${esc(colorHeredado(t, porId) || TIPOS[tipoHeredado(t, porId)].color)}">
-      <input type="checkbox" data-tachar="${esc(t.id)}" ${t.hecho ? "checked" : ""}> <span>${esc(t.titulo)}</span>
+    ${mias.length ? mias.map((t) => `<label class="fila-piz${hechaPorAhora(t, E.hoy) ? " hecha" : ""}" style="--c:${esc(colorHeredado(t, porId) || TIPOS[tipoHeredado(t, porId)].color)}">
+      <input type="checkbox" data-tachar="${esc(t.id)}" ${hechaPorAhora(t, E.hoy) ? "checked" : ""}> <span>${esc(t.titulo)}</span>
       <button class="mini nota" data-sacar="${esc(t.id)}" title="Sacar de la pizarra">✕</button></label>`).join("")
       : `<p class="gris">Vacía. Tocá «＋ Elegir» y marcá lo que querés tener a la vista.</p>`}`);
   piz.querySelector("[data-elegir]").onclick = () => { eligiendo = true; pintarVentana(); };

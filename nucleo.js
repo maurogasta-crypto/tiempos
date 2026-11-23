@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // nucleo.js — Las cuentas de «tiempos», sin Firebase ni pantalla.
-// Sello: nucleo-50 (22-nov-2026: el widget «Hoy» también trae las tareas de siempre —su tilde va a `tareas/`—, y cada proyecto tiene su color suave, colorDeProyecto). nucleo-49 (20-nov-2026: tareasComoItems, «Hoy» muestra también las tareas de siempre sin copiarlas). nucleo-48 (19-nov-2026, ítems con proyecto: `proyecto` = id de una cuenta de Plata → Cuentas; itemsDeProyecto; el renglón de hoy/ lo nombra)
+// Sello: nucleo-51 (23-nov-2026: TAREAS QUE SE REPITEN —`repite`, proximaVez, cuerpoHecha: al tildarla, «Para cuándo» pasa a la próxima vez— y actividades de los chicos en VARIOS días de la semana —`dias`, diasDeEvento—). nucleo-50 (22-nov-2026: el widget «Hoy» también trae las tareas de siempre —su tilde va a `tareas/`—, y cada proyecto tiene su color suave, colorDeProyecto). nucleo-49 (20-nov-2026: tareasComoItems, «Hoy» muestra también las tareas de siempre sin copiarlas). nucleo-48 (19-nov-2026, ítems con proyecto: `proyecto` = id de una cuenta de Plata → Cuentas; itemsDeProyecto; el renglón de hoy/ lo nombra)
 //
 // Todo lo que decide algo vive acá, en funciones puras, para que el banco
 // (`pruebas.mjs`) las corra con `node` a secas. La pantalla sólo las llama.
@@ -262,15 +262,87 @@ export function horaDelAviso(dia, hi, antes = 0) {
 
 /* ── Las actividades con los chicos: las ven LOS DOS, siempre ────────────────
    Un evento es de una fecha, o se repite cada semana desde su fecha (básquet
-   los martes). `excepto` son las fechas en que no hubo. */
+   los martes). `excepto` son las fechas en que no hubo.
+   nucleo-51 (23-nov-2026, Mauro: el fútbol es «tres veces por semana»): una
+   semanal puede llevar `dias` (0 = domingo … 6 = sábado, como Date.getDay):
+   se repite esos días desde su fecha. Sin `dias`, el día de su fecha, como
+   siempre. Lo lee también `eventoEnDia` de AgendaLogica.kt de la Pizarra. */
+export function diasDeEvento(e) {
+  if (!e || !esISO(e.fecha)) return [];
+  const d = e.semanal && Array.isArray(e.dias) ? leerDias(e.dias) : [];
+  return d.length ? d : [diaSemana(e.fecha)];
+}
 export function eventosDelDia(iso, eventos) {
   return (eventos || []).filter((e) => {
     if (!e || !esISO(e.fecha)) return false;
     if (Array.isArray(e.excepto) && e.excepto.includes(iso)) return false;
     if (!e.semanal) return e.fecha === iso;
     if (iso < e.fecha || (esISO(e.hasta) && iso > e.hasta)) return false;
-    return diaSemana(iso) === diaSemana(e.fecha);
+    return diasDeEvento(e).includes(diaSemana(iso));
   }).sort((a, b) => String(a.hora || "99").localeCompare(String(b.hora || "99")));
+}
+/* «todos los lunes, miércoles y viernes» (de lunes a domingo, como se lee una semana). */
+const PLURAL_DIA = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
+export function textoDiasEvento(e) {
+  if (!e || !e.semanal) return "";
+  const ds = diasDeEvento(e).sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+  if (ds.length === 7) return "todos los días";
+  const ns = ds.map((i) => PLURAL_DIA[i]);
+  return ns.length ? "todos los " + (ns.length > 1 ? ns.slice(0, -1).join(", ") + " y " + ns[ns.length - 1] : ns[0]) : "";
+}
+
+/* ── Las tareas que se repiten (nucleo-51, 23-nov-2026) ─────────────────────
+   Mauro: «hay tareas como las de mantenimiento que son con repetición… no
+   encontré dónde marcar una repetición». Una tarea lleva `repite`
+   {cada: 1…365, unidad: "dias"|"semanas"|"meses"}. Al tildarla NO queda
+   hecha: «Para cuándo» (`limite`) pasa a la próxima vez, contada desde el día
+   en que se hizo (como las de Casa Verde: «Vuelve el …»), y queda anotado
+   quién y cuándo (`hechoPor`, `ultimaVez`). Así Tareas, «Hoy», el widget
+   «Hoy» (que escribe la acción del renglón tal cual) y la agenda la muestran
+   sola en su próximo día, sin que nada la reabra. La misma cuenta está en
+   `proximaVez` / `cuerpoTachar` de Logica.kt de la Pizarra (tareas fijadas). */
+export const UNIDADES_REPITE = { dias: ["día", "días"], semanas: ["semana", "semanas"], meses: ["mes", "meses"] };
+export function leerRepite(r) {
+  if (!r || typeof r !== "object") return null;
+  const cada = Number(r.cada);
+  if (!Number.isInteger(cada) || cada < 1 || cada > 365 || !(r.unidad in UNIDADES_REPITE)) return null;
+  return { cada, unidad: r.unidad };
+}
+/* La próxima vez desde `desde`. Un mes más del 31 de enero es el 28 (o 29) de febrero, no marzo. */
+export function proximaVez(repite, desde) {
+  const r = leerRepite(repite);
+  if (!r || !esISO(desde)) return null;
+  if (r.unidad === "dias") return sumarDias(desde, r.cada);
+  if (r.unidad === "semanas") return sumarDias(desde, 7 * r.cada);
+  const [a, m, d] = desde.split("-").map(Number);
+  const total = (m - 1) + r.cada, anio = a + Math.floor(total / 12), mes0 = total % 12;
+  const ultimo = new Date(anio, mes0 + 1, 0, 12).getDate();
+  return `${anio}-${dos(mes0 + 1)}-${dos(Math.min(d, ultimo))}`;
+}
+/* «todas las semanas», «cada 3 meses», «todos los días». */
+export function textoRepite(repite) {
+  const r = leerRepite(repite); if (!r) return "";
+  const [uno, varios] = UNIDADES_REPITE[r.unidad];
+  if (r.cada === 1) return (r.unidad === "semanas" ? "todas las " : "todos los ") + varios;
+  return `cada ${r.cada} ${varios}`;
+}
+/* Lo que se escribe al tildar una tarea (sin `actualizadoEn`, que pone quien escribe):
+   la de siempre queda hecha; la que se repite vuelve sola. */
+export function cuerpoHecha(t, uid, hoy) {
+  const prox = proximaVez(t && t.repite, hoy);
+  return prox ? { limite: prox, ultimaVez: hoy, hechoPor: uid } : { hecho: true, hechoPor: uid };
+}
+/* Volver a pendiente: la que se repite vuelve HOY (no se sabe la fecha de antes); la de siempre se reabre. */
+export function cuerpoPendiente(t, hoy) {
+  return leerRepite(t && t.repite) ? { limite: hoy } : { hecho: false };
+}
+/* Para la pizarra (web y widget de tareas fijadas, `paraLaPizarra` de Logica.kt): la que se repite y ya
+   se hizo se ve tachada hasta el día en que vuelve. */
+export const hechaPorAhora = (t, hoy) => !!(t && (t.hecho || (leerRepite(t.repite) && esISO(t.ultimaVez) && esISO(t.limite) && t.limite > hoy)));
+/* El aviso de después: «Hecha. Vuelve el 30/11.» */
+export function avisoHecha(t, hoy) {
+  const prox = proximaVez(t && t.repite, hoy);
+  return prox ? `Hecha. Vuelve el ${prox.slice(8)}/${prox.slice(5, 7)}.` : "Hecha.";
 }
 
 /* ── Lo cotidiano: se tilda, no se cronometra ────────────────────────────────
@@ -1081,7 +1153,9 @@ export function tareasComoItems(tareas, cuentas, uid, hoy) {
         espacio: t.alcance === "personal" ? "p-" + uid : "familia",
         importancia: t.meta && t.meta <= lunes ? 2 : 1,
         dia: esISO(t.limite) ? t.limite : null, hora: null, hecho: false,
-        proyecto: c ? c.id : null, rama: raiz.id !== t.id ? String(raiz.titulo || "") : "" };
+        proyecto: c ? c.id : null, rama: raiz.id !== t.id ? String(raiz.titulo || "") : "",
+        // nucleo-51: la que se repite vuelve sola (cuerpoHecha); para deshacer, cómo estaba.
+        repite: leerRepite(t.repite), ultimaVez: esISO(t.ultimaVez) ? t.ultimaVez : null };
     });
 }
 /** nucleo-48: los ítems de un proyecto (y de sus partes, como el depósito de un lugar).
@@ -2240,7 +2314,11 @@ export function materializarHoy(items, uid, hoy, { dias = 7, tope = 70, cuentas 
       // widget escribe una u otra tal cual: no sabe qué es un ítem.
       // nucleo-50: una tarea de siempre (tareasComoItems) se tilda en `tareas/`, con la misma forma que
       // «✔ Hecha» de Tareas: así la app y el widget muestran lo mismo y el widget sigue sin saber qué es.
-      accion: i.origen === "tareas"
+      // nucleo-51: la que se repite no queda hecha: «Para cuándo» pasa a la próxima vez (cuerpoHecha),
+      // y deshacer la deja como estaba.
+      accion: i.origen === "tareas" && i.repite
+        ? { coleccion: "tareas", doc: String(i.tareaId), campos: cuerpoHecha(i, uid, hoy), deshacer: { limite: esISO(i.dia) ? i.dia : null, ultimaVez: i.ultimaVez || null, hechoPor: null } }
+        : i.origen === "tareas"
         ? { coleccion: "tareas", doc: String(i.tareaId), campos: { hecho: true, hechoPor: uid }, deshacer: { hecho: false, hechoPor: null } }
         : { coleccion: "items", doc: String(i.id), campos: { hecho: true, hechoPor: uid }, deshacer: { hecho: false, hechoPor: null } },
     })),

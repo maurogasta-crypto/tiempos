@@ -25,7 +25,8 @@ import { TIPOS, horasDe, sumarPorTipo, cargaDe, repartir, tipoHeredado, arbol,
          CLASES_EXTRACTO, idExtracto, economiaFamiliar, pendientesComoMovs, libroDeNegocio, baseAnual, montoDelMes, estimadoVsReal, cuentaSugerida, faltaParaRegistrar, movimientoDeExtracto, resumenExtractos,
          CADAS, validarConcepto, vence, anualDe, presupuestoAnual, fijosDeMeses, repartoDelMes, sumarMeses, diasDelMes,
          totalesFijos, comoVence, TIPO_CASA_VERDE, nombreDeReserva, nombreDeCabana, movimientosDelDia, pasaFiltroQuien, clavesVisibles, FILTROS_QUIEN,
-         TIPOS_ITEM, IMPORTANCIAS, espacioPersonal, esEspacioMio, nombreEspacio, urgenciaItem, PESO_ITEM, puntosItem, ordenarItems, cuandoItem, validarItem, materializarHoy } from "./nucleo.js";
+         TIPOS_ITEM, IMPORTANCIAS, espacioPersonal, esEspacioMio, nombreEspacio, urgenciaItem, PESO_ITEM, puntosItem, ordenarItems, cuandoItem, validarItem, materializarHoy,
+         diasDeEvento, textoDiasEvento, leerRepite, proximaVez, textoRepite, cuerpoHecha, cuerpoPendiente, hechaPorAhora, avisoHecha, tareasComoItems } from "./nucleo.js";
 
 let pasadas = 0, fallidas = 0;
 // Una prueba asíncrona se ESPERA (init-4): hasta ahí devolvía una promesa, se
@@ -247,7 +248,8 @@ prueba("el mes de la agenda cuenta actividades, lo agendado con día y lo de los
 prueba("la pizarra se escribe con la MISMA forma que la app del teléfono, y tachar es «✔ Hecha»", () => {
   const p = fs.readFileSync("pizarra.js", "utf8");
   assert.match(p, /\["pizarra\." \+ E\.yo\.uid\]: si \? true : F\.deleteField\(\)/);
-  assert.match(p, /hecho: true, hechoPor: E\.yo\.uid/);
+  // nucleo-51: tachar es «✔ Hecha» por la misma función (cuerpoHecha), que conoce las que se repiten.
+  assert.match(p, /hecho \? cuerpoHecha\(t, E\.yo\.uid, E\.hoy\) : cuerpoPendiente\(t, E\.hoy\)/);
   const h = fs.readFileSync("index.html", "utf8");
   // app-44: la barra de abajo es Hoy, Tareas, Agenda; lo demás (Pizarra incluida) va en «Más».
   assert.ok(h.indexOf('data-solapa="inicio"') < h.indexOf('data-solapa="tareas"') && h.indexOf('data-solapa="tareas"') < h.indexOf('data-solapa="agenda"'), "Hoy, Tareas y Agenda, en ese orden");
@@ -414,6 +416,82 @@ prueba("se ordenan por hora, «este día no» la saca y «hasta» la termina", (
 prueba("una de una sola vez, sólo su día; y una sin fecha no rompe nada", () => {
   assert.deepEqual(eventosDelDia("2026-10-01", EVS).map((e) => e.id), ["p"]);
   assert.deepEqual(eventosDelDia("2026-10-08", EVS), []);
+});
+
+prueba("nucleo-51: una semanal con `dias` aparece esos días desde su fecha (el fútbol, tres veces por semana)", () => {
+  const f = [{ id: "f", titulo: "Fútbol", fecha: "2026-11-23", semanal: true, dias: [1, 3, 5], excepto: ["2026-11-27"] }];
+  const en = (d) => eventosDelDia(d, f).length;
+  assert.deepEqual(["2026-11-23", "2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026-11-30", "2026-12-02", "2026-12-04"].map(en), [1, 0, 1, 0, 0, 1, 1, 1]);
+  assert.equal(en("2026-11-20"), 0, "antes de su fecha, no");
+  assert.equal(textoDiasEvento(f[0]), "todos los lunes, miércoles y viernes");
+  assert.deepEqual(diasDeEvento({ fecha: "2026-11-28", semanal: true }), [6], "sin `dias`, el de su fecha");
+  assert.equal(textoDiasEvento({ fecha: "2026-11-28", semanal: true }), "todos los sábados");
+  assert.deepEqual(diasDeEvento({ fecha: "2026-11-28", semanal: false, dias: [1] }), [6], "una de una vez no usa `dias`");
+  assert.equal(textoDiasEvento({ fecha: "2026-11-28" }), "");
+  assert.deepEqual(diasDeEvento({ fecha: "2026-11-23", semanal: true, dias: ["martes", 9, "x"] }), [2], "días raros no rompen");
+  // la de siempre (básquet de un día) sigue igual
+  assert.deepEqual(eventosDelDia("2026-10-06", EVS).map((e) => e.id), ["k", "b"]);
+});
+
+titulo("Las tareas que se repiten (nucleo-51)");
+prueba("proximaVez: días, semanas y meses (fin de mes sin saltar al otro)", () => {
+  assert.equal(proximaVez({ cada: 1, unidad: "dias" }, "2026-12-31"), "2027-01-01");
+  assert.equal(proximaVez({ cada: 2, unidad: "semanas" }, "2026-11-23"), "2026-12-07");
+  assert.equal(proximaVez({ cada: 1, unidad: "meses" }, "2026-01-31"), "2026-02-28");
+  assert.equal(proximaVez({ cada: 1, unidad: "meses" }, "2028-01-31"), "2028-02-29");
+  assert.equal(proximaVez({ cada: 3, unidad: "meses" }, "2026-11-30"), "2027-02-28");
+  assert.equal(proximaVez({ cada: 12, unidad: "meses" }, "2026-11-23"), "2027-11-23");
+  assert.equal(proximaVez(null, "2026-11-23"), null);
+  assert.equal(proximaVez({ cada: 0, unidad: "dias" }, "2026-11-23"), null);
+  assert.equal(proximaVez({ cada: 2, unidad: "años" }, "2026-11-23"), null);
+  assert.equal(leerRepite({ cada: "3", unidad: "meses" }).cada, 3);
+  assert.equal(leerRepite({ cada: 400, unidad: "dias" }), null);
+});
+prueba("textoRepite habla como Mauro", () => {
+  assert.equal(textoRepite({ cada: 1, unidad: "dias" }), "todos los días");
+  assert.equal(textoRepite({ cada: 1, unidad: "semanas" }), "todas las semanas");
+  assert.equal(textoRepite({ cada: 1, unidad: "meses" }), "todos los meses");
+  assert.equal(textoRepite({ cada: 3, unidad: "meses" }), "cada 3 meses");
+  assert.equal(textoRepite(null), "");
+});
+prueba("tildar la que se repite NO la cierra: «Para cuándo» pasa a la próxima vez; la de siempre queda hecha", () => {
+  assert.deepEqual(cuerpoHecha({ repite: { cada: 1, unidad: "semanas" }, limite: "2026-11-20" }, "yo", "2026-11-23"),
+    { limite: "2026-11-30", ultimaVez: "2026-11-23", hechoPor: "yo" });
+  assert.deepEqual(cuerpoHecha({ titulo: "x" }, "yo", "2026-11-23"), { hecho: true, hechoPor: "yo" });
+  assert.equal(avisoHecha({ repite: { cada: 1, unidad: "semanas" } }, "2026-11-23"), "Hecha. Vuelve el 30/11.");
+  assert.equal(avisoHecha({}, "2026-11-23"), "Hecha.");
+  assert.deepEqual(cuerpoPendiente({ repite: { cada: 1, unidad: "meses" } }, "2026-11-23"), { limite: "2026-11-23" });
+  assert.deepEqual(cuerpoPendiente({}, "2026-11-23"), { hecho: false });
+});
+prueba("la pizarra la ve tachada hasta que vuelve; después, pendiente otra vez", () => {
+  const t = { repite: { cada: 1, unidad: "semanas" }, limite: "2026-11-30", ultimaVez: "2026-11-23" };
+  assert.equal(hechaPorAhora(t, "2026-11-23"), true);
+  assert.equal(hechaPorAhora(t, "2026-11-30"), false);
+  assert.equal(hechaPorAhora({ ...t, ultimaVez: undefined }, "2026-11-23"), false, "con fecha futura pero nunca hecha: pendiente");
+  assert.equal(hechaPorAhora({ hecho: true }, "2026-11-23"), true);
+});
+prueba("Hoy y el widget: el renglón de una que se repite lleva cuerpoHecha y deshacer la deja como estaba", () => {
+  const tareas = [{ id: "m", titulo: "Limpiar filtro", alcance: "comun", tipo: "mantenimiento", repite: { cada: 1, unidad: "meses" }, limite: "2026-11-20", ultimaVez: "2026-10-20" },
+    { id: "n", titulo: "Normal", alcance: "comun", tipo: "casa" }];
+  const its = tareasComoItems(tareas, [], "yo", "2026-11-23");
+  assert.deepEqual(its.find((i) => i.tareaId === "m").repite, { cada: 1, unidad: "meses" });
+  const h = materializarHoy(its, "yo", "2026-11-23");
+  const m = h.renglones.find((r) => r.accion.doc === "m"), n = h.renglones.find((r) => r.accion.doc === "n");
+  assert.deepEqual(m.accion.campos, { limite: "2026-12-23", ultimaVez: "2026-11-23", hechoPor: "yo" });
+  assert.deepEqual(m.accion.deshacer, { limite: "2026-11-20", ultimaVez: "2026-10-20", hechoPor: null });
+  assert.deepEqual(n.accion.campos, { hecho: true, hechoPor: "yo" }, "la de siempre, igual que antes");
+  // Los nombres de campo los acepta el widget (CAMPO_SEGURO de Hoy.kt)
+  for (const k of [...Object.keys(m.accion.campos), ...Object.keys(m.accion.deshacer)]) assert.match(k, /^[A-Za-z_][A-Za-z0-9_]{0,60}$/);
+  // Ya hecha: vuelve en un mes, fuera de los siete días del widget
+  const despues = tareasComoItems([{ ...tareas[0], limite: "2026-12-23", ultimaVez: "2026-11-23" }], [], "yo", "2026-11-23");
+  assert.equal(materializarHoy(despues, "yo", "2026-11-23").renglones.length, 0);
+});
+prueba("todo tilde de una tarea en la web pasa por cuerpoHecha (ninguno escribe `hecho: true` a mano)", () => {
+  for (const f of ["app.js", "hoy.js", "pizarra.js"]) {
+    const s = fs.readFileSync(new URL("./" + f, import.meta.url), "utf8");
+    assert.doesNotMatch(s, /doc\(db, "tareas"[^)]*\), \{ hecho: true/, f);
+  }
+  assert.match(fs.readFileSync(new URL("./app.js", import.meta.url), "utf8"), /function hechaTarea\(id\)[\s\S]{0,200}cuerpoHecha\(/);
 });
 
 titulo("Lo cotidiano");

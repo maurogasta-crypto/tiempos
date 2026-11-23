@@ -1,4 +1,4 @@
-/* estilos.css — Tiempos. Sello: estilos-36 (22-nov-2026: colores leves para agrupar: el color de cada proyecto, las categorías en bloques, la tarjeta del foco; un solo botón redondo; «Hecha» fijo en la ficha); estilos-35 (20-nov-2026: Tareas simple, la ficha aparte, el botón redondo; estilos-34: el tono de las ramas abiertas; estilos-33: «Hoy» simplificado y el pie dentro de «Más»; estilos-32: la barra de abajo)
+/* estilos.css — Tiempos. Sello: estilos-37 (23-nov-2026: los días de una actividad de los chicos se ven sólo si «Se repite»); estilos-36 (22-nov-2026: colores leves para agrupar: el color de cada proyecto, las categorías en bloques, la tarjeta del foco; un solo botón redondo; «Hecha» fijo en la ficha); estilos-35 (20-nov-2026: Tareas simple, la ficha aparte, el botón redondo; estilos-34: el tono de las ramas abiertas; estilos-33: «Hoy» simplificado y el pie dentro de «Más»; estilos-32: la barra de abajo)
    Teléfono primero. Los respiros de sistema son variables (--techo, --piso),
    como en el panel: nunca números a mano. */
 :root {
@@ -299,6 +299,8 @@ fieldset.clases legend { font-size:.85rem; }
 .mini-flyer { width:44px; height:44px; object-fit:cover; border-radius:6px; flex:0 0 44px; }
 .posibles .fila, .deseo .fila { align-items:center; gap:10px; }
 .dias-semana { display:flex; flex-wrap:wrap; gap:4px 10px; }
+/* estilos-37 (familia-7): los días de una actividad de los chicos, sólo si «Se repite» está marcado. */
+form:has(input[name=semanal]:not(:checked)) .dias-ev { display:none; }
 .editar-deseo label:not(.check):not(.boton-archivo) { display:block; margin:.35rem 0; }
 .editar-deseo input:not([type=checkbox]):not([type=radio]), .editar-deseo select, .editar-deseo textarea { width:100%; }
 
