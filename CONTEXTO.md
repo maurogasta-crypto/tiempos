@@ -53,7 +53,7 @@ Todo está en la raíz (plano, sin carpetas), porque se edita desde el teléfono
 | `compras.js` (`compras-7`) | Listas de compras (`familia/compras`), modo súper, enlace sin cuenta, y las compras de Casa Verde por su conector | |
 | `lista.html` + `lista.js` (`lista-2`) | La lista compartida **sin cuenta** (`?c=<token>`, 48 h). **No está en el SHELL** | |
 | `manual.html` (`manual-1`) | El manual de uso para compartir, con un diagrama por acción. Página suelta, fuera del SHELL, `noindex`. **Si cambia lo que hace la app, cambia el manual** | mermaid (CDN) |
-| `plata.js` (`plata-18`) | Lo disponible, gastos, foto de boleta (IA), «Por aprobar» | |
+| `plata.js` (`plata-19`) | Lo disponible, gastos, foto de boleta (IA), «Por aprobar» | |
 | `extractos.js` (`extractos-2`), `finanzas.js` (`finanzas-6`), `proyectos.js` (`proyectos-3`), `cifras.js` (`cifras-1`) | Plata: extractos de bancos, Fijos/Año/Reparto, economía por proyecto, estimado contra real | |
 | `proyecto.js` (`proyecto-2`) | La pantalla de UN proyecto (`?proyecto=<cuenta>`): lo que falta, Hoy, lo que viene, la plata, documentos y bitácora | |
 | `balance.js` (`balance-5`) | Balance del tiempo, acuerdos, auditoría | |

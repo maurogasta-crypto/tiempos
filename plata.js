@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// plata.js — Lo disponible y los gastos de la familia. Sello: plata-18
+// plata.js — Lo disponible y los gastos de la familia. Sello: plata-19
 //
 // Pedido de Mauro, 29-sep-2026: «una parte donde se ingrese el dinero
 // disponible y se registren los gastos, usando los mismos recursos que tiene
@@ -72,7 +72,7 @@ import { esc, MONEDAS, CATEGORIAS, validarMovimiento, disponible, automaticosPen
          leerSugerencia, esISO, MESES, TIPOS, MEDIOS_PAGO, imagenNuestra } from "./nucleo.js";
 import { E, $, aviso, repintar, nombreDe, personas, fallo } from "./estado.js";
 import { cuentasDe, idsDeCuenta, balanceDe, CLASES_CUENTA, idNuevo, balanceDelMes, firmaBalance, estadoCierre, trimestreDe } from "./nucleo.js";
-import { pedirAnalisis } from "./sugerir.js";
+import { pedirAnalisis, mandarReporte } from "./sugerir.js";
 import { pintarFijos, pintarAnio, pintarReparto, pintarTrimestre } from "./finanzas.js";
 import { pintarExtractos } from "./extractos.js";
 import { pintarProyectos } from "./proyectos.js";
@@ -404,12 +404,31 @@ async function guardarMovimiento(f) {
         activo: true, saltados: [], creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
       automatico = r.id;
     }
-    await F.addDoc(F.collection(db, "movimientos"), { ...base, automatico, origen: form.archivo ? "foto" : "app",
+    const ref = await F.addDoc(F.collection(db, "movimientos"), { ...base, automatico, origen: form.archivo ? "foto" : "app",
       creadoPor: E.yo.uid, creadoEn: F.serverTimestamp() });
+    // plata-19: un gasto CON FOTO despierta al chat (el mismo aviso en vivo de
+    // «Consulta en vivo»: sólo base e id, nunca el texto) para que lo separe
+    // por categoría. Nunca bloquea ni falla en voz alta: el gasto ya quedó
+    // guardado y la ronda lo levanta igual.
+    if (form.archivo) avisarBoleta(ref.id, d);
   }
   form = null;
   aviso("Guardado.");
   repintar();
+}
+
+/* plata-19 (23-nov-2026): Mauro, «¿se puede despertar el chat cuando se carga
+   una factura con foto?». Sí: un reporte `pedido` con el id del movimiento (la
+   regla v-reportes ya lo deja) y `mandarReporte` lo avisa. El texto dice qué
+   se pide; el chat lo cruza con `factura.renglones` del movimiento y, si la
+   boleta mezcla categorías, PROPONE la separación (PROTOCOLO-PLATA § 9). */
+export function textoBoleta(id, d) {
+  const monto = Number(d && d.monto) > 0 ? ` · ${d.monto} ${d.moneda || ""}`.trimEnd() : "";
+  return `Boleta con foto cargada en Plata (movimiento ${id}${d && d.comercio ? " · " + String(d.comercio).slice(0, 60) : ""}${monto}). `
+    + "Revisar si mezcla categorías y proponer la separación (PROTOCOLO-PLATA § 9).";
+}
+function avisarBoleta(id, d) {
+  Promise.resolve().then(() => mandarReporte({ texto: textoBoleta(id, d), tipo: "pedido", urgencia: "pronto" })).catch(() => {});
 }
 
 function engancharSub(v) {

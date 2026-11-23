@@ -2403,6 +2403,21 @@ prueba("sugerir-25 / estilos-36: el ❓ vive en «Más», el ＋ es el único bo
   assert.match(css, /\.cat-bloque \{ background:color-mix\(in srgb, var\(--c, var\(--gris\)\) 9%, var\(--tinta\)\)/);
 });
 
+prueba("plata-19: un gasto CON FOTO despierta al chat (reporte `pedido` + aviso); sin foto no avisa nada y un fallo del aviso no rompe el guardado", () => {
+  const pl = fs.readFileSync(path.join(import.meta.dirname, "plata.js"), "utf8");
+  assert.match(pl, /import \{ pedirAnalisis, mandarReporte \} from "\.\/sugerir\.js";/);
+  assert.match(pl, /if \(form\.archivo\) avisarBoleta\(ref\.id, d\);/, "sólo si hay foto");
+  const antes = pl.slice(0, pl.indexOf("avisarBoleta(ref.id, d)"));
+  assert.ok(antes.lastIndexOf("addDoc(F.collection(db, \"movimientos\")") > antes.lastIndexOf("form.id) await F.updateDoc"), "avisa después de guardar el movimiento nuevo, no al editar");
+  assert.match(pl, /mandarReporte\(\{ texto: textoBoleta\(id, d\), tipo: "pedido", urgencia: "pronto" \}\)\)\.catch\(\(\) => \{\}\)/, "nunca bloquea");
+  const r = pl.slice(pl.indexOf("export function textoBoleta"), pl.indexOf("function avisarBoleta"));
+  const t = new Function(r.replace("export ", "") + "; return textoBoleta;")();
+  const txt = t("abc123", { comercio: "Fort Atacadista", monto: 1294.11, moneda: "BRL" });
+  assert.match(txt, /movimiento abc123 · Fort Atacadista · 1294\.11 BRL/);
+  assert.ok(txt.length <= 2000 && /PROTOCOLO-PLATA § 9/.test(txt));
+  assert.match(reglas, /request\.resource\.data\.tipo in \['pedido', 'falla'\]/, "la regla de reportes ya lo deja: no hace falta publicar reglas");
+});
+
 await Promise.all(esperando);
 console.log(`\n  ${pasadas} pasadas, ${fallidas} fallidas\n`);
 process.exit(fallidas ? 1 : 0);

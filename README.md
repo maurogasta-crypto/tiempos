@@ -317,6 +317,12 @@ para que recupere toda la información posible de la factura».
   compartió a la Pizarra —desde WhatsApp, la galería— ya viene subida a
   nuestro Cloudinary; se lee con la IA y no se vuelve a subir
   (`imagenNuestra`, que vive en nucleo.js).
+- **Un gasto con foto despierta al chat** (plata-19, 23-nov-2026): al guardar un
+  movimiento NUEVO con foto, `plata.js` manda un reporte `pedido` con el id del
+  movimiento (`mandarReporte` de sugerir.js: el mismo aviso en vivo de «Consulta
+  en vivo», sólo base e id) para que el chat lo separe por categoría
+  (PROTOCOLO-PLATA § 9). No hace falta publicar reglas; si el aviso falla, el
+  gasto ya está guardado y la ronda lo levanta igual.
 - **El banco comprueba los imports entre archivos**: un nombre que un archivo
   importa y el otro no exporta deja la app en blanco, y `node --check` no lo
   ve (pasó en esta misma tanda con `imagenNuestra`).
